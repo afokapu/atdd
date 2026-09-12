@@ -35,6 +35,7 @@ the convention forbids.
 """
 from __future__ import annotations
 
+import itertools
 from typing import Dict, Tuple
 
 import pytest
@@ -241,7 +242,7 @@ def test_a_phase_added_to_the_convention_appears_without_a_source_edit(tmp_path)
 
 
 def _successor(spine: list[str]) -> Dict[str, str]:
-    return dict(zip(spine, spine[1:]))
+    return dict(itertools.pairwise(spine))
 
 
 @pytest.mark.parametrize(
@@ -374,7 +375,6 @@ def test_the_maps_cover_the_autonomous_spine_and_no_more(spine) -> None:
     convention's ``autonomy`` axis, not an arbitrary omission."""
     import importlib
 
-    expected = {s: d for s, d in zip(spine, spine[1:]) if s not in _OPERATOR_GATED}
     for module_path, table_name, gated in (
         ("atdd.coach.commands.coach", "_COLD_START_ADVANCE_FROM", {"INIT"}),
         ("atdd.coach.handlers.watcher", "_ADVANCE_FROM", _OPERATOR_GATED),
@@ -384,7 +384,7 @@ def test_the_maps_cover_the_autonomous_spine_and_no_more(spine) -> None:
             str(s): str(d)
             for s, d in getattr(importlib.import_module(module_path), table_name).items()
         }
-        want = {s: d for s, d in zip(spine, spine[1:]) if s not in gated}
+        want = {s: d for s, d in itertools.pairwise(spine) if s not in gated}
         assert table == want, f"{module_path}.{table_name} != the autonomous spine"
 
 

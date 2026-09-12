@@ -12,6 +12,7 @@ consumes the decisions.jsonl produced by the J3 decisions handler.
 """
 from __future__ import annotations
 
+import itertools
 import json
 from pathlib import Path
 
@@ -25,8 +26,7 @@ pytestmark = [pytest.mark.platform]
 #: lifecycle change reaches this fixture the same way it reaches production.
 def _planned_path_transitions():
     from atdd.coach.handlers.state_machine import PLANNED_PATH
-    rungs = [p.value for p in PLANNED_PATH]
-    return list(zip(rungs, rungs[1:]))
+    return list(itertools.pairwise(p.value for p in PLANNED_PATH))
 
 
 PLANNED_PATH_TRANSITIONS = _planned_path_transitions()

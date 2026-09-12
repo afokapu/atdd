@@ -22,6 +22,16 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, NamedTuple, Optional
 
+# Phase is RE-EXPORTED, not defined here: it is atdd.coach.core.types.Phase.
+# Until #1946 this module defined a SECOND Phase enum carrying MERGED and lacking
+# OBSOLETE. Both were str mixins, so handlers.Phase.COMPLETE ==
+# core.types.Phase.COMPLETE was True and frozenset membership across the two
+# classes succeeded — only `is` could see the fork, which is why it survived from
+# #496 while Phase("OBSOLETE") raised on every live transition path.
+#
+# Bound by a plain import, NOT `Phase = Phase`: a self-assignment makes the name a
+# VARIABLE to a type checker, and every downstream `dict[Phase, Phase]` annotation
+# then fails reportInvalidTypeForm (44 sites).
 from atdd.coach.core.types import Phase
 from atdd.coach.gate.phase_edges import phase_machine, spine
 
@@ -33,18 +43,6 @@ class HandlerResult(str, Enum):
     HANDLED = "HANDLED"
     ERROR = "ERROR"
     BLOCKED = "BLOCKED"
-
-
-#: The per-issue lifecycle vocabulary. NOT defined here: this is
-#: :class:`atdd.coach.core.types.Phase`, re-exported.
-#:
-#: Until #1946 this module defined a SECOND Phase enum carrying ``MERGED`` and
-#: lacking ``OBSOLETE``, while ``core.types.Phase`` carried the convention's
-#: vocabulary. Both are ``str`` mixins, so ``handlers.Phase.COMPLETE ==
-#: core.types.Phase.COMPLETE`` was True and frozenset membership across the two
-#: classes succeeded — only ``is`` could see the fork, which is why it survived
-#: from #496 while ``Phase("OBSOLETE")`` raised on every live transition path.
-Phase = Phase
 
 
 #: Legal transitions, PROJECTED from ``phase_machine.convention.yaml`` — whose own

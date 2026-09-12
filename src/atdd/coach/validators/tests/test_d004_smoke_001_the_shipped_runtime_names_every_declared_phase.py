@@ -31,7 +31,6 @@ import sys
 import textwrap
 
 import pytest
-import yaml
 
 pytestmark = [pytest.mark.coach, pytest.mark.platform]
 

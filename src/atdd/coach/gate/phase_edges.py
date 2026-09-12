@@ -37,6 +37,7 @@ never pays for a gate run.
 """
 from __future__ import annotations
 
+import itertools
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -176,8 +177,7 @@ def spine(machine: Optional[Dict[str, Tuple[str, ...]]] = None) -> Tuple[str, ..
 
 def successor(machine: Optional[Dict[str, Tuple[str, ...]]] = None) -> Dict[str, str]:
     """``{phase: the phase that follows it}`` along the spine. Terminal has no entry."""
-    rungs = spine(machine)
-    return dict(zip(rungs, rungs[1:]))
+    return dict(itertools.pairwise(spine(machine)))
 
 
 @dataclass(frozen=True)

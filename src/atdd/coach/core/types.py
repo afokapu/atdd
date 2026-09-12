@@ -12,7 +12,7 @@ import ``subprocess``, ``threading``, ``asyncio``, networking, ``gh``/``git``/
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import Enum, StrEnum
 from typing import Literal, Mapping
 
 # --------------------------------------------------------------------------- #
@@ -20,7 +20,24 @@ from typing import Literal, Mapping
 # --------------------------------------------------------------------------- #
 
 
-class Phase(StrEnum):
+class Phase(str, Enum):
+    """The per-issue lifecycle vocabulary.
+
+    ``(str, Enum)`` with an explicit ``__str__``, NOT ``StrEnum`` — deliberately.
+    ``pyrightconfig.json`` pins ``pythonVersion: "3.10"`` and ``enum.StrEnum``
+    landed in 3.11, so under the repo's own type checker a ``StrEnum`` member
+    degrades to a bare ``str`` literal: every ``dict[str, Phase]`` holding one
+    then fails ``reportAssignmentType`` and every ``.value`` fails
+    ``reportAttributeAccessIssue`` (43 findings when #1946 first collapsed the two
+    enums onto this one). Raising the pinned version would invalidate the frozen
+    baseline wholesale, which ``pyrightconfig.json`` forbids in its own comment.
+
+    The two forms are behaviourally indistinguishable — measured across ``str``,
+    f-string, ``%``, ``format``, ``json.dumps`` as value and as key, concatenation,
+    both equality directions, hash-equality with ``str``, sort order, pickle,
+    identity on construction, ``.value`` type and ``repr``.
+    """
+
     INIT = "INIT"
     PLANNED = "PLANNED"
     RED = "RED"
@@ -30,6 +47,9 @@ class Phase(StrEnum):
     COMPLETE = "COMPLETE"
     BLOCKED = "BLOCKED"
     OBSOLETE = "OBSOLETE"
+
+    def __str__(self) -> str:
+        return self.value
 
 
 class Persona(StrEnum):
