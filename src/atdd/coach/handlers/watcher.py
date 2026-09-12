@@ -22,6 +22,7 @@ from typing import Any, Optional
 from atdd.coach.commands.durability import DecisionWriter
 from atdd.coach.commands.event_queue import CoachEventQueue
 from atdd.coach.commands.runtime_watcher import RuntimeWatcher
+from atdd.coach.gate import phase_edges
 from atdd.coach.handlers.state_machine import (
     CoachContext,
     HandlerResult,
@@ -56,13 +57,13 @@ _PHASE_TRAILER_MAP: dict[str, Phase] = {
     "COMPLETE": Phase.COMPLETE,
 }
 
+#: A commit_observed with ``Phase: X`` means the agent just completed X → advance
+#: past it. PROJECTED from the convention's spine (#1946). INIT and PLANNED are
+#: excluded: both are operator sign-offs, not commit-driven advances.
 _ADVANCE_FROM: dict[Phase, Phase] = {
-    # A commit_observed with Phase: X trailer means the agent just completed
-    # phase X → advance past it to the next phase.
-    Phase.RED: Phase.GREEN,
-    Phase.GREEN: Phase.SMOKE,
-    Phase.SMOKE: Phase.REFACTOR,
-    Phase.REFACTOR: Phase.COMPLETE,
+    Phase(src): Phase(dst)
+    for src, dst in phase_edges.successor().items()
+    if src not in ("INIT", "PLANNED")
 }
 
 

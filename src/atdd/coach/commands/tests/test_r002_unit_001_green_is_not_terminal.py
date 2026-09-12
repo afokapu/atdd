@@ -49,10 +49,10 @@ def test_can_transition_green_to_smoke():
 
 
 def test_green_not_in_terminal_stop_set():
-    """Phase.GREEN is not in the loop's terminal stop set (COMPLETE, MERGED, BLOCKED)."""
+    """Phase.GREEN is not in the loop's terminal stop set (COMPLETE, OBSOLETE, BLOCKED)."""
     from atdd.coach.commands.coach import Phase
 
-    stop_set = {Phase.COMPLETE, Phase.MERGED, Phase.BLOCKED}
+    stop_set = {Phase.COMPLETE, Phase.OBSOLETE, Phase.BLOCKED}
     assert Phase.GREEN not in stop_set, (
         "GREEN must not be in the terminal stop set — the loop must continue past it"
     )

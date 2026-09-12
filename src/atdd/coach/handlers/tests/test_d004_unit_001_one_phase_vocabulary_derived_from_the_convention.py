@@ -312,6 +312,12 @@ def test_the_projection_and_the_ladder_stay_tied_to_the_convention(declared, spi
     assert set(declared) - set(PHASE_LADDER) == ESCAPES
 
 
+#: The successor maps deliberately omit the phases whose forward transition is an
+#: operator sign-off (``autonomy: operator`` on INIT and PLANNED). A derivation test
+#: must not assert they cover the whole spine — they cover the autonomous part of it.
+_OPERATOR_GATED = {"INIT", "PLANNED"}
+
+
 @pytest.mark.parametrize(
     "module_path, table_name",
     [
@@ -320,17 +326,79 @@ def test_the_projection_and_the_ladder_stay_tied_to_the_convention(declared, spi
         ("atdd.coach.commands.auto_phase", "_NEXT_PHASE"),
     ],
 )
-def test_a_phase_inserted_into_the_spine_is_advanced_through(
-    tmp_path, monkeypatch, module_path, table_name
-) -> None:
+def test_a_reordered_spine_is_followed(tmp_path, monkeypatch, module_path, table_name) -> None:
     """The assertion that forces derivation rather than coincidence.
 
-    The three maps AGREE with the spine today — they were written to, and the
-    spine has not moved since. Agreement is not derivation: the test above passes
-    against five hardcoded literals. This one does not. Point the loader at a
-    convention carrying ``INIT -> DISCOVERY -> PLANNED`` and reload; a map that
-    reads the machine advances INIT to DISCOVERY, a map that restates it by hand
-    still says PLANNED.
+    The maps AGREE with the spine today — they were written to, and the spine has
+    not moved since. Agreement is not derivation: the comparison test above passes
+    against five hardcoded literals. This one does not.
+
+    SWAPPING two rungs rather than inserting a new one is deliberate. An inserted
+    phase cannot be typed, because ``core.types.Phase`` stays a literal by decision
+    (see the Done-when test below), so an insertion would measure that decision
+    rather than the derivation. A swap uses only members the enum already has, and
+    a hardcoded map cannot follow it.
+    """
+    import importlib
+
+    import yaml
+
+    from atdd.coach.gate import phase_edges
+
+    data = yaml.safe_load(phase_edges.PHASE_MACHINE_PATH.read_text(encoding="utf-8"))
+    # GREEN -> SMOKE -> REFACTOR  becomes  SMOKE -> GREEN -> REFACTOR
+    data["phases"]["RED"]["transitions_to"] = ["SMOKE", "BLOCKED", "OBSOLETE"]
+    data["phases"]["SMOKE"]["transitions_to"] = ["GREEN", "BLOCKED", "OBSOLETE"]
+    data["phases"]["GREEN"]["transitions_to"] = ["REFACTOR", "BLOCKED", "OBSOLETE"]
+    copy = tmp_path / "phase_machine.convention.yaml"
+    copy.write_text(yaml.safe_dump(data), encoding="utf-8")
+
+    module = importlib.import_module(module_path)
+    monkeypatch.setattr(phase_edges, "PHASE_MACHINE_PATH", copy)
+    try:
+        reloaded = importlib.reload(module)
+        table = {str(s): str(d) for s, d in getattr(reloaded, table_name).items()}
+    finally:
+        monkeypatch.undo()
+        importlib.reload(module)
+
+    assert table.get("RED") == "SMOKE" and table.get("SMOKE") == "GREEN", (
+        f"{module_path}.{table_name} did not follow the reordered spine "
+        f"(RED -> {table.get('RED')}, SMOKE -> {table.get('SMOKE')}); it restates "
+        "the successor function rather than reading it"
+    )
+
+
+def test_the_maps_cover_the_autonomous_spine_and_no_more(spine) -> None:
+    """They stop where operator sign-off begins, and that is a property of the
+    convention's ``autonomy`` axis, not an arbitrary omission."""
+    import importlib
+
+    expected = {s: d for s, d in zip(spine, spine[1:]) if s not in _OPERATOR_GATED}
+    for module_path, table_name, gated in (
+        ("atdd.coach.commands.coach", "_COLD_START_ADVANCE_FROM", {"INIT"}),
+        ("atdd.coach.handlers.watcher", "_ADVANCE_FROM", _OPERATOR_GATED),
+        ("atdd.coach.commands.auto_phase", "_NEXT_PHASE", _OPERATOR_GATED),
+    ):
+        table = {
+            str(s): str(d)
+            for s, d in getattr(importlib.import_module(module_path), table_name).items()
+        }
+        want = {s: d for s, d in zip(spine, spine[1:]) if s not in gated}
+        assert table == want, f"{module_path}.{table_name} != the autonomous spine"
+
+
+def test_adding_a_phase_costs_exactly_one_python_edit(tmp_path, monkeypatch, declared) -> None:
+    """The Done-when, stated at the precision the design actually delivers.
+
+    #1946 collapsed ten hand-maintained phase tables into projections. ONE literal
+    survives by decision: ``core.types.Phase`` (deriving it would cost static typing
+    across ``train/``, ``state/`` and every ``Phase.X`` site). So a new phase is a
+    YAML edit plus a single enum member — not "no Python edit", and not ten.
+
+    This test measures that cost rather than asserting the aspiration: with the enum
+    member absent the typed projections refuse, and the string-keyed one already
+    carries the phase.
     """
     import importlib
 
@@ -340,25 +408,29 @@ def test_a_phase_inserted_into_the_spine_is_advanced_through(
 
     data = yaml.safe_load(phase_edges.PHASE_MACHINE_PATH.read_text(encoding="utf-8"))
     data["phases"]["DISCOVERY"] = {
-        "agent": "planner",
-        "transitions_to": ["PLANNED", "BLOCKED", "OBSOLETE"],
+        "agent": "planner", "transitions_to": ["PLANNED", "BLOCKED", "OBSOLETE"],
         "autonomy": "operator",
     }
     data["phases"]["INIT"]["transitions_to"] = ["DISCOVERY", "BLOCKED", "OBSOLETE"]
     copy = tmp_path / "phase_machine.convention.yaml"
     copy.write_text(yaml.safe_dump(data), encoding="utf-8")
-
-    module = importlib.import_module(module_path)
     monkeypatch.setattr(phase_edges, "PHASE_MACHINE_PATH", copy)
+
+    # The convention layer needs no Python at all.
+    assert "DISCOVERY" in phase_edges.phase_machine()
+    assert phase_edges.spine()[:2] == ("INIT", "DISCOVERY")
+
+    # The string-keyed projection carries it with no edit.
     try:
-        reloaded = importlib.reload(module)
-        advanced = {str(src): str(dst) for src, dst in getattr(reloaded, table_name).items()}
+        auto = importlib.reload(importlib.import_module("atdd.coach.commands.auto_phase"))
+        assert auto._NEXT_PHASE.get("DISCOVERY") == "PLANNED"
+
+        # The typed projections refuse, nameably, until the enum gains the member —
+        # the one edit, in one place, that D004-UNIT-005 pins to the convention.
+        with pytest.raises(ValueError, match="DISCOVERY"):
+            importlib.reload(importlib.import_module("atdd.coach.handlers.state_machine"))
     finally:
         monkeypatch.undo()
-        importlib.reload(module)
-
-    assert advanced.get("INIT") == "DISCOVERY", (
-        f"{module_path}.{table_name} did not follow the convention's spine through "
-        f"an inserted phase (INIT -> {advanced.get('INIT')}); it restates the "
-        "successor function rather than reading it"
-    )
+        for m in ("atdd.coach.handlers.state_machine", "atdd.coach.commands.auto_phase",
+                  "atdd.coach.commands.coach", "atdd.coach.handlers.watcher"):
+            importlib.reload(importlib.import_module(m))
