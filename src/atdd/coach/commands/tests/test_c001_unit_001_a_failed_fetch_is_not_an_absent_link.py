@@ -22,11 +22,19 @@ from atdd.coach.validators._observation import Observation
 
 
 def _mgr(monkeypatch, pr_payload, fetch_ok=True):
+    """A manager whose PR read is stubbed at ``_read_pr``, the primitive (#1963).
+
+    ``_fetch_pr`` is now the data-only view over ``_read_pr``; stubbing the view
+    would leave ``read_linked_issue`` shelling out to real ``gh``, which is both
+    non-hermetic and answers about a different repository than the test means.
+    The second element is the CAUSE — ``None`` on success, and on failure the
+    thing an operator needs and #1963 exists to preserve.
+    """
     mgr = PRManager()
     if fetch_ok:
-        monkeypatch.setattr(mgr, "_fetch_pr", lambda n: pr_payload)
+        monkeypatch.setattr(mgr, "_read_pr", lambda n: (pr_payload, None))
     else:
-        monkeypatch.setattr(mgr, "_fetch_pr", lambda n: None)
+        monkeypatch.setattr(mgr, "_read_pr", lambda n: (None, "gh pr view exited 1: boom"))
     return mgr
 
 
@@ -73,3 +81,37 @@ def test_a_linked_pr_reads_as_observed(monkeypatch):
 
     assert reading.observation is Observation.OBSERVED
     assert reading.payload and reading.payload.get("issue_number") == 1708
+
+
+def test_the_refusal_names_the_cause_gh_reported(monkeypatch):
+    """UNREADABLE must carry the reason `gh` gave, not generic advice (#1963).
+
+    The shipped refusal reads "could not read PR #N (see `gh pr view N`)". That
+    advice succeeds on a developer's laptop — which is exactly when it is useless
+    — and names nothing in CI, where the call failed for a reason only its stderr
+    knows. `_fetch_pr` logged that stderr at DEBUG and returned None, so the one
+    fact worth having was dropped on the floor.
+
+    Observed 2026-09-11: four auto-phase runs failed this way. The cause was only
+    identifiable by re-running the workflow a day later and watching it succeed —
+    a diagnosis by experiment that the error text should have made unnecessary.
+    """
+    import subprocess
+
+    stderr = "gh: API rate limit exceeded for site ID installation."
+
+    def fake_run(*args, **kwargs):
+        return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr=stderr)
+
+    monkeypatch.setattr("atdd.coach.commands.pr.subprocess.run", fake_run)
+
+    reading = PRManager().read_linked_issue(1949)
+
+    assert reading.observation is Observation.UNREADABLE, (
+        f"a failed fetch must read as UNREADABLE, got {reading.observation}"
+    )
+    assert "rate limit" in (reading.reason or ""), (
+        "the refusal does not repeat what gh reported, so an operator reading a CI "
+        "log cannot tell a rate limit from a permission fault from a timeout — the "
+        f"three faults with three different fixes. got: {reading.reason!r}"
+    )
