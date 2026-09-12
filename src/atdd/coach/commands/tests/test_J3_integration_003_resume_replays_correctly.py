@@ -12,6 +12,7 @@ consumes the decisions.jsonl produced by the J3 decisions handler.
 """
 from __future__ import annotations
 
+import itertools
 import json
 from pathlib import Path
 
@@ -19,15 +20,16 @@ import pytest
 
 pytestmark = [pytest.mark.platform]
 
-PLANNED_PATH_TRANSITIONS = [
-    ("INIT", "PLANNED"),
-    ("PLANNED", "RED"),
-    ("RED", "GREEN"),
-    ("GREEN", "SMOKE"),
-    ("SMOKE", "REFACTOR"),
-    ("REFACTOR", "COMPLETE"),
-    ("COMPLETE", "MERGED"),
-]
+#: DERIVED from the shipped planned path (#1946). This was a hand-written literal
+#: ending ``("COMPLETE", "MERGED")`` — an eighth copy of the phase vocabulary,
+#: inside a test, that no drift guard could see. Reading PLANNED_PATH means a
+#: lifecycle change reaches this fixture the same way it reaches production.
+def _planned_path_transitions():
+    from atdd.coach.handlers.state_machine import PLANNED_PATH
+    return list(itertools.pairwise(p.value for p in PLANNED_PATH))
+
+
+PLANNED_PATH_TRANSITIONS = _planned_path_transitions()
 
 
 def _read_jsonl(path: Path) -> list[dict]:

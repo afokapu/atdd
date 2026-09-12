@@ -68,8 +68,7 @@ consume:
     from: wagon:freeze-runtime-contracts
 
 wmbt:
-  total: 24
-  total: 25
+  total: 26
   D001: "minimize likelihood of ad-hoc-coach-state-machine-without-shared-skeleton"
   D002: "minimize likelihood of agent-runtime-side-effects-without-rule-ided-cli-surface"
   P001: "minimize likelihood of lossy-coach-decisions-and-judgments-on-restart"
@@ -95,3 +94,4 @@ wmbt:
   M004: "minimize likelihood of wrong-session-selected-when-resuming-a-work-item"
   L003: "minimize effort-to-locate-the-session-to-resume-after-a-crash"
   C001: "minimize quantity of post-merge-advances-that-report-a-no-op-after-failing-to-look by distinguishing an unobservable link from an absent one — the COULD_NOT_CHECK versus NOT_APPLICABLE split GateVerdict already models — carrying the reason the fetch failed, and exiting non-zero when the advance could not be attempted (#1640)"
+  D004: "minimize likelihood of phase-vocabulary-forked-across-python-copies"

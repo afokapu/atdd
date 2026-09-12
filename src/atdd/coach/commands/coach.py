@@ -60,6 +60,7 @@ from atdd.coach.handlers.state_machine import (
     can_transition,
     initialize_state_machine,
 )
+from atdd.coach.gate import phase_edges
 from atdd.coach.utils.escalation_channel import validate_escalation_channel_arg
 
 __all__ = [
@@ -604,12 +605,12 @@ def _print_planned_path(sm: StateMachine) -> None:
 # include the PLANNED→RED transition driven by the planner's commit).
 # ---------------------------------------------------------------------------
 
+#: Cold-start advance, PROJECTED from the convention's spine (#1946). INIT is
+#: excluded: leaving it is an operator sign-off, never an event-driven advance.
 _COLD_START_ADVANCE_FROM: dict[Phase, Phase] = {
-    Phase.PLANNED: Phase.RED,
-    Phase.RED: Phase.GREEN,
-    Phase.GREEN: Phase.SMOKE,
-    Phase.SMOKE: Phase.REFACTOR,
-    Phase.REFACTOR: Phase.COMPLETE,
+    Phase(src): Phase(dst)
+    for src, dst in phase_edges.successor().items()
+    if src != "INIT"
 }
 
 _PHASE_TRAILER_MAP: dict[str, Phase] = {
@@ -953,7 +954,7 @@ def run(
     On cold-start (no --resume, no --dry-run): wires DecisionWriter, spawn
     handler (K1), watcher event loop (J5), validator dispatch (M3), observer
     (L1), reviewer (N5), and two-phase commit (J4) into an event-driven loop
-    that runs from INIT to MERGED (or halts at BLOCKED/REFACTOR-without-automerge).
+    that runs from INIT to COMPLETE (or halts at BLOCKED/REFACTOR-without-automerge).
 
     Issue #645 — cold-start wiring. Prior docstring: "No side effects beyond
     print" — that gap is what this issue closes.

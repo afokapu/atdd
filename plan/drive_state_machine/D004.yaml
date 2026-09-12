@@ -1,0 +1,180 @@
+urn: wmbt:drive-state-machine:D004
+step: define
+direction: minimize
+dimension: likelihood
+object_of_control: phase-vocabulary-forked-across-python-copies
+context_clarifier: "phase_machine.convention.yaml declares itself the single source\
+  \ of truth and says add or change a phase HERE, never in Python. Two Phase enums\
+  \ nevertheless live inside atdd.coach \u2014 handlers/state_machine.py carries MERGED\
+  \ and cannot name OBSOLETE, core/types.py carries OBSOLETE and cannot name MERGED\
+  \ \u2014 and each raises on the other's ninth member. Both are str mixins, so they\
+  \ compare equal by value and the fork is silent until someone names the missing\
+  \ member. MERGED is unreachable: every successor map stops at COMPLETE, resume.py\
+  \ refuses to walk into it, and nothing in src/ assigns it; the live notion of merged\
+  \ is PullRequest.state. Ten hand-maintained tables must be edited to add a phase,\
+  \ five of them restating one fact \u2014 the spine's successor function."
+lens: functional.adaptability
+statement: "minimize likelihood of phase-vocabulary-forked-across-python-copies by\
+  \ collapsing atdd.coach onto one Phase, deriving TRANSITION_TABLE, PLANNED_PATH\
+  \ and the spine's successor function from phase_machine.convention.yaml, and removing\
+  \ MERGED from the phase vocabulary \u2014 so a phase added to the convention is\
+  \ nameable by the coach runtime with no Python edit, and any vocabulary that drifts\
+  \ from the convention fails a test rather than a live transition"
+acceptances:
+- identity:
+    urn: acc:drive-state-machine:D004-UNIT-001-the-package-defines-one-phase-vocabulary
+    id: AC-UNIT-001
+    purpose: atdd.coach exposes a single Phase whose members are exactly the convention's
+      phases
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - The authored phase machine, read from phase_machine.convention.yaml
+    - "Both Phase symbols the coach package exposes \u2014 the one handlers/state_machine.py\
+      \ re-exports and the one core/types.py defines"
+  when:
+    abstract: The two symbols and the convention's phase names are compared
+  then:
+    abstract:
+    - The two symbols are the same object, not two classes that merely compare equal
+      by value
+    - Its member names equal the convention's phase names exactly, escapes included
+    - Every phase the convention declares can be constructed by name without raising
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-11'
+- identity:
+    urn: acc:drive-state-machine:D004-UNIT-002-merged-is-not-a-phase
+    id: AC-UNIT-002
+    purpose: MERGED is absent from the phase vocabulary while the pull-request state
+      it was confused with is untouched
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - The coach package's phase vocabulary and its every phase-keyed table
+    - The pull-request type whose state field carries OPEN, MERGED and CLOSED
+  when:
+    abstract: The phase vocabulary and the phase-keyed tables are searched for a MERGED
+      phase
+  then:
+    abstract:
+    - No phase named MERGED exists, in the enum or in any transition, path or successor
+      table
+    - The pull-request state vocabulary still admits MERGED, so merge-ness is read
+      from the pull request and nowhere else
+    - The label set the package derives from the convention names OBSOLETE and does
+      not name MERGED
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-11'
+- identity:
+    urn: acc:drive-state-machine:D004-UNIT-003-transition-tables-are-projections-of-the-convention
+    id: AC-UNIT-003
+    purpose: The transition table and the planned path are read from the convention
+      rather than restated in Python
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - The authored phase machine and the transition table and planned path the coach
+      runtime decides on
+  when:
+    abstract: Each phase's declared targets are compared against the runtime transition
+      table, and the planned path against the convention's spine
+  then:
+    abstract:
+    - Every edge the convention declares is legal at runtime, and no edge the runtime
+      admits is undeclared
+    - "The planned path is the spine \u2014 each phase's single non-escape target,\
+      \ walked from INIT \u2014 computed by the one walker the repository already\
+      \ has rather than a second copy of it"
+    - A phase added to a disposable copy of the convention appears in both without
+      a source edit
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-11'
+- identity:
+    urn: acc:drive-state-machine:D004-UNIT-004-the-successor-function-has-one-definition
+    id: AC-UNIT-004
+    purpose: The five hand-written restatements of what follows a phase agree with
+      the spine because they read it
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - The convention's spine and every per-phase successor map the coach runtime advances
+      on
+  when:
+    abstract: Each successor map is compared against the spine's successor function
+  then:
+    abstract:
+    - Each map agrees with the spine on every phase it covers
+    - No map names a successor the convention does not declare
+    - A phase inserted into a disposable copy of the convention is advanced through
+      by each map with no source edit
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-11'
+- identity:
+    urn: acc:drive-state-machine:D004-UNIT-005-a-drifting-vocabulary-fails-a-test
+    id: AC-UNIT-005
+    purpose: Each remaining literal vocabulary is pinned to the convention, so drift
+      is caught by a test rather than by a live transition
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - "The vocabularies that stay literal by decision \u2014 the core Phase enum,\
+      \ the projection's phases and the evidence ladder"
+    - The existing drift guard that already walks the convention's spine and names
+      the escapes
+  when:
+    abstract: Each literal vocabulary is compared against the convention, and then
+      against a disposable copy of the convention carrying an extra phase
+  then:
+    abstract:
+    - Each agrees with the convention on the members it claims to carry, with the
+      ladder's exclusion of the escapes preserved as a stated exclusion rather than
+      an unexplained gap
+    - The guard fails against the drifted copy, naming the vocabulary that diverged
+    - The comparison lives in the existing guard, so the repository gains no second
+      walker of the same machine
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-11'
+- identity:
+    urn: acc:drive-state-machine:D004-SMOKE-001-the-shipped-runtime-names-every-declared-phase
+    id: AC-SMOKE-001
+    purpose: In the artifact a consumer installs, the coach runtime can name every
+      phase the shipped convention declares
+    phase: SMOKE
+  harness:
+    type: smoke
+    category: backend
+  given:
+    abstract:
+    - The built package as a consumer installs it, with no source tree on the path
+  when:
+    abstract: A separate process imports the package, reads the phase machine it shipped,
+      and constructs each declared phase through the coach runtime's own vocabulary
+  then:
+    abstract:
+    - Every declared phase constructs, OBSOLETE included
+    - The runtime vocabulary carries no phase the shipped convention does not declare
+    - The transition table the process reads matches the shipped convention's declared
+      edges
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-11'

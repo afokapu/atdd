@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Optional
 
 from atdd.coach.commands.pr import PRManager
+from atdd.coach.gate import phase_edges
 
 logger = logging.getLogger(__name__)
 
@@ -37,10 +38,9 @@ logger = logging.getLogger(__name__)
 # PLANNED) and BLOCKED do not auto-advance — operator must transition
 # manually. Terminal phases (COMPLETE, OBSOLETE) are no-ops.
 _NEXT_PHASE = {
-    "RED": "GREEN",
-    "GREEN": "SMOKE",
-    "SMOKE": "REFACTOR",
-    "REFACTOR": "COMPLETE",
+    src: dst
+    for src, dst in phase_edges.successor().items()
+    if src not in ("INIT", "PLANNED")
 }
 
 
