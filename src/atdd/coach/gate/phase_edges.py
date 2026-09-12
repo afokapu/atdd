@@ -143,6 +143,23 @@ def phase_machine(path: Optional[Path] = None) -> Dict[str, Tuple[str, ...]]:
 ESCAPES: frozenset = frozenset({"BLOCKED", "OBSOLETE"})
 
 
+def _forward_target(declared: Dict[str, Tuple[str, ...]], phase: str) -> Optional[str]:
+    """``phase``'s single non-escape target, or ``None`` when it is terminal.
+
+    Split out of :func:`spine` so the walk reads as "step until terminal" and the
+    per-step validity rule lives in one place (``coder.refactor.complexity-cyclomatic``).
+    """
+    forward = [target for target in declared.get(phase, ()) if target not in ESCAPES]
+    if not forward:
+        return None
+    if len(forward) != 1:
+        raise PhaseMachineUnavailable(
+            f"{phase} declares {len(forward)} non-escape targets {forward}; the "
+            "lifecycle is not a linear spine and has no successor function"
+        )
+    return forward[0]
+
+
 def spine(machine: Optional[Dict[str, Tuple[str, ...]]] = None) -> Tuple[str, ...]:
     """The lifecycle's linear chain: INIT, then each phase's one non-escape target.
 
@@ -160,19 +177,12 @@ def spine(machine: Optional[Dict[str, Tuple[str, ...]]] = None) -> Tuple[str, ..
         raise PhaseMachineUnavailable("the phase machine declares no INIT phase")
     chain = ["INIT"]
     seen = {"INIT"}
-    while True:
-        forward = [t for t in declared.get(chain[-1], ()) if t not in ESCAPES]
-        if not forward:
-            return tuple(chain)
-        if len(forward) != 1:
-            raise PhaseMachineUnavailable(
-                f"{chain[-1]} declares {len(forward)} non-escape targets {forward}; "
-                "the lifecycle is not a linear spine and has no successor function"
-            )
-        if forward[0] in seen:
-            raise PhaseMachineUnavailable(f"the phase machine cycles back to {forward[0]}")
-        seen.add(forward[0])
-        chain.append(forward[0])
+    while (nxt := _forward_target(declared, chain[-1])) is not None:
+        if nxt in seen:
+            raise PhaseMachineUnavailable(f"the phase machine cycles back to {nxt}")
+        seen.add(nxt)
+        chain.append(nxt)
+    return tuple(chain)
 
 
 def successor(machine: Optional[Dict[str, Tuple[str, ...]]] = None) -> Dict[str, str]:
