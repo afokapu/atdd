@@ -22,11 +22,19 @@ from atdd.coach.validators._observation import Observation
 
 
 def _mgr(monkeypatch, pr_payload, fetch_ok=True):
+    """A manager whose PR read is stubbed at ``_read_pr``, the primitive (#1963).
+
+    ``_fetch_pr`` is now the data-only view over ``_read_pr``; stubbing the view
+    would leave ``read_linked_issue`` shelling out to real ``gh``, which is both
+    non-hermetic and answers about a different repository than the test means.
+    The second element is the CAUSE — ``None`` on success, and on failure the
+    thing an operator needs and #1963 exists to preserve.
+    """
     mgr = PRManager()
     if fetch_ok:
-        monkeypatch.setattr(mgr, "_fetch_pr", lambda n: pr_payload)
+        monkeypatch.setattr(mgr, "_read_pr", lambda n: (pr_payload, None))
     else:
-        monkeypatch.setattr(mgr, "_fetch_pr", lambda n: None)
+        monkeypatch.setattr(mgr, "_read_pr", lambda n: (None, "gh pr view exited 1: boom"))
     return mgr
 
 
