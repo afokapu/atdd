@@ -76,7 +76,7 @@ def test_empty_branch_defers_pr_with_structured_hint(tmp_path, capsys):
             branch_name="feat/empty-test",
             issue_number=478,
             slug="empty-test",
-            issue_type="cleanup",
+            issue_type="chore",
             worktree_path=tmp_path,
         )
 
@@ -112,7 +112,7 @@ def test_non_empty_branch_still_attempts_pr_creation(tmp_path):
             branch_name="feat/non-empty-test",
             issue_number=478,
             slug="non-empty-test",
-            issue_type="cleanup",
+            issue_type="chore",
             worktree_path=tmp_path,
         )
 
