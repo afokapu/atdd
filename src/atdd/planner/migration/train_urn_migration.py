@@ -321,6 +321,39 @@ def subject_of_typed(train_id: str) -> Optional[str]:
     return None
 
 
+def _owned_ids() -> set:
+    """Every registry id this migration authors: each aliased legacy id and the
+    typed URN it becomes. Anything else in the registry belongs to someone else."""
+    return set(LEGACY_TRAIN_ALIASES) | set(build_alias_map().values())
+
+
+def _carry_through_unowned(
+    trains: Dict[str, Dict[str, List[dict]]], existing: Dict[str, dict]
+) -> None:
+    """Copy every row of *existing* this migration does not own into *trains*.
+
+    Both projections re-derive the registry from :data:`LEGACY_TRAIN_ALIASES`, so
+    without this a train that no alias names — one another issue typed — loses its
+    row while its document stays on disk (#1986). Rows are copied verbatim and
+    filed under their own subject, so a carried-through row is byte-identical
+    across a migrate/revert round trip.
+    """
+    owned = _owned_ids()
+    for train_id, entry in sorted(existing.items()):
+        if train_id in owned:
+            continue
+        subject = subject_of_typed(train_id)
+        if subject is None:
+            subject = _UNMIGRATED_BUCKET
+            logger.warning(
+                "registry projection: preserving a row whose subject cannot be "
+                "derived; it has no alias and is not a typed URN",
+                extra={"train_id": train_id},
+            )
+        category = entry.get("category") or "nominal"
+        trains.setdefault(subject, {}).setdefault(category, []).append(dict(entry))
+
+
 def _rewrite_registry_typed(root: Path, existing: Dict[str, dict]) -> Path:
     """Project the typed ``plan/_trains.yaml``.
 
@@ -338,10 +371,8 @@ def _rewrite_registry_typed(root: Path, existing: Dict[str, dict]) -> Path:
     """
     trains: Dict[str, Dict[str, List[dict]]] = {}
 
-    owned: set = set(LEGACY_TRAIN_ALIASES)
     for legacy_id, (subject, slug) in sorted(LEGACY_TRAIN_ALIASES.items()):
         typed = forward(legacy_id)
-        owned.add(typed)
         category = category_for_legacy(legacy_id)
         prior = _registry_entry(existing, legacy_id)
         entry = {
@@ -353,20 +384,7 @@ def _rewrite_registry_typed(root: Path, existing: Dict[str, dict]) -> Path:
         }
         trains.setdefault(subject, {}).setdefault(category, []).append(entry)
 
-    # Carry through every row the alias map does not account for.
-    for train_id, entry in sorted(existing.items()):
-        if train_id in owned:
-            continue
-        subject = subject_of_typed(train_id)
-        if subject is None:
-            subject = _UNMIGRATED_BUCKET
-            logger.warning(
-                "registry projection: preserving a row whose subject cannot be "
-                "derived; it has no alias and is not a typed URN",
-                extra={"train_id": train_id},
-            )
-        category = entry.get("category") or "nominal"
-        trains.setdefault(subject, {}).setdefault(category, []).append(dict(entry))
+    _carry_through_unowned(trains, existing)
 
     for subject in trains:
         for category in trains[subject]:
@@ -403,17 +421,10 @@ def _rewrite_registry_legacy(root: Path, existing: Dict[str, dict]) -> Path:
         }
         trains.setdefault(group, {}).setdefault(section, []).append(entry)
 
-    # Symmetric with the typed projection (#1986): rows this migration does not
-    # own survive a revert verbatim, keyed by their own subject. Without this the
-    # rollback is itself destructive — and, because the apply-test fixture
-    # normalizes through revert, it was what hid the forward defect.
-    owned = set(LEGACY_TRAIN_ALIASES) | set(build_alias_map().values())
-    for train_id, entry in sorted(existing.items()):
-        if train_id in owned:
-            continue
-        subject = subject_of_typed(train_id) or _UNMIGRATED_BUCKET
-        category = entry.get("category") or "nominal"
-        trains.setdefault(subject, {}).setdefault(category, []).append(dict(entry))
+    # Symmetric with the typed projection: a rollback that evicted rows would be
+    # destructive in its own right — and, because the apply-test fixture normalizes
+    # through revert, that eviction was what hid the forward defect (#1986).
+    _carry_through_unowned(trains, existing)
 
     for group in trains:
         for section in trains[group]:
