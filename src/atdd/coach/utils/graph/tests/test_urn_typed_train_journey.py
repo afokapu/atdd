@@ -1,4 +1,4 @@
-# URN: test:coach:urn:typed_train_journey
+# URN: test:coach:urn:typed-train-journey
 """
 Issue #1986 — a typed train JOURNEY test URN was ungrammatical.
 
