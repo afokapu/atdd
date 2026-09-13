@@ -17,11 +17,9 @@ pass is indistinguishable from a broken lifecycle. So the same issue, with the s
 number, on the same edge, must flip to proceeding when — and only when — its lab is
 filled in.
 
-MARKED ``live_smoke``: the acceptance declares an execution kind, so the run itself
-writes the attestation (see smoke_execution_check.py). Nothing here is stubbed
-except the absence of a network: the store is real, the config is real, and the
-decision comes from ``evaluate_transition_gate`` rather than from calling the check
-by hand.
+Nothing here is stubbed except the absence of a network: the store is real and
+migrated, seeded through the shipped writer; the config is real; and the decision
+comes from ``evaluate_transition_gate`` rather than from calling the check by hand.
 """
 from __future__ import annotations
 
@@ -116,10 +114,10 @@ def _seed_issue(control_root: Path, issue_number: int, lab: str) -> None:
 
 
 @pytest.mark.smoke
-@pytest.mark.live_smoke
-def test_real_transition_is_refused_while_the_lab_is_unfilled(tmp_path: Path):
+def test_real_transition_is_refused_while_the_lab_is_unfilled(tmp_path: Path, monkeypatch):
     control = tmp_path / "control"
     control.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("ATDD_CONTROL_ROOT", str(control))
     _seed_issue(control, 424242, _UNFILLED_LAB)
 
     outcome = _decide(control, 424242)
@@ -136,11 +134,11 @@ def test_real_transition_is_refused_while_the_lab_is_unfilled(tmp_path: Path):
 
 
 @pytest.mark.smoke
-@pytest.mark.live_smoke
-def test_real_transition_proceeds_once_the_lab_is_filled(tmp_path: Path):
+def test_real_transition_proceeds_once_the_lab_is_filled(tmp_path: Path, monkeypatch):
     """The direction that proves the gate is passable, not merely strict."""
     control = tmp_path / "control"
     control.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("ATDD_CONTROL_ROOT", str(control))
     _seed_issue(control, 424243, _FILLED_LAB)
 
     outcome = _decide(control, 424243)

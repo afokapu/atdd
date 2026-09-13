@@ -26,6 +26,10 @@ from atdd.coach.gate.smoke_execution_check import (
     GATE_ID as SMOKE_EXECUTION_GATE_ID,
     SmokeExecutionGateCheck,
 )
+from atdd.coach.gate.lab_evidence_check import (
+    GATE_ID as LAB_EVIDENCE_GATE_ID,
+    LabEvidenceGateCheck,
+)
 
 # The candidate operator-gateable lifecycle transitions. ``is_transition_gated``
 # decides which actually enforce (default: only PLANNED->RED). Creating the plan
@@ -115,3 +119,45 @@ def register_smoke_execution_check(registry=GATE_REGISTRY) -> None:
     if any(getattr(c, "gate_id", None) == SMOKE_EXECUTION_GATE_ID for c in existing):
         return
     registry.register(from_phase, to_phase, SmokeExecutionGateCheck())
+
+
+# The transition the lab-evidence check gates (#1950). Deliberately NOT added to
+# ``_CANDIDATE_TRANSITIONS`` above: that tuple is the APPROVAL check's edge set, and
+# INIT->PLANNED is absent from it on purpose ("creating the plan is not an
+# operator-reserved sign-off"). This is a different obligation on the same edge.
+_LAB_EVIDENCE_TRANSITION = ("INIT", "PLANNED")
+
+
+def register_lab_evidence_check(registry=GATE_REGISTRY) -> None:
+    """Idempotently register the lab-evidence check for INIT->PLANNED (#1950).
+
+    Called explicitly from the ``atdd coach transition`` dispatch beside
+    ``register_approval_checks``, and for the same reason deliberately NOT an
+    import-time side effect: a side-effect registration into the module-level
+    ``GATE_REGISTRY`` would pollute it for #1020's migration-safety tests, which
+    assert behaviour against the live registry that collection imports every module
+    into.
+
+    REGISTERING IS NOT ENABLING, and the distinction is load-bearing here rather
+    than ceremonial. ``evaluate_transition_gate`` asks ``is_transition_gated``
+    BEFORE it consults the registry, and ``INIT->PLANNED`` is absent from
+    ``DEFAULT_GATED_TRANSITIONS``, so this call makes the check AVAILABLE and
+    changes no transition's outcome. A repo turns it on with one line::
+
+        gate:
+          transitions:
+            INIT->PLANNED: true
+
+    That line is NOT set in this repo, and what makes setting it a decision rather
+    than a formality is that this check has no per-issue opt-in. Every issue has a
+    premise, so nothing is ever "not applicable" — measured, enabling the edge here
+    would refuse 162 of 163 open-at-INIT issues, leaving ``--force`` as the routine
+    exit. That is the rubber-stamp failure ``smoke_obligation`` exists to prevent,
+    and it is why enablement waits on the backlog rather than riding in with the
+    code.
+    """
+    from_phase, to_phase = _LAB_EVIDENCE_TRANSITION
+    existing = registry.checks_for(from_phase, to_phase)
+    if any(getattr(c, "gate_id", None) == LAB_EVIDENCE_GATE_ID for c in existing):
+        return
+    registry.register(from_phase, to_phase, LabEvidenceGateCheck())
