@@ -69,7 +69,7 @@ def _load_registry(convention_path: Path) -> List[dict]:
         with convention_path.open(encoding="utf-8") as fh:
             data = yaml.safe_load(fh)
         return data.get("patterns", [])
-    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) Fail open per Decision 6 in issue #668
+    except Exception as exc:  # Fail open per Decision 6 in issue #668
         _logger.warning("forbidden_command_classifier: failed to load registry %s: %s", convention_path, exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-10-31
         return []
 
@@ -115,7 +115,7 @@ def _check_and_record_loop_call(
     if state_file.exists():
         try:
             state = json.loads(state_file.read_text(encoding="utf-8"))
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) Corrupt state is non-fatal; reset to empty
+        except Exception as exc:  # Corrupt state is non-fatal; reset to empty
             _logger.warning("forbidden_command_classifier: corrupt loop state, resetting: %s", exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-10-31
             state = {}
 
@@ -130,7 +130,7 @@ def _check_and_record_loop_call(
     try:
         state_file.parent.mkdir(parents=True, exist_ok=True)
         state_file.write_text(json.dumps(state), encoding="utf-8")
-    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) Loop state is best-effort; failure must not block tool use
+    except Exception as exc:  # Loop state is best-effort; failure must not block tool use
         _logger.warning("forbidden_command_classifier: failed to write loop state: %s", exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-10-31
 
     return False  # Within threshold — allow
@@ -156,7 +156,7 @@ def _write_audit(
         audit_file.parent.mkdir(parents=True, exist_ok=True)
         with audit_file.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(record) + "\n")
-    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) Audit writes are best-effort; loss must not block tool use
+    except Exception as exc:  # Audit writes are best-effort; loss must not block tool use
         _logger.warning("forbidden_command_classifier: failed to write audit log: %s", exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-10-31
 
 
@@ -261,6 +261,6 @@ if __name__ == "__main__":
             print(f"block\n{d.rule_id or ''}\n{d.reason or ''}\n{d.alternative or ''}")
         else:
             print("allow")
-    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) Classifier crash must not DoS the hook; fail open with stderr warning
+    except Exception as exc:  # Classifier crash must not DoS the hook; fail open with stderr warning
         sys.stderr.write(f"ATDD: forbidden-command classifier error (fail open): {exc}\n")
         print("allow")

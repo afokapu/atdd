@@ -20,8 +20,11 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Optional
+import logging
 
 import yaml
+
+_log = logging.getLogger(__name__)
 
 
 def _repo_root(repo_root: Optional[Path]) -> Path:
@@ -83,7 +86,8 @@ def _store_issue_wagon_map(root: Path) -> dict[int, str]:
 
         with WorkItemReader(control_root=root) as reader:
             return reader.issue_wagon_map()
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+    except Exception as exc:
+        _log.warning("_store_issue_wagon_map: Exception handled, returning an empty result", extra={"error": str(exc)[:200]})
         return {}
 
 

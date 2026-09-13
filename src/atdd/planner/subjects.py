@@ -29,10 +29,13 @@ from __future__ import annotations
 import re
 from pathlib import Path
 from typing import List, Optional, Tuple
+import logging
 
 import yaml
 
 from atdd.planner.naming import verb_lexicon
+
+_log = logging.getLogger(__name__)
 
 _KEBAB_RE = re.compile(r"^[a-z][a-z0-9]*(-[a-z0-9]+)*$")
 
@@ -78,9 +81,10 @@ def _reserved_themes(root: Optional[Path]) -> frozenset:
 
         cfg = load_atdd_config(Path(root))
         return frozenset(canonical_theme_set(cfg))
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-31
+    except Exception as exc:
         # A malformed taxonomy must not turn every subject into a violation;
         # the structural blocklist still applies.
+        _log.warning("_reserved_themes: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
         return frozenset()
 
 

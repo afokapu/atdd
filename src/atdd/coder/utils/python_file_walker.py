@@ -34,6 +34,9 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 from typing import FrozenSet, Iterator, List, Optional, Tuple
+import logging
+
+_log = logging.getLogger(__name__)
 
 
 # Directory-name components that indicate a vendored / virtualenv / build
@@ -101,7 +104,8 @@ def _git_ls_files(root: Path) -> Optional[List[Path]]:
             text=True,
             check=False,
         )
-    except (FileNotFoundError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except (FileNotFoundError, OSError) as exc:
+        _log.warning("_git_ls_files: (FileNotFoundError, OSError) handled, returning None", extra={"error": str(exc)[:200]})
         return None
     if result.returncode != 0:
         return None

@@ -483,7 +483,8 @@ class IssueLifecycle:
             if result.stdout:
                 print(result.stdout.rstrip())
             return result.returncode
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+            logger.warning("_run_gate: (subprocess.TimeoutExpired, FileNotFoundError) handled, reporting success to the caller", extra={"error": str(exc)[:200]})
             print("Warning: Could not run atdd gate")
             return 0
 
@@ -639,7 +640,8 @@ class IssueLifecycle:
             return {}
         try:
             return yaml.safe_load(self.config_file.read_text()) or {}
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except Exception as exc:
+            logger.warning("_load_config: Exception handled, returning an empty result", extra={"error": str(exc)[:200]})
             return {}
 
     def _transition_gate(self, issue_number: int, target_status: str,

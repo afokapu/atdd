@@ -124,7 +124,8 @@ def _scan_file(path: Path) -> List[SuppressionMarker]:
     out: List[SuppressionMarker] = []
     try:
         text = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except (OSError, UnicodeDecodeError) as exc:
+        _logger.warning("_scan_file: (OSError, UnicodeDecodeError) handled, continuing past the failure", extra={"error": str(exc)[:200]})
         return out
     for lineno, line in enumerate(text.splitlines(), start=1):
         for match in _MARKER_PATTERN.finditer(line):
