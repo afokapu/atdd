@@ -40,7 +40,7 @@ def _assert_rest(argv: list) -> None:
 class _Spy(GitHubClient):
     """A client that records argv instead of shelling `gh`."""
 
-    def __init__(self, repo: str = "o/r") -> None:  # noqa: D107 - no gh probing
+    def __init__(self, repo: str = "o/r") -> None:
         self.repo = repo
         self.calls: list = []
 

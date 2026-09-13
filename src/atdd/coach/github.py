@@ -446,7 +446,7 @@ class GitHubClient:
 
         if owed:
             with ThreadPoolExecutor(max_workers=8) as pool:
-                for number, subs in zip(owed, pool.map(self.get_sub_issues, owed)):
+                for number, subs in zip(owed, pool.map(self.get_sub_issues, owed), strict=True):
                     result[number] = [_normalise_sub_issue(row) for row in subs]
 
         return result
@@ -492,7 +492,7 @@ class GitHubClient:
             """
             try:
                 results[key] = fetch()
-            except Exception as exc:  # noqa: BLE001 — recorded, then re-raised by the fixture
+            except Exception as exc:  # recorded here, re-raised by the fixture that reads the key
                 results[key] = exc
 
         def _fetch_issues():
