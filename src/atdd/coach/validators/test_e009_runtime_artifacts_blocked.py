@@ -1,5 +1,6 @@
 # Acceptance: acc:govern-lifecycle:E009-UNIT-002-evaluator-emits-violation-on-runtime-path-in-diff
 # Acceptance: acc:govern-lifecycle:E009-SMOKE-001-real-validate-coach-runs-runtime-guard
+# Acceptance: acc:govern-lifecycle:E009-UNIT-003-evaluator-covers-the-per-run-validation-receipt-it-already-prohibits
 
 """E009 — Validator: no .atdd/runtime/** paths in PR diff vs default branch.
 
@@ -40,12 +41,41 @@ _RULE = bind_rule("coach.pr.runtime-artifacts-blocked")
 
 _VALIDATOR_ID = "e009_runtime_artifacts_blocked"
 
-_RUNTIME_PREFIX = ".atdd/runtime/"
+#: The per-run artifact trees this rule refuses in a delivery diff.
+#:
+#: `.atdd/runtime/` is the original E009 subject. The per-phase validation
+#: receipts joined it once the rule's own statement was read as written: it names
+#: "validation logs" as ephemeral per-run state, and a receipt rewritten by every
+#: passing validate is exactly that — it was simply living outside the runtime
+#: dir, where the evaluator could not see it.
+#:
+#: Deliberately NARROW under `.atdd/baselines/` — `lint_toolkit.yaml`,
+#: `types_toolkit.yaml` and `four_tier_toolkit.yaml` share that directory and are
+#: the OPPOSITE kind of file: curated lists of frozen findings that are each their
+#: gate's floor. A bare `.atdd/baselines/` here would tell an author to untrack
+#: them, and a ratchet with no baseline passes on any amount of new debt (#1580).
+_PER_RUN_PREFIXES = (
+    ".atdd/runtime/",
+    ".atdd/baselines/validation/",
+)
 
 
 # ---------------------------------------------------------------------------
 # Pure evaluator
 # ---------------------------------------------------------------------------
+
+
+
+def _matched_prefix(path: str) -> Optional[str]:
+    """The per-run prefix *path* falls under, or ``None``.
+
+    Matches an embedded occurrence too (``/.atdd/runtime/``), because a diff may
+    name a path relative to a parent of the repo root.
+    """
+    for prefix in _PER_RUN_PREFIXES:
+        if path.startswith(prefix) or f"/{prefix}" in path:
+            return prefix
+    return None
 
 
 def evaluate_runtime_artifact_violations(
@@ -63,12 +93,13 @@ def evaluate_runtime_artifact_violations(
     """
     violations: List[Violation] = []
     for path in changed_files:
-        if path.startswith(_RUNTIME_PREFIX) or ("/.atdd/runtime/" in path):
+        prefix = _matched_prefix(path)
+        if prefix is not None:
             location = f"PR#{pr_number}:{path}" if pr_number else path
             detail = (
-                f"Path {path!r} is under .atdd/runtime/ and must not appear in "
-                "a PR diff. .atdd/runtime/ is ephemeral per-run state — it must "
-                "be fully gitignored. Add .atdd/runtime/ to .gitignore and run "
+                f"Path {path!r} is under {prefix} and must not appear in "
+                f"a PR diff. {prefix} is ephemeral per-run state — it must "
+                f"be fully gitignored. Add {prefix} to .gitignore and run "
                 "git rm --cached on any tracked files. (coach.pr.runtime-artifacts-blocked)"
             )
             logging.getLogger(__name__).error(
@@ -196,4 +227,59 @@ def test_real_validate_coach_passes_on_clean_branch() -> None:
     assert_disposition_satisfied(
         validator_id=_VALIDATOR_ID,
         violations=violations,
+    )
+
+
+# ---------------------------------------------------------------------------
+# E009-UNIT-003 tests — the rule's stated scope is the enforced scope
+#
+# `coach.execution.runtime-state-not-a-delivery-artifact` names "validation
+# logs" as per-run state that must never enter a delivery diff, but the
+# evaluator has only ever read `.atdd/runtime/`. A per-run validation receipt
+# under `.atdd/baselines/validation/` is therefore prohibited by the statement
+# and invisible to the enforcement. The third test is the one that keeps the
+# widening honest: `.atdd/baselines/` also holds the curated ratchet baselines,
+# which ARE delivery artifacts and must never be flagged.
+# ---------------------------------------------------------------------------
+
+
+def test_evaluator_emits_violation_for_validation_receipt_path() -> None:
+    """A per-run validation receipt in the diff yields exactly one Violation."""
+    violations = evaluate_runtime_artifact_violations(
+        [".atdd/baselines/validation/planner.yaml"]
+    )
+    assert len(violations) == 1, (
+        "Expected 1 Violation for a per-run validation receipt, got "
+        f"{len(violations)} — the rule names 'validation logs' but the "
+        "evaluator cannot see this path"
+    )
+    assert violations[0].rule_id == _RULE.rule_id
+
+
+def test_evaluator_still_emits_for_runtime_path_after_widening() -> None:
+    """Widening must not regress E009's original `.atdd/runtime/` coverage."""
+    violations = evaluate_runtime_artifact_violations(
+        [".atdd/runtime/coach/decisions.jsonl"]
+    )
+    assert len(violations) == 1
+    assert violations[0].rule_id == _RULE.rule_id
+
+
+def test_evaluator_never_flags_a_curated_ratchet_baseline() -> None:
+    """`.atdd/baselines/*_toolkit.yaml` are tracked delivery artifacts.
+
+    They are curated lists of frozen findings that decide a gate verdict — the
+    opposite role to a derived receipt, in the same directory. Flagging one
+    would tell an author to untrack the floor their ratchet stands on.
+    """
+    violations = evaluate_runtime_artifact_violations(
+        [
+            "src/foo.py",
+            ".atdd/baselines/lint_toolkit.yaml",
+            ".atdd/baselines/types_toolkit.yaml",
+            ".atdd/baselines/four_tier_toolkit.yaml",
+        ]
+    )
+    assert violations == [], (
+        f"A curated ratchet baseline must never be flagged, got {violations}"
     )

@@ -509,6 +509,18 @@ class ProjectInitializer:
           ``~/.atdd/version_cache.json``. Ignored defensively so a stray copy left by
           an older CLI cannot become untracked noise.
 
+        - ``.atdd/baselines/validation/``  the per-phase pass-receipts ``atdd validate``
+          rewrites on every pass. Derived, not authored: nothing reads the committed copy,
+          and ``source_hash`` is taken over the INSTALLED atdd package, so a receipt cannot
+          verify off the machine that wrote it. Tracked, it dirtied the tree seconds after
+          every commit. Its sibling ``.atdd/diagnostics/`` was always ignored; this was not.
+
+        **Never** ``.atdd/baselines/`` wholesale. That directory also holds
+        ``lint_toolkit.yaml``, ``types_toolkit.yaml`` and ``four_tier_toolkit.yaml`` —
+        curated ratchets that are each their gate's floor. Ignoring them would make those
+        gates pass on any amount of new debt: the same trap as the ``.atdd/state/`` entry
+        below, one directory over.
+
         **Never** ``.atdd/state/`` wholesale (#1580). That is what this wrote until the
         2026-07-20 mass-deletion, and it took ``.atdd/state/projection/`` — the *shared*
         source of truth, the one thing under ``state/`` that must be committed — down with
@@ -523,6 +535,7 @@ class ProjectInitializer:
         self._ensure_gitignore_entry(".atdd/manifest.migrated.yaml")
         self._ensure_gitignore_entry(".atdd/runtime/")
         self._ensure_gitignore_entry(".atdd/version_cache.json")
+        self._ensure_gitignore_entry(".atdd/baselines/validation/")
 
     def _ensure_gitignore_entry(self, entry: str) -> None:
         """Append *entry* to the repo .gitignore if not already present."""
