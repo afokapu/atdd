@@ -2828,6 +2828,26 @@ edges:
   constraint: mandatory
   control: internal
   foundation: finish_to_start
+  reason: existence coherence is checked over the two-file registry+spec pattern that node defines
+    (#1942)
+  source_ref: planner.train.registry-coherence
+  strength: critical
+  target_ref: planner.train.registry
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
+  reason: the row path and the document path it is compared against both derive from the train_id,
+    so a naming disagreement would read as an incoherence
+  source_ref: planner.train.registry-coherence
+  strength: important
+  target_ref: planner.train.naming
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_start
   reason: assessing the category space presupposes each route's declared category already agrees with
     its target train
   source_ref: planner.train.route-category-assessment

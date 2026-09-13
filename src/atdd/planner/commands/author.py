@@ -912,7 +912,7 @@ def create_train(spec: dict, *, root: Path | str | None = None) -> Path:
     #
     # This is ordering, not atomicity: a staged commit of both artifacts is the
     # correct end state and is deliberately out of scope here. Ordering plus
-    # `planner.train.registry` (which now actually checks both directions)
+    # `planner.train.registry-coherence` (which checks both directions)
     # removes the exposure that ordering alone can remove.
     #
     # Validation still precedes EVERY write. Moving the registry write second

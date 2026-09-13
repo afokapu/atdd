@@ -3,17 +3,24 @@
 # Purpose: Planner validator for train registry/document existence coherence (#1942).
 """The train registry and the documents it indexes must both exist (#1942).
 
-``planner.train.registry`` has claimed since it was authored — at
-``disposition: strict`` — that "every registry entry MUST have a corresponding
-spec file". Nothing checked it. Its ``implementation.ref`` pointed at
-``conventions/resolution/test_train_validation::test_fault_injection_and_legacy_parity``,
-which resolves train→wagon *references* and never reads a path; and because the
-binding gate exempts convention-variant refs from the ``bind_rule`` requirement,
-the dead binding drew no complaint. The rule that should have caught this defect
-existed the whole time and had never been able to fire. This module is what makes
-it real.
+Nothing checked either direction, and the claim that *should* have covered one of
+them has never been able to fire. ``planner.train.registry`` asserts, at
+``disposition: strict``, that "every registry entry MUST have a corresponding spec
+file" — but its ``implementation.ref`` names the Y003 sweep's convention variant
+``conventions/resolution/test_train_validation``, which instantiates
+``direct_reference_resolution`` and checks that a train's participant references
+resolve to existing wagons. It never reads a path. The reverse-coherence binder
+exempts convention-variant refs from the ``bind_rule`` callsite requirement, so
+the gap drew no complaint.
 
-Measured before writing it, by injecting each residue into the real corpus and
+That node is *not* repointed here. ``SWEPT_RULE_TO_VARIANT`` in the Y003 guard
+pins it to a ``conventions/`` variant deliberately, so its ref is the sweep's
+decision, not an oversight to undo from a planner validator. The invariant is
+therefore enforced under its own id, ``planner.train.registry-coherence``, and
+closing the gap on the swept node stays with the conventions-sweep owners — see
+that node's ``notes``.
+
+Measured before writing this, by injecting each residue into the real corpus and
 diffing against the clean baseline of 449 passed:
 
 * a registry row naming an absent document → **not reported**. Worse than
@@ -48,7 +55,7 @@ import yaml
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.rule_binding import bind_rule
 
-_RULE_ID = "planner.train.registry"
+_RULE_ID = "planner.train.registry-coherence"
 _RULE = bind_rule(_RULE_ID)
 _NODES_DIR = "src/atdd/planner/conventions/nodes"
 
@@ -287,10 +294,13 @@ def test_every_emitted_evidence_key_is_declared_by_the_convention_node(tmp_path)
 
 
 @pytest.mark.platform
-def test_the_node_binds_this_module_rather_than_a_reference_resolver():
-    """#1942's root cause, guarded: the node claimed a spec file must exist but
-    pointed at a train→wagon reference resolver, and the binding gate exempts
-    convention-variant refs from the bind_rule check, so nothing complained.
+def test_the_node_binds_this_module_and_not_a_reference_resolver():
+    """#1942's root cause, guarded on the node that owns the claim.
+
+    ``planner.train.registry`` went inert because its ref named a variant that
+    resolves references instead of reading paths, and nothing noticed. This rule
+    must not repeat it: its ref has to name THIS module, whose live test actually
+    stats the files.
     """
     node = find_repo_root() / _NODES_DIR / f"{_RULE_ID}.convention.yaml"
     doc = yaml.safe_load(node.read_text(encoding="utf-8"))
@@ -298,6 +308,6 @@ def test_the_node_binds_this_module_rather_than_a_reference_resolver():
 
     assert ref.startswith("test_train_registry_coherence::"), (
         f"{_RULE_ID} names {ref!r}, which does not resolve to this module; the "
-        "rule's existence claim would be inert again"
+        "rule's existence claim would be inert, exactly as its predecessor's was"
     )
     assert _RULE.rule_id == _RULE_ID
