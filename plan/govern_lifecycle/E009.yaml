@@ -100,8 +100,11 @@ acceptances:
     wagon: govern-lifecycle
   signal:
     logs:
-    - coach.pr.runtime-artifacts-blocked error log carrying rule_id and the offending
-      path
+    - body: 'coach.pr.runtime-artifacts-blocked: per-run artifact in PR diff: {path}'
+      severity: error
+      attributes:
+        rule_id: coach.pr.runtime-artifacts-blocked
+        path: the offending path
   then:
     abstract:
     - "First call returns exactly one Violation naming the rule \u2014 the per-run\
@@ -136,8 +139,11 @@ acceptances:
     wagon: govern-lifecycle
   signal:
     logs:
-    - coach.pr.runtime-artifacts-blocked error log carrying rule_id and the offending
-      path
+    - body: 'coach.pr.runtime-artifacts-blocked: per-run artifact in PR diff: {path}'
+      severity: error
+      attributes:
+        rule_id: coach.pr.runtime-artifacts-blocked
+        path: the offending path
   then:
     abstract:
     - Both repos carry the validation-receipt ignore entry
@@ -168,8 +174,11 @@ acceptances:
     wagon: govern-lifecycle
   signal:
     logs:
-    - coach.pr.runtime-artifacts-blocked error log carrying rule_id and the offending
-      path
+    - body: 'coach.pr.runtime-artifacts-blocked: per-run artifact in PR diff: {path}'
+      severity: error
+      attributes:
+        rule_id: coach.pr.runtime-artifacts-blocked
+        path: the offending path
   then:
     abstract:
     - A per-phase validation receipt is ignored
@@ -198,8 +207,11 @@ acceptances:
     wagon: govern-lifecycle
   signal:
     logs:
-    - coach.pr.runtime-artifacts-blocked error log carrying rule_id and the offending
-      path
+    - body: 'coach.pr.runtime-artifacts-blocked: per-run artifact in PR diff: {path}'
+      severity: error
+      attributes:
+        rule_id: coach.pr.runtime-artifacts-blocked
+        path: the offending path
   then:
     abstract:
     - The receipts are present on disk, so local use is unaffected
