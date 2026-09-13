@@ -20,9 +20,12 @@ from pathlib import Path
 from datetime import datetime
 from collections import defaultdict
 from typing import Dict, List, Any
+import logging
 
 from atdd.coach.utils.config import load_atdd_config
 from atdd.coach.utils.theme_map import get_theme_map
+
+_log = logging.getLogger(__name__)
 
 
 class RepositoryInventory:
@@ -385,7 +388,11 @@ class RepositoryInventory:
                 "by_theme": dict(by_theme),
                 "source": "registry"
             }
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except Exception as exc:
+            _log.warning(
+                "_scan_telemetry_from_registry: Exception handled, returning an empty result",
+                extra={"error": str(exc)[:200]},
+            )
             return {"total": 0, "by_theme": {}, "source": "error"}
 
     def count_test_cases_in_file(self, test_file: Path) -> int:
@@ -398,7 +405,11 @@ class RepositoryInventory:
                 pattern = r'^\s*(?:async\s+)?def\s+test_\w+'
                 matches = re.findall(pattern, content, re.MULTILINE)
                 return len(matches)
-        except:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except:
+            _log.warning(
+                "count_test_cases_in_file: exception handled, reporting success to the caller",
+                extra={"error": "unbound (bare except)"},
+            )
             return 0
 
     def scan_tests(self) -> Dict[str, Any]:

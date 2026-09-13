@@ -16,6 +16,9 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+import logging
+
+_log = logging.getLogger(__name__)
 
 VALID_PHASES = (
     "INIT", "PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR", "COMPLETE", "BLOCKED",
@@ -36,8 +39,12 @@ def _detect_last_commit() -> Optional[str]:
             capture_output=True, text=True, check=True,
         )
         return result.stdout.strip() or None
-    except (FileNotFoundError, subprocess.CalledProcessError):  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except (FileNotFoundError, subprocess.CalledProcessError) as exc:
         # Best-effort detection: git missing or not a repo → caller fills in None.
+        _log.warning(
+            "_detect_last_commit: (FileNotFoundError, subprocess.CalledProcessError) handled, returning None",
+            extra={"error": str(exc)[:200]},
+        )
         return None
 
 
@@ -48,8 +55,12 @@ def _detect_branch() -> Optional[str]:
             capture_output=True, text=True, check=True,
         )
         return result.stdout.strip() or None
-    except (FileNotFoundError, subprocess.CalledProcessError):  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except (FileNotFoundError, subprocess.CalledProcessError) as exc:
         # Best-effort detection: git missing or not a repo → caller fills in None.
+        _log.warning(
+            "_detect_branch: (FileNotFoundError, subprocess.CalledProcessError) handled, returning None",
+            extra={"error": str(exc)[:200]},
+        )
         return None
 
 
@@ -108,9 +119,13 @@ def read_worker_checkpoint(
         return None
     try:
         return json.loads(target.read_text())
-    except (OSError, json.JSONDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except (OSError, json.JSONDecodeError) as exc:
         # Corrupt or unreadable checkpoint → treat as "no checkpoint";
         # caller falls back to the plain renderer.
+        _log.warning(
+            "read_worker_checkpoint: (OSError, json.JSONDecodeError) handled, returning None",
+            extra={"error": str(exc)[:200]},
+        )
         return None
 
 
@@ -135,9 +150,13 @@ def run(
             last_commit=last_commit,
             root=root,
         )
-    except ValueError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except ValueError as exc:
         # User-facing CLI error: surfaced to stderr/stdout via print, return
         # non-zero so the shell sees the failure.
+        _log.debug(
+            "run: ValueError handled, reporting failure to the caller (exit 2)",
+            extra={"error": str(exc)[:200]},
+        )
         print(f"❌ {exc}")
         return 2
     print(f"✓ checkpoint written: {path}")

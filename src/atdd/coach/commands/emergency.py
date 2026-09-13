@@ -30,6 +30,9 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+import logging
+
+_log = logging.getLogger(__name__)
 
 
 def _find_repo_root(start: Path | None = None) -> Path | None:
@@ -46,7 +49,11 @@ def _find_repo_root(start: Path | None = None) -> Path | None:
             check=True,
         )
         return Path(result.stdout.strip())
-    except (subprocess.CalledProcessError, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+    except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+        _log.warning(
+            "_find_repo_root: (subprocess.CalledProcessError, FileNotFoundError) handled, returning None",
+            extra={"error": str(exc)[:200]},
+        )
         return None
 
 
@@ -143,7 +150,11 @@ def run_cli(argv: list[str]) -> int:
 
     try:
         cmd_emergency(reason=args.reason)
-    except ValueError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+    except ValueError as exc:
+        _log.debug(
+            "run_cli: ValueError handled, reporting failure to the caller (exit 1)",
+            extra={"error": str(exc)[:200]},
+        )
         print(f"ATDD: {exc}", file=sys.stderr)
         return 1
 

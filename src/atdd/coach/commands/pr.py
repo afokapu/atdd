@@ -44,7 +44,11 @@ def _store_session_entry(root, issue_number: int):
 
         with WorkItemReader(control_root=root) as reader:
             return reader.session_entry(issue_number)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+    except Exception as exc:
+        logger.warning(
+            "_store_session_entry: Exception handled, returning None",
+            extra={"error": str(exc)[:200]},
+        )
         return None
 
 
@@ -55,7 +59,11 @@ def _store_issue_number_for_slug(root, slug: str):
 
         with WorkItemReader(control_root=root) as reader:
             return reader.issue_number_for_slug(slug)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+    except Exception as exc:
+        logger.warning(
+            "_store_issue_number_for_slug: Exception handled, returning None",
+            extra={"error": str(exc)[:200]},
+        )
         return None
 
 
@@ -132,8 +140,11 @@ class PRManager:
                 branch = result.stdout.strip()
                 if branch and branch != "HEAD":
                     return branch
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
-            pass
+        except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+            logger.warning(
+                "_detect_branch: (subprocess.TimeoutExpired, FileNotFoundError) handled, continuing past the failure",
+                extra={"error": str(exc)[:200]},
+            )
         return None
 
     def _existing_pr_for_branch(self, branch: str) -> Optional[str]:
@@ -147,8 +158,11 @@ class PRManager:
             )
             if result.returncode == 0 and result.stdout.strip():
                 return result.stdout.strip()
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
-            pass
+        except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+            logger.warning(
+                "_existing_pr_for_branch: (subprocess.TimeoutExpired, FileNotFoundError) handled, continuing past the failure",
+                extra={"error": str(exc)[:200]},
+            )
         return None
 
     def pr_number_for_branch(self, branch: str) -> Optional[int]:
@@ -177,8 +191,11 @@ class PRManager:
             )
             if result.returncode == 0 and result.stdout.strip():
                 return result.stdout.strip()
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
-            pass
+        except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+            logger.warning(
+                "_merged_pr_for_branch: (subprocess.TimeoutExpired, FileNotFoundError) handled, continuing past the failure",
+                extra={"error": str(exc)[:200]},
+            )
         return None
 
     def _rev_count_past_default(self, default_branch: str) -> Optional[int]:
@@ -602,8 +619,11 @@ class PRManager:
             )
             if result.returncode == 0:
                 return result.stdout.strip().lower() == "true"
-        except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
-            pass
+        except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+            logger.warning(
+                "_check_auto_merge_enabled: (subprocess.TimeoutExpired, FileNotFoundError) handled, continuing past the failure",
+                extra={"error": str(exc)[:200]},
+            )
         return False
 
     def _enable_auto_merge(self, pr_url: str, strategy: str) -> bool:

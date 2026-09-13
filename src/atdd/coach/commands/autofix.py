@@ -16,8 +16,11 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 from typing import List, Optional, Tuple
+import logging
 
 from atdd.coach.utils.repo import find_repo_root
+
+_log = logging.getLogger(__name__)
 
 CLIENT_NAME = "GitHubClient"
 CLIENT_IMPORT = "from atdd.coach.github import GitHubClient"
@@ -67,12 +70,20 @@ def _rewrite_file(path: Path) -> Tuple[int, Optional[str]]:
     """
     try:
         source = path.read_text(encoding="utf-8")
-    except OSError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except OSError as exc:
+        _log.warning(
+            "_rewrite_file: OSError handled, returning an empty result",
+            extra={"error": str(exc)[:200]},
+        )
         return (0, f"skip {path}: {exc}")
 
     try:
         tree = ast.parse(source, filename=str(path))
-    except SyntaxError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except SyntaxError as exc:
+        _log.warning(
+            "_rewrite_file: SyntaxError handled, returning an empty result",
+            extra={"error": str(exc)[:200]},
+        )
         return (0, f"skip {path}: parse error ({exc})")
 
     offenders = _find_offending_classes(tree)

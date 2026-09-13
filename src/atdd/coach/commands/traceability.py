@@ -25,9 +25,12 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 from dataclasses import dataclass, field
 from collections import defaultdict
+import logging
 
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.config import resolve_code_root
+
+_log = logging.getLogger(__name__)
 
 
 # Path constants
@@ -585,7 +588,11 @@ class ManifestParser:
         try:
             with open(manifest_path, 'r', encoding='utf-8') as f:
                 return yaml.safe_load(f)
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except Exception as exc:
+            _log.warning(
+                "parse_manifest: Exception handled, returning None",
+                extra={"error": str(exc)[:200]},
+            )
             return None
 
     def parse_produce_items(self, manifest_data: Dict) -> List[ProduceItem]:
@@ -663,7 +670,11 @@ class AcceptanceParser:
         try:
             with open(acceptance_file, 'r', encoding='utf-8') as f:
                 data = yaml.safe_load(f)
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except Exception as exc:
+            _log.warning(
+                "parse_acceptance_file: Exception handled, continuing past the failure",
+                extra={"error": str(exc)[:200]},
+            )
             return signals
 
         wagon = data.get('metadata', {}).get('wagon', 'unknown')
@@ -840,7 +851,11 @@ class FeatureFinder:
         try:
             with open(feature_path, 'r', encoding='utf-8') as f:
                 data = yaml.safe_load(f)
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except Exception as exc:
+            _log.warning(
+                "parse_feature_file: Exception handled, returning None",
+                extra={"error": str(exc)[:200]},
+            )
             return None
 
         if not isinstance(data, dict):
@@ -1063,7 +1078,11 @@ class PythonDTOFinder:
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except Exception as exc:
+            _log.warning(
+                "_parse_dto_file: Exception handled, returning None",
+                extra={"error": str(exc)[:200]},
+            )
             return None
 
         # Try primary pattern: # urn: contract:...
@@ -1197,7 +1216,11 @@ class TypeScriptDTOFinder:
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except Exception as exc:
+            _log.warning(
+                "_parse_ts_file: Exception handled, continuing past the failure",
+                extra={"error": str(exc)[:200]},
+            )
             return implementations
 
         # Find all exported interfaces/types
@@ -3312,7 +3335,11 @@ class YAMLUpdater:
 
             return True
 
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except Exception as exc:
+            _log.warning(
+                "update_yaml_field: Exception handled, reporting false",
+                extra={"error": str(exc)[:200]},
+            )
             return False
 
 
@@ -3753,8 +3780,11 @@ class WMBTAcceptanceParser:
 
                 wagon_wmbts[wagon_name] = sorted(set(wmbts))
 
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
-            pass
+        except Exception as exc:
+            _log.warning(
+                "extract_wmbt_codes_from_wagons_yaml: Exception handled, continuing past the failure",
+                extra={"error": str(exc)[:200]},
+            )
 
         return wagon_wmbts
 
@@ -3797,8 +3827,11 @@ class WMBTAcceptanceParser:
                                 if self.WMBT_PATTERN.match(key):
                                     wmbts.append(key)
 
-            except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
-                pass
+            except Exception as exc:
+                _log.warning(
+                    "extract_wmbt_codes_from_wagon_dir: Exception handled, continuing past the failure",
+                    extra={"error": str(exc)[:200]},
+                )
 
         return sorted(set(wmbts))
 

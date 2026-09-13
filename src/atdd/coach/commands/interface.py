@@ -20,8 +20,11 @@ import yaml
 import json
 from jsonschema import Draft7Validator
 from dataclasses import dataclass, field
+import logging
 
 from atdd.coach.utils.repo import find_repo_root
+
+_log = logging.getLogger(__name__)
 
 REPO_ROOT = find_repo_root()
 PLAN_DIR = REPO_ROOT / "plan"
@@ -199,8 +202,11 @@ class ProducerValidator:
                 with open(wagon_file) as f:
                     wagon_data = yaml.safe_load(f)
                     return wagon_data.get("theme", "unknown")
-            except:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
-                pass
+            except:
+                _log.warning(
+                    "_get_wagon_theme: exception handled, continuing past the failure",
+                    extra={"error": "unbound (bare except)"},
+                )
 
         return "unknown"
 

@@ -16,6 +16,9 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Optional
+import logging
+
+_log = logging.getLogger(__name__)
 
 __all__ = ["run_relocate"]
 
@@ -62,7 +65,11 @@ def run_relocate(
 
     try:
         repo_root = find_worktree_root(worktree)
-    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except Exception as exc:
+        _log.warning(
+            "run_relocate: Exception handled, reporting failure to the caller (exit 1)",
+            extra={"error": str(exc)[:200]},
+        )
         if quiet:
             return 0
         print(f"Error: {exc}")
@@ -92,9 +99,13 @@ def run_relocate(
     # it is the one value this command decides.
     try:
         moved = relocate_worktree(repo_root, offer.slug, offer.destination)
-    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except Exception as exc:
         # The move is transactional — a failed store write rolls the git move
         # back — so there is nothing half-applied to report or clean up here.
+        _log.warning(
+            "run_relocate: Exception handled, reporting failure to the caller (exit 1)",
+            extra={"error": str(exc)[:200]},
+        )
         print(f"\nError: relocation failed, nothing was changed: {exc}")
         return 1
 

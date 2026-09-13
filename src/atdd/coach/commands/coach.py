@@ -887,8 +887,11 @@ def _try_emit_telemetry(issue: int, from_phase: Phase, to_phase: Phase) -> None:
     try:
         from atdd.coach.telemetry import emit_phase_transition  # type: ignore[import]
         emit_phase_transition(issue, from_phase, to_phase)
-    except (ImportError, Exception):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-01
-        pass
+    except (ImportError, Exception) as exc:
+        _logger.warning(
+            "_try_emit_telemetry: (ImportError, Exception) handled, continuing past the failure",
+            extra={"error": str(exc)[:200]},
+        )
 
 
 def _make_phase_transition_record(
@@ -995,7 +998,11 @@ def run(
         if plan:
             try:
                 waves = compute_waves(plan)
-            except ValueError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+            except ValueError as exc:
+                _logger.debug(
+                    "run: ValueError handled, reporting failure to the caller (exit 2)",
+                    extra={"error": str(exc)[:200]},
+                )
                 print(f"❌ {exc}", file=sys.stderr)
                 return 2
             print(f"Wave plan: {len(waves)} wave(s)")

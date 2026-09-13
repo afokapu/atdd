@@ -17,6 +17,9 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
+import logging
+
+_log = logging.getLogger(__name__)
 
 TEMPLATE_PATH = Path(__file__).parent.parent / "templates" / "SESSION-LAUNCH-TEMPLATE.md"
 
@@ -176,11 +179,19 @@ def fetch_issue(issue_number: int) -> dict:
             capture_output=True,
             text=True,
         )
-    except (FileNotFoundError, subprocess.CalledProcessError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+        _log.warning(
+            "fetch_issue: (FileNotFoundError, subprocess.CalledProcessError) handled, returning an empty result",
+            extra={"error": str(exc)[:200]},
+        )
         return {}
     try:
         return json.loads(result.stdout)
-    except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except json.JSONDecodeError as exc:
+        _log.debug(
+            "fetch_issue: json.JSONDecodeError handled, returning an empty result",
+            extra={"error": str(exc)[:200]},
+        )
         return {}
 
 
@@ -202,9 +213,13 @@ def _derive_worktree_path(branch: str) -> str:
         prefix, slug = "feat", branch
     try:
         return str(resolve_worktree_path(find_repo_root(), prefix, slug))
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except Exception as exc:
         # Prompt rendering must not fail because a repo root is unresolvable;
         # fall back to the legacy relative form rather than emitting nothing.
+        _log.warning(
+            "_derive_worktree_path: Exception handled, continuing past the failure",
+            extra={"error": str(exc)[:200]},
+        )
         return f"../{branch.replace('/', '-')}"
 
 

@@ -13,6 +13,9 @@ import shutil
 import subprocess
 from pathlib import Path
 from typing import List, Optional, Set
+import logging
+
+_log = logging.getLogger(__name__)
 
 
 def _real_worktree_paths(repo_root: Path) -> Set[Path]:
@@ -23,7 +26,11 @@ def _real_worktree_paths(repo_root: Path) -> Set[Path]:
             capture_output=True, text=True, timeout=15,
             cwd=repo_root,
         )
-    except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+        _log.warning(
+            "_real_worktree_paths: (subprocess.TimeoutExpired, FileNotFoundError) handled, continuing past the failure",
+            extra={"error": str(exc)[:200]},
+        )
         return set()
 
     paths: Set[Path] = set()

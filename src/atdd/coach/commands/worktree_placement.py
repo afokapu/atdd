@@ -48,6 +48,9 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Union
+import logging
+
+_log = logging.getLogger(__name__)
 
 __all__ = [
     "DEFAULT_WORKTREE_ROOT",
@@ -462,5 +465,9 @@ def placement_drift_notice(cwd: Optional[Path] = None) -> Optional[str]:
             f"   config: {offer.destination}\n"
             f"   Move it with: atdd worktree relocate --apply"
         )
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except Exception as exc:
+        _log.warning(
+            "placement_drift_notice: Exception handled, returning None",
+            extra={"error": str(exc)[:200]},
+        )
         return None

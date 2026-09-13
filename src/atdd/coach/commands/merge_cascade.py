@@ -141,11 +141,19 @@ def attempt_pyproject_resolve(pr: int) -> bool:
 
     try:
         view = _run_gh(["pr", "view", str(pr), "--json", "headRefName,baseRefName"])
-    except subprocess.CalledProcessError:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except subprocess.CalledProcessError as exc1:
+        logger.warning(
+            "attempt_pyproject_resolve: subprocess.CalledProcessError handled, reporting false",
+            extra={"error": str(exc1)[:200]},
+        )
         return False
     try:
         meta = json.loads(view.stdout or "{}")
-    except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except json.JSONDecodeError as exc1:
+        logger.debug(
+            "attempt_pyproject_resolve: json.JSONDecodeError handled, reporting false",
+            extra={"error": str(exc1)[:200]},
+        )
         return False
     head = meta.get("headRefName")
     base = meta.get("baseRefName") or "main"
@@ -183,7 +191,11 @@ def attempt_pyproject_resolve(pr: int) -> bool:
             _git("commit", "--no-edit")
         _git("push", "origin", head)
         return True
-    except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except subprocess.CalledProcessError as exc:
+        logger.warning(
+            "attempt_pyproject_resolve: subprocess.CalledProcessError handled, reporting false",
+            extra={"error": str(exc)[:200]},
+        )
         print(
             f"⚠ pyproject auto-resolve failed for PR #{pr}: "
             f"{exc.cmd!r} → {(exc.stderr or '').strip()}",
@@ -204,11 +216,19 @@ def fetch_pr_files(pr: int) -> set[str]:
     """
     try:
         result = _run_gh(["pr", "view", str(pr), "--json", "files"])
-    except subprocess.CalledProcessError:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except subprocess.CalledProcessError as exc:
+        logger.warning(
+            "fetch_pr_files: subprocess.CalledProcessError handled, continuing past the failure",
+            extra={"error": str(exc)[:200]},
+        )
         return set()
     try:
         data = json.loads(result.stdout or "{}")
-    except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except json.JSONDecodeError as exc:
+        logger.debug(
+            "fetch_pr_files: json.JSONDecodeError handled, continuing past the failure",
+            extra={"error": str(exc)[:200]},
+        )
         return set()
     return {entry["path"] for entry in data.get("files") or [] if entry.get("path")}
 
@@ -236,7 +256,11 @@ def update_branch(pr: int) -> MergeResult:
     """Run `gh pr update-branch <pr>`. Returns conflict result if git says so."""
     try:
         _run_gh(["pr", "update-branch", str(pr)])
-    except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except subprocess.CalledProcessError as exc:
+        logger.warning(
+            "update_branch: subprocess.CalledProcessError handled, continuing past the failure",
+            extra={"error": str(exc)[:200]},
+        )
         stderr = (exc.stderr or "").lower()
         if "conflict" in stderr or "merge conflict" in stderr:
             return MergeResult(pr=pr, status="conflict", detail=exc.stderr.strip())
@@ -277,14 +301,22 @@ def fetch_ci_status(pr: int) -> tuple[str, str]:
         result = _run_gh([
             "pr", "checks", str(pr), "--required", "--json", _CI_CHECK_FIELDS,
         ])
-    except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except subprocess.CalledProcessError as exc:
+        logger.warning(
+            "fetch_ci_status: subprocess.CalledProcessError handled, returning an empty result",
+            extra={"error": str(exc)[:200]},
+        )
         stderr = (exc.stderr or "")
         if any(phrase in stderr.lower() for phrase in _BENIGN_STDERR_PHRASES):
             return "pass", "no required checks"
         return "error", stderr.strip()
     try:
         checks = json.loads(result.stdout or "[]")
-    except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except json.JSONDecodeError as exc1:
+        logger.debug(
+            "fetch_ci_status: json.JSONDecodeError handled, returning an empty result",
+            extra={"error": str(exc1)[:200]},
+        )
         return "error", f"unparseable gh output: {(result.stdout or '')[:200]}"
     if not checks:
         return "pass", "no required checks"
@@ -370,7 +402,11 @@ def _pr_is_merged(pr: int) -> bool:
 def merge_pr(pr: int) -> MergeResult:
     try:
         _run_gh(["pr", "merge", str(pr), "--squash", "--delete-branch"])
-    except subprocess.CalledProcessError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except subprocess.CalledProcessError as exc:
+        logger.warning(
+            "merge_pr: subprocess.CalledProcessError handled, continuing past the failure",
+            extra={"error": str(exc)[:200]},
+        )
         stderr = (exc.stderr or "").strip()
         # #1816: --delete-branch runs AFTER the merge. Ask whether the pull
         # request actually landed before calling this a conflict.
@@ -452,7 +488,11 @@ def run(
 ) -> int:
     try:
         order, files_by_pr = _resolve_order(pr_numbers)
-    except MergeCascadeCycleError as cyc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except MergeCascadeCycleError as cyc:
+        logger.warning(
+            "run: MergeCascadeCycleError handled, reporting failure to the caller (exit 1)",
+            extra={"error": str(cyc)[:200]},
+        )
         path_str = " → ".join(f"#{n}" for n in cyc.cycle_path)
         print(
             f"\n❌ cycle detected in merge cascade: {path_str}",
@@ -471,7 +511,11 @@ def run(
             timeout=timeout,
             auto=auto,
         )
-    except MergeHalt as halt:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except MergeHalt as halt:
+        logger.warning(
+            "run: MergeHalt handled, reporting failure to the caller (exit 1)",
+            extra={"error": str(halt)[:200]},
+        )
         r = halt.result
         print(f"\n❌ halted on PR #{r.pr} ({r.status}): {r.detail}", file=sys.stderr)
         return 1

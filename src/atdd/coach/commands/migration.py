@@ -17,9 +17,12 @@ import argparse
 import json
 from datetime import datetime
 from pathlib import Path
+import logging
 
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.config import resolve_stack_container
+
+_log = logging.getLogger(__name__)
 
 
 # Path constants
@@ -97,7 +100,11 @@ def contract_needs_migration(contract_path: Path) -> bool:
         # Rule 8: Fallback
         return False
 
-    except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except Exception as e:
+        _log.warning(
+            "contract_needs_migration: Exception handled, reporting true",
+            extra={"error": str(e)[:200]},
+        )
         print(f"Warning: Could not parse {contract_path}: {e}")
         return True  # Conservative: assume needs migration
 

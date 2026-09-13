@@ -20,6 +20,9 @@ import json
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
+import logging
+
+_log = logging.getLogger(__name__)
 
 
 # ============================================================================
@@ -213,7 +216,11 @@ class ManifestScanner:
                             consumers.append(contract_ref)
 
             return consumers
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except Exception as exc:
+            _log.warning(
+                "_extract_consumers: Exception handled, returning an empty result",
+                extra={"error": str(exc)[:200]},
+            )
             return []
 
 
@@ -264,7 +271,11 @@ class ContractScanner:
 
             metadata = data.get("x-artifact-metadata", {})
             return metadata.get("consumers", [])
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except Exception as exc:
+            _log.warning(
+                "_extract_consumers: Exception handled, returning an empty result",
+                extra={"error": str(exc)[:200]},
+            )
             return []
 
     @staticmethod
@@ -275,7 +286,11 @@ class ContractScanner:
                 data = json.load(f)
 
             return data.get("$id")
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except Exception as exc:
+            _log.warning(
+                "_extract_contract_id: Exception handled, returning None",
+                extra={"error": str(exc)[:200]},
+            )
             return None
 
 
@@ -305,7 +320,11 @@ class FileUpdater:
                 yaml.dump(data, f, default_flow_style=False, sort_keys=False)
 
             return True
-        except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except Exception as e:
+            _log.warning(
+                "update_manifest: Exception handled, reporting false",
+                extra={"error": str(e)[:200]},
+            )
             print(f"Error updating manifest {manifest_path}: {e}")
             return False
 
@@ -331,7 +350,11 @@ class FileUpdater:
                 json.dump(data, f, indent=2)
 
             return True
-        except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except Exception as e:
+            _log.warning(
+                "update_contract: Exception handled, reporting false",
+                extra={"error": str(e)[:200]},
+            )
             print(f"Error updating contract {contract_path}: {e}")
             return False
 
@@ -353,7 +376,11 @@ class FileUpdater:
                 json.dump(data, f, indent=2)
 
             return True
-        except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except Exception as e:
+            _log.warning(
+                "remove_contract_consumer: Exception handled, reporting false",
+                extra={"error": str(e)[:200]},
+            )
             print(f"Error removing consumer from contract {contract_path}: {e}")
             return False
 

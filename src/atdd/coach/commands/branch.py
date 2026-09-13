@@ -59,7 +59,11 @@ def _store_session_entry(root, issue_number: int):
 
         with WorkItemReader(control_root=root) as reader:
             return reader.session_entry(issue_number)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+    except Exception as exc:
+        logger.warning(
+            "_store_session_entry: Exception handled, returning None",
+            extra={"error": str(exc)[:200]},
+        )
         return None
 
 
@@ -119,8 +123,11 @@ class BranchManager:
             gh_title = issue_data.get("title", "")
             if gh_title:
                 pr_title = f"{gh_title} (#{issue_number})"
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
-            pass  # Fall back to slug-based title
+        except Exception as exc:
+            logger.warning(
+                "_create_draft_pr: Exception handled, continuing past the failure",
+                extra={"error": str(exc)[:200]},
+            )
 
         pr_body = f"Closes #{issue_number}\n\n---\nDraft PR created by `atdd branch`."
 
@@ -306,7 +313,11 @@ class BranchManager:
 
         try:
             data = json.loads(result.stdout)
-        except (json.JSONDecodeError, ValueError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-19
+        except (json.JSONDecodeError, ValueError) as exc1:
+            logger.debug(
+                "_backfill_from_github: (json.JSONDecodeError, ValueError) handled, returning None",
+                extra={"error": str(exc1)[:200]},
+            )
             return None
 
         # Derive slug from title: strip leading "feat(atdd): " or similar prefix

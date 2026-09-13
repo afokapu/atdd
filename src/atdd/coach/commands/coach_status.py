@@ -14,6 +14,9 @@ import argparse
 import sys
 from pathlib import Path
 from typing import Optional
+import logging
+
+_log = logging.getLogger(__name__)
 
 
 def _build_status_parser() -> argparse.ArgumentParser:
@@ -144,7 +147,11 @@ def run_status(
                 if rc != 0:
                     return rc
                 time.sleep(2)
-        except KeyboardInterrupt:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+        except KeyboardInterrupt as exc:
+            _log.warning(
+                "run_status: KeyboardInterrupt handled, reporting success to the caller",
+                extra={"error": str(exc)[:200]},
+            )
             return 0
 
     rc, output = _render_once()

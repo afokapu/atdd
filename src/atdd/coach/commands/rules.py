@@ -49,6 +49,7 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 from typing import Iterable, List, Optional
+import logging
 
 from atdd.coach.utils.rule_binding import (
     AmbiguousRuleError,
@@ -67,6 +68,8 @@ from atdd.coach.utils.suppression_scanner import (
     find_stale_suppressions,
     find_suppressions,
 )
+
+_log = logging.getLogger(__name__)
 
 
 # Per spec §5.7 — the disposition vocabulary is governed by
@@ -184,12 +187,16 @@ def _infer_module_path_str(archetype: str, module_basename: str) -> str:
         s = str(path)
         idx = s.find(marker)
         return s[idx:] if idx != -1 else s
-    except ValidatorResolutionError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+    except ValidatorResolutionError as exc:
         # Discovery surface, not a validator — the resolution miss is the
         # expected branch for `repo.*` archetypes whose dispatcher lives
         # outside ``src/atdd/<archetype>/validators/``. We render a
         # human-readable marker instead of swallowing silently; logging
         # would noise every legitimate repo-rule lookup.
+        _log.warning(
+            "_infer_module_path_str: ValidatorResolutionError handled, continuing past the failure",
+            extra={"error": str(exc)[:200]},
+        )
         return (
             f"src/atdd/{archetype}/validators/{module_basename}.py "
             f"(substrate dispatcher)"
@@ -209,13 +216,17 @@ def _resolve_callsites(meta: RuleMetadata) -> List[_Callsite]:
     archetype = _archetype_of(meta.rule_id)
     try:
         module_basename, _func = parse_validator_field(meta.validator)
-    except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+    except ValueError as exc:
         # Malformed validator field — surface the raw string with a
         # ``<malformed>`` marker so the operator can grep for it. This
         # is a discovery CLI; raising would crash the entire `where`
         # invocation when one rule has a typo'd validator field, and
         # the rule-binding validators (`test_rule_validator_binding`)
         # already enforce the format at validation time.
+        _log.debug(
+            "_resolve_callsites: ValueError handled, returning an empty result",
+            extra={"error": str(exc)[:200]},
+        )
         return [_Callsite(validator_field=meta.validator, module_path="<malformed>")]
     module_path = _infer_module_path_str(archetype, module_basename)
     return [_Callsite(validator_field=meta.validator, module_path=module_path)]
@@ -241,10 +252,18 @@ class RulesCommand:
         """
         try:
             meta = bind_rule(rule_id)
-        except RuleNotInRegistryError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except RuleNotInRegistryError as exc:
+            _log.warning(
+                "show: RuleNotInRegistryError handled, reporting failure to the caller (exit 1)",
+                extra={"error": str(exc)[:200]},
+            )
             print(f"Error: {exc}", file=sys.stderr)
             return 1
-        except AmbiguousRuleError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except AmbiguousRuleError as exc:
+            _log.warning(
+                "show: AmbiguousRuleError handled, reporting failure to the caller (exit 1)",
+                extra={"error": str(exc)[:200]},
+            )
             print(f"Error: {exc}", file=sys.stderr)
             return 1
 
@@ -279,10 +298,18 @@ class RulesCommand:
         """
         try:
             meta = bind_rule(rule_id)
-        except RuleNotInRegistryError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except RuleNotInRegistryError as exc:
+            _log.warning(
+                "where: RuleNotInRegistryError handled, reporting failure to the caller (exit 1)",
+                extra={"error": str(exc)[:200]},
+            )
             print(f"Error: {exc}", file=sys.stderr)
             return 1
-        except AmbiguousRuleError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except AmbiguousRuleError as exc:
+            _log.warning(
+                "where: AmbiguousRuleError handled, reporting failure to the caller (exit 1)",
+                extra={"error": str(exc)[:200]},
+            )
             print(f"Error: {exc}", file=sys.stderr)
             return 1
 
