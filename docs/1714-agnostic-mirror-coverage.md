@@ -135,6 +135,14 @@ The two signals are identical in the data, so no widening of the rule can separa
 from the node alone: a **retirement must be declared**, the same conclusion #1993 reaches
 for `evaluate_core_deletion`'s twinless branch. Both guards need the same missing fact.
 
+**Built — `wmbt:govern-registry:E004`.** `.atdd/retirements.yaml` declares the 18, read
+by `atdd.enforce.retirements`, honoured by `find_mirror_incoherences(..., retirements=)`.
+Real findings **35 → 17**, and every one of the 17 has `legacy_rule_id: None` — so the
+residual is the third state, not a smaller pile of the second. An absent ledger retires
+nothing and an entry with no `retired_in` is refused, so a rule is forgiven only by an
+explicit, evidence-bearing declaration. #1993 consumes the same reader for its guard
+rather than growing a second one.
+
 This is load-bearing for the program, not cosmetic. #1714 authors 89 new agnostic nodes
 and #1993 then deletes core's copies — which manufactures state 2 eighty-nine times over.
 Left as is, the gate goes from 35 red to roughly 124 red and can never return to green,
@@ -228,12 +236,14 @@ Two observations for the herd:
 
 ## Next, in lifecycle order
 
-1. ~~Adjudicate the 35 incoherences.~~ **Done** — 0 drift, see above. What remains is
-   not 35 investigations but one rule change: teach mirror coherence to accept a
-   **declared retirement**, so a completed carve-out and an extension-native obligation
-   both pass while a genuine rename still fails. Same missing fact #1993 needs for
-   `evaluate_core_deletion`, so the two should share one declaration rather than invent
-   two. Until then #1714's SMOKE exit is unreachable.
+1. ~~Adjudicate the 35 incoherences.~~ ~~Teach mirror coherence to accept a declared
+   retirement.~~ **Both done** — 0 drift, and E004's ledger closes the growing half
+   (35 → 17). What is left of this is the **17 extension-native nodes**: they declare no
+   `legacy_rule_id` because they never had a core ancestor, and E001's premise still
+   reads that as drift. Unlike the carve-out state, this set does **not grow** with the
+   program, so it is a cheap follow-up, not a blocker — declare `origin: extension-native`
+   on those nodes in `atdd-extensions`, or revise E001's premise. `test_e001_smoke_001`
+   stays red until one of those happens.
 2. ~~Create the planner artifacts #1714 names.~~ **Done** — re-homed onto
    `wmbt:govern-registry:E003` (the wagon already governs this relation; the train and
    feature #1714 names do not exist — correction 2). RED and GREEN landed:
