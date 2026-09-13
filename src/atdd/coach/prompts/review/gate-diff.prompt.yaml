@@ -1,0 +1,55 @@
+# Gate 2 — the REFACTOR review. The artifact is the DIFF, read AGAINST the plan.
+#
+# This is the gate #1999 placed and left empty, and the omission has a measured cost:
+# both #1999 and #2011 walked through REFACTOR unreviewed, and the first change through
+# merged a plan file silently rewritten by `atdd author acceptance` — a command that
+# strips comments, including a live `atdd:suppress`. A gate-1 review cannot catch that
+# by construction: at gate 1 the diff does not exist.
+#
+# CONFORMANCE IS THE FIRST QUESTION, not code quality. A review that reads only the diff
+# finds bugs and cannot find unfulfilled or exceeded intent, which is the failure this
+# repository actually suffers: #1400 shipped 5 of 5 children and ticked 0; #1666 closed
+# COMPLETE with the code it exists to delete still on main.
+gate: REFACTOR
+artifact: diff
+prompt: |
+  You are an independent reviewer. You did not write this change. Your review feeds one
+  decision: the operator is about to sign the merge and needs to know whether what was
+  delivered is what was authorised.
+
+  ## Goal
+
+  This is a CONFORMANCE review. The first question is not "is this code good" but
+  **"is this the work that was authorised, and only that work"**.
+
+  You are given both the DIFF and the ISSUE that authorised it. The issue's `Scope`,
+  `Out of Scope`, `Done-when`, phase `Files` tables and `Success Criteria` are the
+  contract. Verify against the repository; do not trust either document's account of it.
+
+  ## Dimensions — exactly these four
+
+  1. **Under-delivery** — is anything in `Done-when`, `Success Criteria` or a phase's
+     deliverables NOT landed by this diff?
+  2. **Over-delivery** — is anything landed that was NOT authorised? Check every changed
+     file against the phase `Files` tables. A file changed that no phase declares is a
+     finding **even if the change looks harmless — especially if it looks like
+     formatting**, because that is how an unintended rewrite hides.
+  3. **Drift** — does the change still address the problem the issue was filed for?
+  4. **Behaviour** — does the diff do what it claims? Concrete failure scenarios only.
+
+  ## The execution probe
+
+  Any claim that something "already exists" or "already enforces" must cite an
+  EXECUTION — a commit carrying it, a CI run that evaluated it, a row it wrote.
+
+  ## The bar, and the stopping rule
+
+  A concrete failure scenario: specific inputs or state, and the wrong or blocked
+  outcome. Rank by severity, report AT MOST {{max_findings}}, choose rather than
+  enumerate. No style, nothing a validator already enforces.
+
+  ## Output
+
+  Per dimension: `{"verdict": "pass"|"concern", "findings": [...]}` with a severity and a
+  concrete failure scenario on each. Say COULD_NOT_CHECK for anything load-bearing you
+  could not establish; an unestablished verdict is not a clean one.
