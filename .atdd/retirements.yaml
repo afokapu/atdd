@@ -1,0 +1,128 @@
+# Declared core-rule retirements (#1714 E004) — a LEDGER OF SANCTIONED DELETIONS,
+# not an exemption list.
+#
+# A core rule that leaves core on purpose, its obligation carried onward by an
+# extension node, leaves that node's source.legacy_rule_id naming a rule that is no
+# longer there. So does a STALE MIRROR whose core rule was merely renamed. The two
+# are identical in the data, so the difference cannot be read off the node — it is
+# declared here, keyed on the retired core rule_id.
+#
+# Rules:
+#   * an entry MUST name the issue that retired the rule (`retired_in`). A
+#     retirement with no evidence it was sanctioned cannot be told from one
+#     invented to silence a red gate.
+#   * `superseded_by` MUST be present. List the rule(s) now carrying the
+#     obligation, or [] to say the rule was withdrawn outright — omitting it
+#     cannot be told from forgetting it.
+#   * an ABSENT ledger retires nothing. Deleting this file does not green a gate.
+#   * never add an entry to quiet a finding you have not traced to a deliberate
+#     deletion. That is the silent drop the whole mechanism exists to prevent.
+#
+# Read by atdd.enforce.retirements; consumed by mirror coherence today and by the
+# succession guard once #1993 lands (its twinless branch needs this same fact).
+
+version: 1
+
+retirements:
+  coder.dead-code.reachability-typescript:
+    retired_in: "#1518"
+    commit: 47c4d414
+    superseded_by:
+      - coder.dead-code.reachability-typescript
+  coder.design.foundations:
+    retired_in: "#1518"
+    commit: 47c4d414
+    superseded_by:
+      - coder.design.foundations
+  coder.design.hierarchy-import:
+    retired_in: "#1518"
+    commit: 47c4d414
+    superseded_by:
+      - coder.design.hierarchy-import
+  coder.design.orphan-export:
+    retired_in: "#1518"
+    commit: 47c4d414
+    superseded_by:
+      - coder.design.orphan-export
+  coder.design.orphan-ui:
+    retired_in: "#1518"
+    commit: 47c4d414
+    superseded_by:
+      - coder.design.orphan-ui
+  coder.design.primitives:
+    retired_in: "#1518"
+    commit: 47c4d414
+    superseded_by:
+      - coder.design.primitives
+  coder.design.token-color:
+    retired_in: "#1518"
+    commit: 47c4d414
+    superseded_by:
+      - coder.design.token-color
+  coder.design.token-hardcoded:
+    retired_in: "#1518"
+    commit: 47c4d414
+    superseded_by:
+      - coder.design.token-hardcoded
+  coder.duplication.no-intra-layer-code-typescript:
+    retired_in: "#1518"
+    commit: 47c4d414
+    superseded_by:
+      - coder.duplication.no-intra-layer-code-typescript
+  coder.presentation.gsap-commons:
+    retired_in: "#1518"
+    commit: 47c4d414
+    superseded_by:
+      - coder.presentation.gsap-commons
+  coder.presentation.gsap-layer:
+    retired_in: "#1518"
+    commit: 47c4d414
+    superseded_by:
+      - coder.presentation.gsap-layer
+  coder.presentation.i18n-config:
+    retired_in: "#1518"
+    commit: 47c4d414
+    superseded_by:
+      - coder.presentation.i18n-config
+  coder.presentation.i18n-switcher:
+    retired_in: "#1518"
+    commit: 47c4d414
+    superseded_by:
+      - coder.presentation.i18n-switcher
+  coder.refactor.complexity-cyclomatic-typescript:
+    retired_in: "#1518"
+    commit: 47c4d414
+    superseded_by:
+      - coder.refactor.complexity-cyclomatic-typescript
+  coder.refactor.complexity-length-typescript:
+    retired_in: "#1518"
+    commit: 47c4d414
+    superseded_by:
+      - coder.refactor.complexity-length-typescript
+  coder.refactor.complexity-nesting-typescript:
+    retired_in: "#1518"
+    commit: 47c4d414
+    superseded_by:
+      - coder.refactor.complexity-nesting-typescript
+  coder.refactor.quality-comments-typescript:
+    retired_in: "#1518"
+    commit: 47c4d414
+    superseded_by:
+      - coder.refactor.quality-comments-typescript
+  coder.refactor.quality-mi-typescript:
+    retired_in: "#1518"
+    commit: 47c4d414
+    superseded_by:
+      - coder.refactor.quality-mi-typescript
+
+# Provenance for every entry above, all sharing one commit:
+#
+#   47c4d414 (2026-07-18) refactor(conventions): stop declaring TypeScript and
+#   frontend rule_ids in core — "18 TS rule blocks (complexity-*-typescript,
+#   quality-*-typescript, no-intra-layer-code-typescript, dead-code-typescript,
+#   design-system, gsap, i18n) -> atdd.extension.coder (strict) and vite-coder".
+#
+# Adjudicated 2026-09-13: every mirror finding carrying a legacy_rule_id traces to
+# that commit, 18 of 18, 0 unexplained. The findings that REMAIN after this ledger
+# are extension nodes declaring no legacy_rule_id at all — a different state, which
+# this ledger deliberately does not speak to.
