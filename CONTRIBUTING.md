@@ -65,5 +65,5 @@ rejected with a non-zero exit code.
 ## Releasing
 
 Every PR ends with a version bump in `pyproject.toml` and a
-`v{version}` tag on the merge commit. See `CLAUDE.md::release` for the
-end-to-end protocol.
+`v{version}` tag on the merge commit. See `docs/version-source-of-truth-design.md`
+for the end-to-end protocol.

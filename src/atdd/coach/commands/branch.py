@@ -9,7 +9,7 @@ Usage:
     atdd branch 69                        # Create worktree from issue #69
     atdd branch 69 --prefix fix           # Override prefix (default: from type)
 
-Convention: CLAUDE.md git.branching
+Convention: src/atdd/coach/conventions/issue.convention.yaml
 """
 import json
 import logging
@@ -107,7 +107,6 @@ class BranchManager:
                 f"        Commit your work, then run `atdd pr {issue_number}` "
                 f"to open the draft PR."
             )
-            print( "        See `CLAUDE.md::issues.commands.new` for lifecycle.")
             return
 
         # Fetch issue title for the PR title

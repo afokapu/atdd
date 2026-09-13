@@ -43,15 +43,14 @@ acceptances:
     given:
       abstract:
         - "src/atdd/coach/conventions/phase_machine.convention.yaml exists and parses as YAML"
-        - "The repo's CLAUDE.md (and the ATDD.md template it is generated from) are readable"
     when:
-      abstract: "the YAML is loaded and the CLAUDE.md / ATDD.md managed block is scanned for a state_machine.transitions mapping"
+      abstract: "the YAML is loaded and read as the sole declaration of the phase transition table"
     then:
       abstract:
         - "the YAML declares all nine phases INIT, PLANNED, RED, GREEN, SMOKE, REFACTOR, COMPLETE, BLOCKED, OBSOLETE"
         - "each phase carries an agent (persona or null) and a transitions_to list exactly matching §4.5"
         - "INIT carries pre_commit_gate 'atdd validate planner --local --skip-api'"
-        - "neither CLAUDE.md nor the ATDD.md template contains a state_machine.transitions mapping block"
+        - "no second declaration of state_machine.transitions exists — the agent-config projection that carried one was retired (#1811/#1812/#1941), so the YAML is the only source (#1979)"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-05-31"
