@@ -2,7 +2,7 @@
 # Acceptance: acc:govern-registry:C001-SMOKE-001-real-substrate-admits-every-id-exactly-once
 # WMBT: wmbt:govern-registry:C001
 # Phase: SMOKE
-# Layer: integration
+# Layer: smoke
 # Assertion: behavioral
 # RED: over the real substrate every one of the duplicated ids raises AmbiguousRuleError
 #      the moment .atdd/extensions enters the search roots.
