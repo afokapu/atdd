@@ -46,6 +46,20 @@ _PATTERNS: tuple[tuple[str, str, str, str], ...] = (
     ("could not resolve to an issue", ABSENT,
      "no issue or pull request with that number exists in this repository",
      "Check the number. `atdd coach issues open` lists what is there."),
+    # The REST spelling of the line above (#1989). `gh issue view` said "could
+    # not resolve to an issue"; `gh api repos/<repo>/issues/<n>` says
+    # "gh: Not Found (HTTP 404)". Without this the reads moved to REST would
+    # classify a missing issue as UNRECOGNISED — which is UNAVAILABLE, so the
+    # refusal would stop offering a remedy and start saying "treat it as
+    # unknown" about an issue GitHub had positively answered about.
+    #
+    # 404 is honest as ABSENT *on this path*: GitHub also returns 404 for a
+    # repository the credential cannot see, but every other call would be
+    # failing too in that case, and the alternative — never claiming absence
+    # over REST — loses the one distinction this module exists to draw.
+    ("not found (http 404)", ABSENT,
+     "no issue or pull request with that number exists in this repository",
+     "Check the number. `atdd coach issues open` lists what is there."),
     ("secondary rate limit", UNAVAILABLE,
      "GitHub applied a secondary rate limit, so it did not answer",
      "Wait a few minutes and retry. Nothing about the issue is known yet."),

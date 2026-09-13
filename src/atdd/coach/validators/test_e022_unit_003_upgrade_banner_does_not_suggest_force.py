@@ -33,28 +33,33 @@ def _get_banner_string() -> str:
     """Return the upgrade banner string from check_upgrade_sync_needed().
 
     We patch the internals so the function believes an upgrade happened
-    (last_version=3.0.0, current=3.1.0) without needing a real .atdd/config.yaml
+    (recorded=3.0.0, installed=3.1.0) without needing a real .atdd/config.yaml
     or filesystem state.
     """
     from atdd.version_check import check_upgrade_sync_needed  # noqa: PLC0415
 
     # Patch all gatekeepers so the function runs in a controlled environment:
-    #   __version__              → non-"0.0.0" so the dev-install early-return is skipped
-    #                              (CI uses PYTHONPATH=src without installing the package,
-    #                              so importlib.metadata raises PackageNotFoundError → "0.0.0")
-    #   _load_repo_config        → returns a fake config dict + path
-    #   _get_last_toolkit_version → returns an older version so upgrade is detected
-    #   _is_newer                → unconditionally True
-    fake_config = {"toolkit": {"last_version": "3.0.0"}}
+    #   __version__       → non-"0.0.0" so the dev-install early-return is skipped
+    #                       (CI uses PYTHONPATH=src without installing the package,
+    #                       so importlib.metadata raises PackageNotFoundError → "0.0.0")
+    #   _read_sync_record → the version this checkout last synced against
+    #   _load_repo_config → returns a fake config dict + path, so the repo reads
+    #                       as initialised
+    #   _is_newer         → unconditionally True
+    #
+    # #1989: this used to drive the banner through `_get_last_toolkit_version`,
+    # the git-tracked `toolkit.last_version`. That accessor is gone; the from-
+    # version comes from the untracked per-checkout record and nowhere else. The
+    # subject of this test is the banner TEXT, which is unchanged.
     with (
         patch("atdd.version_check.__version__", "3.1.0"),
         patch(
-            "atdd.version_check._load_repo_config",
-            return_value=(fake_config, None),
+            "atdd.version_check._read_sync_record",
+            return_value="3.0.0",
         ),
         patch(
-            "atdd.version_check._get_last_toolkit_version",
-            return_value="3.0.0",
+            "atdd.version_check._load_repo_config",
+            return_value=({}, None),
         ),
         patch(
             "atdd.version_check._is_newer",

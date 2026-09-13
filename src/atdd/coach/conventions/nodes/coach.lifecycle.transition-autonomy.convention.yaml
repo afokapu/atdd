@@ -10,21 +10,30 @@ statement: 'Each phase declares who may SUBMIT the transition out of it: `autono
   entered by operator decision and never left, so reopening one is a new work item rather than a
   phase change. This is the transition-axis twin of coach.execution.freedom-with-a-leash,
   which governs which TOOLS run unattended; together they describe one model on two axes — a curated freedom
-  set that proceeds without asking, and a leash of decisions that must surface. ATDD retains sole authority
-  over transition LEGALITY (transitions_to) and over the gates in atdd.coach.gate, so a permissive declaration
-  can at worst submit a command ATDD then rejects.'
+  set that proceeds without asking, and a leash of decisions that must surface. ATDD retains sole authority over transition
+  LEGALITY (transitions_to). It does NOT retain sole authority over the gates: since #1798
+  `atdd.coach.gate.approval_check.ApprovalTokenGateCheck` reads this key and reports NOT_APPLICABLE on any
+  edge whose FROM phase declares `autonomy: agent`, so a permissive declaration LIFTS the operator approval
+  token on that edge rather than producing a command ATDD then rejects. Declaring `agent` removes an operator
+  stop; that is the blast radius, and it is why the value is reviewed rather than merely recorded.'
 rationale: 'Before this axis the phase machine said who DRIVES a phase, which targets are LEGAL, and what
   must pass before commit — but nothing said who may submit the transition, so every worker stopped on the
   operator at every phase regardless of whether a human judgement was actually required. Declaring the axis
-  separates the stops an operator wants from the stops that are merely undeclared. It is deliberately declarative
-  first: nothing reads the key yet, which is what makes the bounded blast radius above true rather than aspirational.'
+  separates the stops an operator wants from the stops that are merely undeclared. It was authored declarative-first, when nothing
+  read the key. That is no longer true: #1798 made the approval gate consume it, so the axis now binds behaviour
+  and the statement above says which. What is STILL undeclared is mechanical enforcement of who may SUBMIT —
+  no check refuses a transition because the wrong actor submitted it — and that remains a separate concern
+  (#1626, #1619). Reading the key to decide whether a TOKEN is owed is not the same as enforcing who may submit.'
 notes: 'PROVENANCE: unlike its sibling, this node was authored ALONGSIDE the data it describes rather than
   extracted from pre-existing prose — the `source` block below records where the axis lives, not a passage
-  it was lifted from. INERTNESS: train/persistence.py::_phase_machine_from_data builds PhaseSpec from named
-  keys and _normalized_snapshot derives the conventions snapshot hash from PhaseSpec, so `autonomy` reaches
-  no field and moves no hash; no in-flight run resuming from a frozen conventions.snapshot.yaml is invalidated.
+  it was lifted from. INERTNESS, AND ITS LIMIT: the key is inert IN THE LOADER ONLY.
+  train/persistence.py::_phase_machine_from_data builds PhaseSpec from named keys and _normalized_snapshot
+  derives the conventions snapshot hash from PhaseSpec, so `autonomy` reaches no field and moves no hash; no in-flight run resuming from a frozen conventions.snapshot.yaml is invalidated.
   Projecting the axis onto PhaseSpec — which any mechanical submitter check will need — WILL move that hash,
-  and is a separate concern (see #1626, #1619).'
+  and is a separate concern (see #1626, #1619). Loader-inertness is NOT general inertness: the approval gate
+  reads the key at transition time without going through PhaseSpec, which is why D020-UNIT-004 can keep passing
+  while this node''s description of its own reach goes stale. C027 (#1981) binds the guard that resolves this
+  node''s claim against the gate''s actual behaviour and fails when they disagree in either direction.'
 source:
   legacy_path: src/atdd/coach/conventions/phase_machine.convention.yaml
   legacy_section: phases.autonomy
@@ -33,9 +42,14 @@ source:
   legacy_rule_id: coach.phase-machine
 metadata:
   severity: 3
-  # documentation-only (#1626): declarative first. The axis is declared and reviewable;
-  # mechanical enforcement of who may submit is a later, separate concern, so this node
-  # has no bound validator and needs no bind_rule callsite.
+  # documentation-only, on the TRUE ground (#1981). #1626 justified this value with
+  # "declarative first — nothing reads the key yet", which #1798 falsified: the approval
+  # gate reads it. The VALUE is still right, because `documentation-only` means this node
+  # declares no `validator:` back-reference and no bind_rule callsite — and it does not.
+  # That a runtime reads the KEY is a different fact from this NODE binding a validator,
+  # and conflating them is what C027 (#1981) first got wrong. Binding one would convert
+  # this principle into a rule with an implementation ref: a real change, deliberately out
+  # of scope here and left with enforcement of who may SUBMIT (#1626, #1619).
   disposition: documentation-only
   introduced_in: 4.27.0
 parity:
@@ -61,6 +75,8 @@ terms:
     than by the data; BLOCKED itself declares `autonomy: operator`, making an escape symmetric — an operator
     decision to enter, an operator decision to leave.'
 - term_id: legality_stays_with_atdd
-  text: 'autonomy governs who may SUBMIT, never what is LEGAL. transitions_to and the gate registry remain
-    the sole authority on whether a submitted transition is accepted, which bounds the risk of a permissive
-    declaration to a rejected command.'
+  text: 'autonomy governs who may SUBMIT, never what is LEGAL. transitions_to remains the sole authority on
+    whether a target is reachable, and no gate accepts a transition the machine forbids. It does NOT bound the
+    risk of a permissive declaration to a rejected command: ApprovalTokenGateCheck consults this key, so
+    declaring `agent` lifts the operator approval token on that edge (#1798). Legality is unaffected; the
+    operator stop is not.'
