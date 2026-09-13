@@ -332,10 +332,38 @@ def _walk_strings(node, path: Tuple[str, ...] = ()) -> Iterator[Tuple[Tuple[str,
         yield path, node
 
 
-def node_files(repo_root: Path) -> List[Path]:
-    """Every single-node convention file, at the settled measurement's scope."""
-    root = Path(repo_root) / "src" / "atdd"
-    return sorted(root.glob("*/conventions/nodes/*.convention.yaml"))
+def toolkit_package_dir() -> Path:
+    """The ``atdd`` package directory, resolved package-relatively.
+
+    NOT ``repo_root / "src" / "atdd"``. That join is a hardcoded toolkit layout
+    which `coder.code-roots.no-hardcoded-toolkit-root` refuses, and correctly:
+    the path does not exist once atdd is installed as a package, so the scan
+    would silently find zero nodes rather than fail.
+
+    This is not a retreat from Decision #3 (the rule reads the CHECKOUT). The
+    two roots are the same directory exactly when this rule runs:
+    ``is_atdd_source_repo()`` is true only when the package directory lies
+    INSIDE the repo root, and the validator is platform-gated on it. So
+    resolving package-relatively reads the checkout's own nodes here, and
+    degrades to the installed package's nodes anywhere else instead of to
+    nothing. ``atdd.__file__`` points at the package under both install shapes
+    (SPEC-COACH-PKG-LAYOUT-001, #367), which is why one root suffices.
+    """
+    import atdd
+
+    return Path(atdd.__file__).resolve().parent
+
+
+def node_files(repo_root: Optional[Path] = None) -> List[Path]:
+    """Every single-node convention file, at the settled measurement's scope.
+
+    *repo_root* is accepted and unused: node DISCOVERY is package-relative,
+    while path EXISTENCE resolves against the repo root. Keeping the parameter
+    makes that split visible at the call site rather than surprising.
+    """
+    return sorted(
+        toolkit_package_dir().glob("*/conventions/nodes/*.convention.yaml")
+    )
 
 
 def _retired_verb_findings(
