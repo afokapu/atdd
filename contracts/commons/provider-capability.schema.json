@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "commons:provider-capability",
   "title": "Provider implementation realization index",
-  "description": "Provider implementation realization index exchanged inside train 0007-enforce-extension-conventions.",
+  "description": "Provider implementation realization index exchanged inside train:extension-conventions:enforce-extension-conventions.",
   "version": "1.0.0",
   "type": "object",
   "properties": {

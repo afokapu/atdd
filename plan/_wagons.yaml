@@ -149,6 +149,9 @@ wagons:
     C015: minimize likelihood of lab-scaffold-strings-the-gate-cannot-read by emitting
       `## Lab` with its four subsections from an exported LAB_SCAFFOLD constant that
       the gate reads, leaving the emitted body schema-valid and template-compliant
+    E012: minimize likelihood of drift-guard-constants-restating-the-schema-by-hand
+      by deriving the helper's optional-section and required-subsection sets from
+      issue.schema.json, the way the production reader already does
     E011: minimize likelihood of a body-store-divergence for the documentation obligation,
       by projecting the stored declaration into the issue body in one direction only
       and never parsing the rendered row back

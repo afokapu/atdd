@@ -55,11 +55,57 @@ def test_the_default_gated_edge_needs_an_approval_and_an_ungated_one_does_not() 
 
 
 def test_config_moves_the_answer_without_a_code_change() -> None:
-    """The knob D019 exists to protect, read by the hint rather than restated."""
-    config = {"gate": {"transitions": {"PLANNED->RED": False, "SMOKE->REFACTOR": True}}}
+    """The knob D019 exists to protect, read by the hint rather than restated.
 
+    NARROWED BY #1999, and the narrowing is the point rather than a concession.
+    This test paired two assertions: config turning an edge OFF, and config turning
+    one ON. The first is D019's actual subject and is unchanged. The second used
+    ``SMOKE->REFACTOR``, and that pairing was only ever incidental — it was the edge
+    this repo happened to gate when the test was written.
+
+    ``SMOKE`` declares ``autonomy: agent``, so ``ApprovalTokenGateCheck`` returns
+    NOT_APPLICABLE on that edge and never reads a token. Config therefore CANNOT
+    make it demand one; ``gate.transitions`` lists it to run
+    ``SmokeExecutionGateCheck``, a different check of a different kind riding the
+    same edge. A hint that answered True there would be naming a command the gate
+    would ignore — which is exactly what it did, and what produced 95 of the 225
+    approval tokens on the operator's machine before #1999.
+
+    So the ON case moves to an edge where config is genuinely decisive. Of the five
+    candidate edges only two leave an `operator` phase — `PLANNED->RED` and
+    `REFACTOR->COMPLETE` — and `PLANNED->RED` is already the OFF case here, so
+    `REFACTOR->COMPLETE` is the one edge left that can demonstrate the knob at all.
+    D019's guarantee is intact and now stated where it can be shown; what is gone is
+    a claim the machine never honoured.
+
+    The config below is SYNTHETIC and local to this test. The repo's own
+    `.atdd/config.yaml` must NOT gate `REFACTOR->COMPLETE` — `atdd auto-phase` runs
+    that transition on a CI checkout with no token, so arming it there breaks every
+    post-merge advance (#1999 Decision 31, pinned by
+    `test_e050_unit_004_refactor_complete_stays_ungated`).
+    """
+    config = {
+        "gate": {"transitions": {"PLANNED->RED": False, "REFACTOR->COMPLETE": True}}
+    }
+
+    # OFF: the repo's default gated edge, turned off by config alone.
     assert approval_required_for(config, "PLANNED", "RED") is False
-    assert approval_required_for(config, "SMOKE", "REFACTOR") is True
+    # ON: an edge ungated by default, turned on by config alone. REFACTOR declares
+    # `autonomy: operator`, so nothing waives the token and config is decisive.
+    assert approval_required_for(config, "REFACTOR", "COMPLETE") is True
+
+
+def test_config_cannot_arm_an_edge_the_machine_waives() -> None:
+    """The boundary the test above stops at, asserted rather than left implied (#1999).
+
+    Config is the knob for WHETHER an edge is consulted; the phase machine decides
+    whether a token is owed once it is. Where they disagree the machine wins, because
+    it is what the gate itself reads — and a hint that disagreed with the gate is the
+    defect #1999 was filed for.
+    """
+    config = {"gate": {"transitions": {"SMOKE->REFACTOR": True}}}
+
+    assert approval_required_for(config, "SMOKE", "REFACTOR") is False
 
 
 def test_an_edge_the_approval_check_does_not_cover_is_never_claimed() -> None:

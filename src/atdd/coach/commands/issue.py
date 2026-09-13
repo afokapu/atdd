@@ -219,7 +219,7 @@ class IssueManager:
                 repo_root=self.target_dir,
                 allow_main=allow_main,
             )
-        except ManifestCommitError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except ManifestCommitError as exc:
             if strict:
                 # Issue registration must never report a silent success.
                 raise
@@ -259,7 +259,7 @@ class IssueManager:
             finally:
                 conn.close()
             return True
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+        except Exception as exc:
             logger.debug(
                 "State Store status write unavailable; manifest mirror still applies",
                 extra={"issue": issue_number, "status": status, "error": str(exc)},
@@ -296,7 +296,7 @@ class IssueManager:
             with WorkItemReader(control_root=self.target_dir) as reader:
                 value = getattr(reader, field)(issue_number)
             return str(value) if value else None
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+        except Exception as exc:
             logger.debug(
                 "State Store read unavailable; the issue resolves to nothing",
                 extra={"issue": issue_number, "field": field, "error": str(exc)},
@@ -311,7 +311,7 @@ class IssueManager:
             with WorkItemReader(control_root=self.target_dir) as reader:
                 entry = reader.session_entry(issue_number)
             return str(entry["slug"]) if entry and entry.get("slug") else None
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+        except Exception as exc:
             logger.debug(
                 "State Store read unavailable; the issue resolves to no slug",
                 extra={"issue": issue_number, "error": str(exc)},
@@ -379,7 +379,7 @@ class IssueManager:
                 verdict = _resolve_branch_in_store(StateStore(conn), branch)
             finally:
                 conn.close()
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+        except Exception as exc:
             logger.debug(
                 "branch-registration store read unavailable; nothing to check against",
                 extra={"branch": branch, "error": str(exc)},
@@ -417,7 +417,7 @@ class IssueManager:
             finally:
                 conn.close()
             return True
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+        except Exception as exc:
             logger.debug(
                 "State Store field write unavailable; manifest mirror still applies",
                 extra={"issue": issue_number, "fields": sorted(fields), "error": str(exc)},
@@ -812,7 +812,7 @@ class IssueManager:
             finally:
                 conn.close()
             return True
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+        except Exception as exc:
             logger.debug(
                 "State Store work-item create unavailable; manifest registration still applies",
                 extra={"issue": issue_number, "slug": slug, "error": str(exc)},
@@ -837,7 +837,8 @@ class IssueManager:
         try:
             client = self._get_github_client()
             issues = client.list_issues_by_label("atdd-issue")
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except (GitHubClientError, Exception) as e:
+            logger.warning("_list_github: (GitHubClientError, Exception) handled, reporting failure to the caller (exit 1)", extra={"error": str(e)[:200]})
             print(f"Error: {e}")
             return 1
 
@@ -909,7 +910,8 @@ class IssueManager:
             issues = client.list_open_issues(
                 label=label, limit=limit, assignee=assignee,
             )
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except (GitHubClientError, Exception) as e:
+            logger.warning("open_issues: (GitHubClientError, Exception) handled, reporting failure to the caller (exit 1)", extra={"error": str(e)[:200]})
             print(f"Error: {e}")
             return 1
 
@@ -953,14 +955,16 @@ class IssueManager:
 
         try:
             issue_number = int(issue_id)
-        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except ValueError as exc:
+            logger.debug("_archive_github: ValueError handled, reporting failure to the caller (exit 1)", extra={"error": str(exc)[:200]})
             print(f"Error: Invalid issue number '{issue_id}'")
             return 1
 
         try:
             client = self._get_github_client()
             issue = client.get_issue(issue_number)
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except (GitHubClientError, Exception) as e:
+            logger.warning("_archive_github: (GitHubClientError, Exception) handled, reporting failure to the caller (exit 1)", extra={"error": str(e)[:200]})
             print(f"Error: {e}")
             return 1
 
@@ -1318,10 +1322,12 @@ class IssueManager:
                 base_ref="origin/main",
                 head_ref="HEAD",
             )
-        except subprocess.CalledProcessError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except subprocess.CalledProcessError as exc1:
+            logger.warning("_check_smoke_evidence_gate: subprocess.CalledProcessError handled, returning an empty result", extra={"error": str(exc1)[:200]})
             messages.append("  Smoke gate: SKIPPED (origin/main unreachable)")
             return True, messages
-        except Exception as exc:  # noqa: BLE001 — fail-open on git breakage  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except Exception as exc:  # noqa: BLE001 — fail-open on git breakage  #
+            logger.warning("_check_smoke_evidence_gate: Exception handled, returning an empty result", extra={"error": str(exc)[:200]})
             messages.append(f"  Smoke gate: SKIPPED ({exc})")
             return True, messages
 
@@ -1710,7 +1716,8 @@ class IssueManager:
 
         try:
             issue_number = int(issue_id)
-        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except ValueError as exc:
+            logger.debug("_resolve_issue: ValueError handled, returning None", extra={"error": str(exc)[:200]})
             print(f"Error: Invalid issue number '{issue_id}'")
             return None
 
@@ -1720,7 +1727,8 @@ class IssueManager:
         try:
             client = self._get_github_client()
             issue = client.get_issue(issue_number)
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except (GitHubClientError, Exception) as e:
+            logger.warning("_resolve_issue: (GitHubClientError, Exception) handled, returning None", extra={"error": str(e)[:200]})
             print(f"Error: {e}")
             return None
 
@@ -2176,14 +2184,16 @@ class IssueManager:
 
         try:
             issue_number = int(issue_id)
-        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except ValueError as exc:
+            logger.debug("close_wmbt: ValueError handled, reporting failure to the caller (exit 1)", extra={"error": str(exc)[:200]})
             print(f"Error: Invalid issue number '{issue_id}'")
             return 1
 
         try:
             client = self._get_github_client()
             subs = client.get_sub_issues(issue_number)
-        except (GitHubClientError, Exception) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+        except (GitHubClientError, Exception) as e:
+            logger.warning("close_wmbt: (GitHubClientError, Exception) handled, reporting failure to the caller (exit 1)", extra={"error": str(e)[:200]})
             print(f"Error: {e}")
             return 1
 
@@ -2327,7 +2337,8 @@ class IssueManager:
 
         try:
             return json.loads(result.stdout) or []
-        except (json.JSONDecodeError, ValueError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-19
+        except (json.JSONDecodeError, ValueError) as exc:
+            logger.debug("_fetch_open_atdd_issues: (json.JSONDecodeError, ValueError) handled, returning None", extra={"error": str(exc)[:200]})
             print(f"Error: could not parse gh output: {exc}")
             return None
 
@@ -2342,7 +2353,7 @@ class IssueManager:
                     for entry in reader.all_work_items()
                     if entry.get("issue_number") is not None
                 }
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-19
+        except Exception as exc:
             logger.debug("reconcile: store read failed; treating store as empty",
                          extra={"error": str(exc)})
             return set()

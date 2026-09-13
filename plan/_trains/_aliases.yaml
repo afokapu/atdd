@@ -8,6 +8,10 @@ aliases:
   0003-author-substrate: substrate/author-artifacts
   0004-admit-substrate: substrate/admit-packages
   0005-bind-substrate: substrate/bind-runtime
-  0006-state-projection: object-conflict-resolution/project-state
-  0206-reconcile-dirty-store: object-conflict-resolution/reconcile-dirty-store
-  0306-resolve-object-conflict: object-conflict-resolution/resolve-object-conflict
+  0007-enforce-extension-conventions: extension-conventions/enforce-extension-conventions
+  0201-enforce-strict-failure: extension-conventions/enforce-strict-failure
+  0202-report-advisory-violation: extension-conventions/report-advisory-violation
+  0203-detect-unbound-declaration: extension-conventions/detect-unbound-declaration
+  0204-detect-succession-loss: extension-conventions/detect-succession-loss
+  0205-detect-unrealized-obligation: extension-conventions/detect-unrealized-obligation
+  0206-decommission-orphan-detector: extension-conventions/decommission-orphan-detector

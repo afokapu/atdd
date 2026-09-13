@@ -21,12 +21,15 @@ import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+import logging
 
 from atdd.coach.commands.session_template import (
     IssueContext,
     build_context,
     fetch_issue,
 )
+
+_log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -115,8 +118,8 @@ def _remove_worktree(worktree_path: Path) -> None:
             capture_output=True,
             text=True,
         )
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
-        pass
+    except Exception as exc:
+        _log.warning("_remove_worktree: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
 
 
 def build_plan(issue_numbers: list[int]) -> dict[int, PlannedIssue]:

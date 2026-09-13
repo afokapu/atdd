@@ -13,8 +13,11 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Optional
+import logging
 
 from atdd.coach.commands.event_queue import CoachEventQueue
+
+_log = logging.getLogger(__name__)
 
 
 class LivenessChecker:
@@ -73,14 +76,16 @@ class LivenessChecker:
             return (None, float("inf"))
         try:
             data = json.loads(hb.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+        except (OSError, json.JSONDecodeError) as exc:
+            _log.warning("_read_heartbeat_age: (OSError, json.JSONDecodeError) handled, returning an empty result", extra={"error": str(exc)[:200]})
             return (None, float("inf"))
         observed = data.get("observed_at")
         if not observed:
             return (None, float("inf"))
         try:
             ts = datetime.fromisoformat(observed.replace("Z", "+00:00"))
-        except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+        except ValueError as exc:
+            _log.debug("_read_heartbeat_age: ValueError handled, returning an empty result", extra={"error": str(exc)[:200]})
             return (observed, float("inf"))
         if ts.tzinfo is None:
             ts = ts.replace(tzinfo=timezone.utc)

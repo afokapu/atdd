@@ -15,8 +15,11 @@ import json
 import subprocess
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
+import logging
 
 from atdd.coach.utils.config import load_atdd_config
+
+_log = logging.getLogger(__name__)
 
 
 # =============================================================================
@@ -47,7 +50,8 @@ def load_token_alert_threshold(*, repo_root: Optional[Path] = None) -> int:
     base = Path(repo_root) if repo_root is not None else Path.cwd()
     try:
         config = load_atdd_config(base)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31  # best-effort: malformed config → default
+    except Exception as exc:    # # best-effort: malformed config → default
+        _log.warning("load_token_alert_threshold: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
         return DEFAULT_TOKEN_ALERT_THRESHOLD
     if not isinstance(config, dict):
         return DEFAULT_TOKEN_ALERT_THRESHOLD
@@ -89,14 +93,16 @@ def read_token_count(
             text=True,
             timeout=timeout,
         )
-    except (FileNotFoundError, subprocess.SubprocessError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31  # best-effort: missing binary or call error → None
+    except (FileNotFoundError, subprocess.SubprocessError) as exc:    # # best-effort: missing binary or call error → None
+        _log.warning("read_token_count: (FileNotFoundError, subprocess.SubprocessError) handled, returning None", extra={"error": str(exc)[:200]})
         return None
     if getattr(result, "returncode", 1) != 0:
         return None
     stdout = getattr(result, "stdout", "")
     try:
         payload = json.loads(stdout)
-    except (json.JSONDecodeError, TypeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31  # best-effort: unrecognized stdout shape → None
+    except (json.JSONDecodeError, TypeError) as exc:    # # best-effort: unrecognized stdout shape → None
+        _log.debug("read_token_count: (json.JSONDecodeError, TypeError) handled, returning None", extra={"error": str(exc)[:200]})
         return None
     if not isinstance(payload, dict):
         return None

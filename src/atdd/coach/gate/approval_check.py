@@ -99,6 +99,34 @@ def _declared_autonomy(from_phase: str) -> Optional[str]:
     return declared_autonomy(from_phase)
 
 
+def token_is_waived_for(from_phase: str) -> bool:
+    """Whether the machine hands edges OUT OF ``from_phase`` to the persona (#1999).
+
+    The one implementation of the waiver question, so the gate and the operator's
+    next-step hint cannot answer it differently. ``approval_required_for`` asked two
+    declarations and not this one, so for 95 tokens the hint prescribed a signature
+    the check then waived without consulting — the disagreement #1999 exists to end.
+
+    PURE and filesystem-free: it reads the phase machine, never a token, so the
+    read-only hint may call it. ``ApprovalTokenGateCheck._autonomy_waiver`` wraps it
+    to produce the ``NOT_APPLICABLE`` verdict and its operator-facing sentence.
+
+    FAIL-CLOSED, identically on both sides: an unreadable machine is reported and
+    treated as NOT waived. The moment the convention cannot be read is the moment to
+    keep the signature, which is the same reasoning ``phase_edges`` uses to refuse a
+    fallback phase list — and it matters more here, because a hint and a gate that
+    fail open in different directions is precisely the divergence being removed.
+    """
+    try:
+        return _declared_autonomy(from_phase) == _AGENT
+    except Exception as exc:  # noqa: BLE001 - reported, never swallowed
+        logger.warning(
+            "declared autonomy unreadable; keeping the approval gate",
+            extra={"from_phase": from_phase, "error": str(exc)},
+        )
+        return False
+
+
 @dataclass(frozen=True)
 class ApprovalTokenGateCheck:
     """Passes iff an operator-signed approval token exists for the transition."""
@@ -122,23 +150,12 @@ class ApprovalTokenGateCheck:
         declares who may submit, so read it rather than demanding a human where
         the convention does not.
 
-        Fail-closed: ONLY an exact `agent` waives the token. An unreadable
-        machine is reported and treated as unknown — the moment the convention
-        cannot be read is the moment to keep the gate shut, the same reasoning
-        `phase_edges` uses to refuse a fallback phase list.
+        The question itself lives in :func:`token_is_waived_for`, which the
+        operator's next-step hint also calls (#1999) — one implementation, so the
+        two cannot answer differently. This method only turns its answer into the
+        verdict and the sentence an operator reads.
         """
-        try:
-            autonomy = _declared_autonomy(ctx.from_phase)
-        except Exception as exc:  # noqa: BLE001 - reported below, never swallowed
-            logger.warning(
-                "declared autonomy unreadable; keeping the approval gate",
-                extra={"gate_id": self.gate_id, "rule_id": self.rule_id,
-                       "issue": ctx.issue_number, "edge": _edge(ctx),
-                       "from_phase": ctx.from_phase, "error": str(exc)},
-            )
-            return None
-
-        if autonomy != _AGENT:
+        if not token_is_waived_for(ctx.from_phase):
             return None
 
         return GateCheckResult.not_applicable(

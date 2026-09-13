@@ -27,10 +27,13 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, List, Optional, Sequence, Tuple
+import logging
 
 import yaml
 
 from atdd.coach.validators._violation import Violation
+
+_log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -46,8 +49,8 @@ def _build_scanner_registry() -> dict[str, Callable[[Path], Tuple[int, List[Viol
             scan_silent_swallows_python,
         )
         registry["coder.logging.coach-silent-swallow"] = scan_silent_swallows_python
-    except ImportError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2027-01-01
-        pass
+    except ImportError as exc:
+        _log.debug("_build_scanner_registry: ImportError handled, continuing past the failure", extra={"error": str(exc)[:200]})
     return registry
 
 
@@ -207,7 +210,8 @@ def check_orphaned_baseline_keys(repo_root: Path) -> List[str]:
 
     try:
         data = yaml.safe_load(coder_yaml.read_text(encoding="utf-8")) or {}
-    except (OSError, yaml.YAMLError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2027-01-01
+    except (OSError, yaml.YAMLError) as exc:
+        _log.warning("check_orphaned_baseline_keys: (OSError, yaml.YAMLError) handled, returning an empty result", extra={"error": str(exc)[:200]})
         return []
 
     warnings: List[str] = []

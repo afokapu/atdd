@@ -47,10 +47,28 @@ _CANDIDATE_TRANSITIONS = (
 def approval_required_for(config, from_phase: str, to_phase: str) -> bool:
     """Whether crossing ``from_phase -> to_phase`` needs ``atdd coach approve`` first.
 
-    The two declarations that decide it, asked together and asked of nothing
+    The THREE declarations that decide it, asked together and asked of nothing
     else: :data:`_CANDIDATE_TRANSITIONS` (which edges the approval check is
-    registered for) and :func:`~atdd.coach.gate.decision.is_transition_gated`
-    (which of those the repo's ``.atdd/config.yaml`` actually enforces).
+    registered for), :func:`~atdd.coach.gate.decision.is_transition_gated`
+    (which of those the repo's ``.atdd/config.yaml`` actually enforces), and the
+    phase machine's declared ``autonomy`` (whether the check, once run, would
+    WAIVE the token).
+
+    THE THIRD ONE WAS MISSING AND COST 95 SIGNATURES (#1999). This function was
+    written for #1750 against the two inputs decisive then, and its docstring said
+    it asked "of nothing else" — true when written. ``autonomy`` became a third
+    input in #1798, when :meth:`ApprovalTokenGateCheck._autonomy_waiver` began
+    returning ``NOT_APPLICABLE`` on an exact ``agent``, and this function was never
+    taught to ask it. The guidance and the enforcement then disagreed on a live
+    edge: the hint prescribed ``SMOKE->REFACTOR`` (``gate.transitions`` sets it, to
+    run :class:`SmokeExecutionGateCheck`) while the gate waived the token without
+    ever consulting it. Measured on the operator's machine on 2026-09-13: of 225
+    approval tokens, **95 are ``SMOKE->REFACTOR``** — this hint is their sole
+    producer, since nothing else tells an operator which edge to sign.
+
+    Asking the waiver is not the same as asking whether a token exists. This stays
+    PURE and filesystem-free: it reads the same declaration the check reads, and
+    answers "would a token be demanded here", never "is one present".
 
     Exists so a caller can DERIVE the operator's next command instead of
     restating it. ``atdd coach enter``'s next-step hint printed a bare
@@ -64,11 +82,17 @@ def approval_required_for(config, from_phase: str, to_phase: str) -> bool:
     a read-only surface can ask without the import-time side effect this module's
     header forbids.
     """
+    from atdd.coach.gate.approval_check import token_is_waived_for
     from atdd.coach.gate.decision import is_transition_gated
 
     if (from_phase, to_phase) not in _CANDIDATE_TRANSITIONS:
         return False
-    return is_transition_gated(config, from_phase, to_phase)
+    if not is_transition_gated(config, from_phase, to_phase):
+        return False
+    # Fail-closed, exactly as the check does: an unreadable phase machine keeps the
+    # signature rather than silently dropping it, so the two sides cannot diverge in
+    # the one moment neither can read the convention.
+    return not token_is_waived_for(from_phase)
 
 
 def register_approval_checks(registry=GATE_REGISTRY) -> None:

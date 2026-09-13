@@ -384,7 +384,7 @@ def scan_toolkit_path_strings(paths, repo_root: Optional[Path] = None) -> List[V
         try:
             text = path.read_text(encoding="utf-8")
             tree = ast.parse(text)
-        except (OSError, SyntaxError):  # atdd:suppress(coder.logging.coach-silent-swallow)
+        except (OSError, SyntaxError):
             continue
         if _module_has_platform_marker(tree):
             continue

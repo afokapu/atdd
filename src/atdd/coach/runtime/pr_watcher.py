@@ -41,6 +41,9 @@ import sys
 import time
 from dataclasses import dataclass, field
 from typing import Optional
+import logging
+
+_log = logging.getLogger(__name__)
 
 BUDGET_THRESHOLD = 500
 _BACKOFF_STEPS = [30, 60, 120]
@@ -119,7 +122,8 @@ class PRWatcher:
                 return None
             data = json.loads(r.stdout)
             return data["resources"]["graphql"]["remaining"]
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+        except Exception as exc:
+            _log.warning("_check_budget: Exception handled, returning None", extra={"error": str(exc)[:200]})
             return None
 
     def _run_pr_list(self, prs: list[int]) -> Optional[dict[int, str]]:

@@ -152,7 +152,7 @@ def _load_module_from_path(path: Path) -> Optional[ModuleType]:
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return module
-    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except Exception as exc:
         # Import-time errors in a metric module are policed by the #410
         # conformance rule (validation-time). The runner skips so it
         # doesn't double-fail; the warning is for operator visibility.
@@ -326,7 +326,7 @@ def collect_metric_violations(
 
         try:
             value = lookup.module.compute(repo_root)
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        except Exception as exc:
             _logger.warning(
                 "metric_runner: compute() raised for %s: %s",
                 meta.signal_metric, exc,

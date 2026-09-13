@@ -14,8 +14,11 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Iterable, Optional
+import logging
 
 from atdd.coach.commands.event_queue import CoachEventQueue
+
+_log = logging.getLogger(__name__)
 
 
 _TRAILER_RE = re.compile(r"^([A-Za-z][A-Za-z0-9-]*):\s*(.+)\s*$")
@@ -76,7 +79,8 @@ class GitWatcher:
                 ["git", "rev-parse", "HEAD"],
                 cwd=wt, capture_output=True, text=True, check=True,
             ).stdout.strip()
-        except (subprocess.CalledProcessError, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+        except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+            _log.warning("_scan_commits: (subprocess.CalledProcessError, FileNotFoundError) handled, reporting success to the caller", extra={"error": str(exc)[:200]})
             return 0
         prev = self._last_sha.get(wt)
         self._last_sha[wt] = sha
@@ -99,7 +103,8 @@ class GitWatcher:
                 ["git", "log", "-1", "--format=%an <%ae>", sha],
                 cwd=wt, capture_output=True, text=True, check=True,
             ).stdout.strip()
-        except (subprocess.CalledProcessError, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+        except (subprocess.CalledProcessError, FileNotFoundError) as exc:
+            _log.warning("_scan_commits: (subprocess.CalledProcessError, FileNotFoundError) handled, reporting success to the caller", extra={"error": str(exc)[:200]})
             return 0
         event = {
             "event_type": "commit_observed",
@@ -121,7 +126,8 @@ class GitWatcher:
             return 0
         try:
             state = self._gh_pr_view(wt)
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+        except Exception as exc:
+            _log.warning("_scan_pr_state: Exception handled, reporting success to the caller", extra={"error": str(exc)[:200]})
             return 0
         if state is None:
             return 0

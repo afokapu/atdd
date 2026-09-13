@@ -48,6 +48,9 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Union
+import logging
+
+_log = logging.getLogger(__name__)
 
 __all__ = [
     "DEFAULT_WORKTREE_ROOT",
@@ -93,7 +96,7 @@ def _config(repo_root: Path) -> dict:
     for candidate in _config_candidates(Path(repo_root)):
         try:
             config = load_atdd_config(candidate) or {}
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        except Exception:
             # An unreadable config yields the default placement, which is
             # today's behaviour. Raising here would break `worktree create` on
             # repos that never opted into configuring placement at all.
@@ -462,5 +465,6 @@ def placement_drift_notice(cwd: Optional[Path] = None) -> Optional[str]:
             f"   config: {offer.destination}\n"
             f"   Move it with: atdd worktree relocate --apply"
         )
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except Exception as exc:
+        _log.warning("placement_drift_notice: Exception handled, returning None", extra={"error": str(exc)[:200]})
         return None
