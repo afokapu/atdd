@@ -423,8 +423,8 @@ class ProjectInitializer:
         # zero-change snapshot for `--worktree-layout` on an already-flat repo),
         # and quietly turning it into a writer would redefine that contract.
         # `atdd sync` is the sanctioned refresh instead — it is the verb the
-        # upgrade banner names ("Run: atdd sync && atdd init") and the verb that
-        # stamps toolkit.last_version.
+        # upgrade banner names and the verb that writes this checkout's
+        # toolkit-sync record (#1641, #1989).
         if self.atdd_config_dir.exists() and not force:
             print(f"ATDD already initialized at {self.target_dir}")
             print("Use --force to reinitialize")
@@ -638,8 +638,15 @@ class ProjectInitializer:
 
         When force=True and config already exists, deep-merges defaults into
         the existing config — preserving user-set values (github.*,
-        customised release/sync settings) while filling in any
-        missing default keys and always updating toolkit.last_version.
+        customised release/sync settings) while filling in any missing default
+        keys.
+
+        It writes NO toolkit stamp (#1989). It used to seed and then
+        unconditionally rewrite ``toolkit.last_version`` here, into a file git
+        tracks — so the write was reverted by the next checkout unless someone
+        committed it, which is exactly how the value reached `3.106.0` and stayed
+        there (`87319e16`, 2026-06-09). The stamp is the untracked per-checkout
+        record (#1641), and ``atdd sync`` is its only writer.
 
         Args:
             force: If True, merge defaults into existing config instead of
@@ -649,13 +656,6 @@ class ProjectInitializer:
             print(f"Config already exists: {self.config_file}")
             return
 
-        # Get installed ATDD version
-        try:
-            from atdd import __version__
-            toolkit_version = __version__
-        except ImportError:
-            toolkit_version = "0.0.0"
-
         defaults = {
             "version": "1.0",
             "release": {
@@ -664,9 +664,6 @@ class ProjectInitializer:
             },
             "sync": {
                 "agents": ["claude"],
-            },
-            "toolkit": {
-                "last_version": toolkit_version,
             },
         }
 
@@ -684,9 +681,6 @@ class ProjectInitializer:
                 for sub_key, sub_value in value.items():
                     if sub_key not in existing[key]:
                         existing[key][sub_key] = sub_value
-
-        # Always update toolkit version to current
-        existing.setdefault("toolkit", {})["last_version"] = toolkit_version
 
         with open(self.config_file, "w") as f:
             yaml.dump(existing, f, default_flow_style=False, sort_keys=False)

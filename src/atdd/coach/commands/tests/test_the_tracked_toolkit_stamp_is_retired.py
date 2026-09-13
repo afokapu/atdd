@@ -60,15 +60,24 @@ def _config(repo: Path) -> dict:
 # --- the writer -------------------------------------------------------------
 
 def test_create_config_does_not_stamp_the_tracked_field(repo: Path) -> None:
-    """`atdd init --force` must leave the tracked file alone.
+    """`atdd init --force` must not move the stamp forward.
 
-    Today it rewrites the stamp to the installed version. The write is correct
-    and useless: it lands in a tracked file, so git reverts it — unless it is
-    committed, which is the mechanism that pinned the value in the first place.
+    Today it rewrites the field to the installed version. The write is correct
+    and useless: it lands in a file git tracks, so the next checkout reverts it —
+    unless someone commits it, which is the mechanism that pinned the value at
+    3.106.0 in the first place.
+
+    A value already in an operator's config is left exactly where it is. Deleting
+    it is not init's job (see `test_create_config_preserves_operator_values`), and
+    it is inert once nothing reads it — which is the rest of this change.
     """
+    from atdd import __version__
+
     ProjectInitializer(repo)._create_config(force=True)
 
-    assert "last_version" not in _config(repo).get("toolkit", {})
+    written = _config(repo)["toolkit"]["last_version"]
+    assert written == _PINNED, "init stamped the tracked field forward"
+    assert written != __version__
 
 
 def test_create_config_seeds_no_toolkit_block_in_a_fresh_repo(tmp_path: Path) -> None:

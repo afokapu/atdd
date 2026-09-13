@@ -21,7 +21,11 @@ import pytest
 
 
 def _seed_stale_repo(repo: Path) -> Path:
-    """Write a `.atdd/config.yaml` with a stale `toolkit.last_version`.
+    """Write an initialised `.atdd/config.yaml` with no toolkit-sync record.
+
+    That is what makes the banner fire: an ATDD repo owed a sync. It used to be
+    a stale `toolkit.last_version` in this tracked file, which #1989 retired —
+    the config now only has to exist, and the absent record supplies the drift.
 
     Returns the config path.
     """
@@ -31,8 +35,7 @@ def _seed_stale_repo(repo: Path) -> Path:
     config_path.write_text(
         textwrap.dedent(
             """\
-            toolkit:
-              last_version: 0.0.1
+            version: '1.0'
             """
         )
     )
@@ -139,19 +142,26 @@ def test_print_upgrade_sync_notice_silent_when_versions_match(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """When `toolkit.last_version` already matches installed, nothing happens.
+    """When the recorded sync already matches installed, nothing happens.
 
     No banner, no writes, no calls.
-    """
-    from atdd import __version__, version_check
 
-    # Seed config at the *current* installed version so no drift fires.
+    #1989: the match used to be against `toolkit.last_version` in the tracked
+    config. That field is gone; the toolkit-sync record is the only source, so
+    this seeds the record. The version is pinned for the same reason the sibling
+    test above pins it — `atdd.__version__` is dynamic (#1172) and resolves to
+    "0.0.0" in a clean checkout, which the check treats as a dev install and
+    stays silent for, which would pass this assertion for the wrong reason.
+    """
+    from atdd import version_check
+
     atdd_dir = tmp_path / ".atdd"
     atdd_dir.mkdir(parents=True, exist_ok=True)
-    (atdd_dir / "config.yaml").write_text(
-        f"toolkit:\n  last_version: {__version__}\n"
-    )
+    (atdd_dir / "config.yaml").write_text("version: '1.0'\n")
     monkeypatch.chdir(tmp_path)
+
+    monkeypatch.setattr(version_check, "__version__", "9.9.9")
+    version_check.record_toolkit_sync(tmp_path, version="9.9.9")
 
     with patch.object(version_check, "record_toolkit_sync", return_value=False) as mock_update:
         from atdd.coach.commands import sync as sync_module
