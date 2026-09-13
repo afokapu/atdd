@@ -24,6 +24,22 @@ import yaml
 logger = logging.getLogger(__name__)
 
 
+def _normalise_sub_issue(row: Dict[str, Any]) -> Dict[str, Any]:
+    """One REST sub-issue row in the shape callers already read (#1989).
+
+    The GraphQL form lowercased ``state`` "for REST parity" and flattened labels
+    to ``[{"name": ...}]``. REST already reports state lowercase and returns full
+    label objects, so only the label reduction is real work — but it is written
+    out rather than assumed, because the parity claim is the whole contract.
+    """
+    return {
+        "number": row.get("number"),
+        "title": row.get("title"),
+        "state": str(row.get("state") or "").lower(),
+        "labels": [{"name": lbl.get("name")} for lbl in (row.get("labels") or [])],
+    }
+
+
 def normalise_rest_issues(
     rows: List[Dict[str, Any]], *, fields: str,
 ) -> List[Dict[str, Any]]:
@@ -334,20 +350,37 @@ class GitHubClient:
         ])
 
     def add_label(self, issue_number: int, labels: List[str]) -> None:
-        """Add labels to an issue."""
-        self._run_gh([
-            "issue", "edit", str(issue_number),
-            "--repo", self.repo,
-            "--add-label", ",".join(labels),
-        ])
+        """Add labels to an issue, over REST.
+
+        `gh issue edit` is GraphQL-backed, so a phase transition could read its
+        issue and then fail to swap the label — leaving the store advanced and
+        GitHub not. See :meth:`get_issue` for the measurement.
+        """
+        args = ["api", f"repos/{self.repo}/issues/{issue_number}/labels"]
+        for label in labels:
+            args += ["-f", f"labels[]={label}"]
+        self._run_gh(args)
 
     def remove_label(self, issue_number: int, labels: List[str]) -> None:
-        """Remove labels from an issue."""
-        self._run_gh([
-            "issue", "edit", str(issue_number),
-            "--repo", self.repo,
-            "--remove-label", ",".join(labels),
-        ])
+        """Remove labels from an issue, over REST.
+
+        One DELETE per label — REST has no batch form. A label that is already
+        absent returns 404, which is the desired end state rather than an error,
+        so it is not raised.
+        """
+        for label in labels:
+            try:
+                self._run_gh([
+                    "api", "--method", "DELETE",
+                    f"repos/{self.repo}/issues/{issue_number}/labels/{label}",
+                ])
+            except GitHubClientError as exc:
+                if "404" not in str(exc) and "Label does not exist" not in str(exc):
+                    raise
+                logger.debug(
+                    "remove_label: label already absent",
+                    extra={"issue": issue_number, "label": label},
+                )
 
     # -------------------------------------------------------------------------
     # Sub-issues
@@ -369,69 +402,54 @@ class GitHubClient:
     ) -> Dict[int, List[Dict[str, Any]]]:
         """Batch-fetch sub-issues for all issues matching *label* and *state*.
 
-        Single paginated GraphQL query replaces N sequential REST calls to
-        ``get_sub_issues()``.  Requires the ``sub_issues`` GraphQL preview
-        header.
+        REST, not GraphQL (#1989). This was a paginated GraphQL crawl needing the
+        ``sub_issues`` preview header, and it was the LAST GraphQL call left in
+        the validator prefetch — #1930 had already moved the listing to REST.
+        One call failing took all five prefetch keys down with it (the prefetch
+        marks every key with the same exception), so an exhausted GraphQL bucket
+        reported twelve validators as COULD_NOT_CHECK even though their own data
+        had been fetched successfully over REST.
+
+        N+1 is avoided by the listing itself: REST's ``/issues`` rows carry
+        ``sub_issues_summary``, so a parent with no children is known to have
+        none without asking. Measured on this repository, 24 of 987 atdd-issues
+        have any sub-issue at all, so this is ~34 REST calls rather than 987 —
+        which matters because Actions' GITHUB_TOKEN is capped at 1000 REST
+        requests/hour/repo, and a naive per-parent fetch would trade one
+        exhausted bucket for another.
 
         Args:
             label: Filter parent issues by this label (e.g. ``"atdd-issue"``).
-            state: GitHub issue state filter — ``"OPEN"`` or ``"CLOSED"``.
+            state: Issue state filter — ``"OPEN"`` or ``"CLOSED"``.
 
         Returns:
             Dict mapping parent issue number to its list of sub-issue dicts.
             Sub-issue dicts contain ``number``, ``title``, ``state``, and
-            ``labels`` (normalised to lowercase state values for REST parity).
+            ``labels`` — the shape the GraphQL form returned, unchanged.
         """
-        owner, name = self.repo.split("/")
-        state_upper = state.upper()
-        result: Dict[int, List[Dict[str, Any]]] = {}
-        cursor = None
-        headers = {"GraphQL-Features": "sub_issues"}
+        from concurrent.futures import ThreadPoolExecutor
 
-        while True:
-            after = f', after: "{cursor}"' if cursor else ""
-            data = self._graphql(
-                f'{{ repository(owner:"{owner}", name:"{name}") {{ '
-                f'issues(first: 50, labels: ["{label}"], states: [{state_upper}]{after}) {{ '
-                f'pageInfo {{ hasNextPage endCursor }} '
-                f'nodes {{ '
-                f'number '
-                f'subIssues(first: 50) {{ nodes {{ '
-                f'number title state '
-                f'labels(first: 10) {{ nodes {{ name }} }} '
-                f'}} }} '
-                f'}} }} }} }}',
-                headers=headers,
-            )
-
-            repo_data = data["data"]["repository"]
-            for node in repo_data["issues"]["nodes"]:
-                parent_num = node["number"]
-                subs = []
-                for sub in node["subIssues"]["nodes"]:
-                    subs.append({
-                        "number": sub["number"],
-                        "title": sub["title"],
-                        "state": sub["state"].lower(),
-                        "labels": [{"name": l["name"]} for l in sub["labels"]["nodes"]],
-                    })
-                result[parent_num] = subs
-
-            page_info = repo_data["issues"]["pageInfo"]
-            if page_info["hasNextPage"]:
-                cursor = page_info["endCursor"]
-            else:
-                break
-
-        logger.debug(
-            "Fetched sub-issues for %d %s issues in batch", len(result), state_upper,
-            extra={"count": len(result), "state": state_upper},
+        parents = self._list_issues_complete(
+            [f"state={state.lower()}", f"labels={quote(label, safe='')}"],
+            "number,sub_issues_summary",
         )
-        return result
 
-    # -------------------------------------------------------------------------
-    # Labels
-    # -------------------------------------------------------------------------
+        result: Dict[int, List[Dict[str, Any]]] = {}
+        owed: List[int] = []
+        for parent in parents:
+            number = parent["number"]
+            summary = parent.get("sub_issues_summary") or {}
+            if summary.get("total", 0):
+                owed.append(number)
+            else:
+                result[number] = []
+
+        if owed:
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                for number, subs in zip(owed, pool.map(self.get_sub_issues, owed), strict=True):
+                    result[number] = [_normalise_sub_issue(row) for row in subs]
+
+        return result
 
     def ensure_label(self, name: str, color: str, description: str) -> None:
         """Create or update a label (idempotent)."""
@@ -450,8 +468,9 @@ class GitHubClient:
     def prefetch_validator_data(self) -> Dict[str, Any]:
         """Fetch all data needed by coach validators in minimal API calls.
 
-        Two parallel groups: one REST call set for issues, and two GraphQL
-        calls for sub-issues (which need a preview header).
+        Two parallel groups, both REST (#1989 moved the sub-issue half off
+        GraphQL). Each key carries its own outcome: a query that fails records
+        its exception against its own key instead of taking the others down.
 
         Returns dict with keys:
             issues, complete_issues, all_open_issues, sub_issues,
@@ -461,16 +480,31 @@ class GitHubClient:
 
         results: Dict[str, Any] = {}
 
+        def _record(key: str, fetch):
+            """Run one fetch and keep its OUTCOME against its OWN key.
+
+            Per-key, deliberately (#1989). A failure used to propagate out of this
+            method, and the caller marked all five keys with the same exception —
+            so one unavailable query reported twelve validators as COULD_NOT_CHECK
+            when only some of them had lost their data. An unestablished verdict
+            must be attributable to the query that was not established, or the
+            refusal says less than it knows.
+            """
+            try:
+                results[key] = fetch()
+            except Exception as exc:  # recorded here, re-raised by the fixture that reads the key
+                results[key] = exc
+
         def _fetch_issues():
             """Fetch open atdd-issue, complete, and unfiltered-open issues via REST."""
-            results["issues"] = self.list_issues_by_label("atdd-issue")
-            results["complete_issues"] = self.list_issues_by_label("atdd:COMPLETE")
-            results["all_open_issues"] = self.list_all_open_issues()
+            _record("issues", lambda: self.list_issues_by_label("atdd-issue"))
+            _record("complete_issues", lambda: self.list_issues_by_label("atdd:COMPLETE"))
+            _record("all_open_issues", self.list_all_open_issues)
 
         def _fetch_sub_issues():
-            """Fetch open + closed sub-issues in two GraphQL calls (needs preview header)."""
-            results["sub_issues"] = self.get_all_sub_issues("atdd-issue", "OPEN")
-            results["closed_sub_issues"] = self.get_all_sub_issues("atdd-issue", "CLOSED")
+            """Fetch open + closed sub-issues over REST."""
+            _record("sub_issues", lambda: self.get_all_sub_issues("atdd-issue", "OPEN"))
+            _record("closed_sub_issues", lambda: self.get_all_sub_issues("atdd-issue", "CLOSED"))
 
         with ThreadPoolExecutor(max_workers=2) as pool:
             futures = [
@@ -602,13 +636,26 @@ class GitHubClient:
         return json.loads(output) if output else []
 
     def get_issue(self, issue_number: int) -> Dict[str, Any]:
-        """Get issue details."""
+        """Get issue details, over REST.
+
+        `gh issue view --json` is GraphQL-backed, and GraphQL is the bucket that
+        runs out: measured 2026-09-13, it refused every call with "rate limit
+        already exceeded" while REST reported 4644/5000 remaining. This read
+        gates every lifecycle transition, so an exhausted GraphQL bucket stalls
+        the whole ladder while the healthy transport sits idle. #1930/Y011 made
+        the same swap for `gh issue list`; `gh_failure.py` documents why.
+
+        REST reports `state` lowercase where the GraphQL projection reports it
+        upper, so it is normalised here — callers compare against "OPEN".
+        """
         output = self._run_gh([
-            "issue", "view", str(issue_number),
-            "--repo", self.repo,
-            "--json", "number,title,state,labels,body",
+            "api", f"repos/{self.repo}/issues/{issue_number}",
+            "--jq", "{number,title,state,labels,body}",
         ])
-        return json.loads(output)
+        issue = json.loads(output)
+        if isinstance(issue.get("state"), str):
+            issue["state"] = issue["state"].upper()
+        return issue
 
     def get_closing_merge_commit(self, issue_number: int) -> Optional[str]:
         """The SHA of the commit that merged the PR which closed this issue.

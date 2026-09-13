@@ -154,11 +154,15 @@ class IssueLifecycle:
         if result.returncode != 0:
             return self._record_query_failure(issue_number, result)
         try:
-            return json.loads(result.stdout)
+            issue = json.loads(result.stdout)
         except ValueError:
             context = self._malformed_log(issue_number, result.stdout)
             logger.warning("gh issue view returned unparseable output", extra=context)
             return self._record_malformed(result.stdout)
+        # REST says "open", the GraphQL projection says "OPEN". One vocabulary.
+        if isinstance(issue, dict) and isinstance(issue.get("state"), str):
+            issue["state"] = issue["state"].upper()
+        return issue
 
     def _run_issue_view(self, issue_number: int):
         """Run `gh issue view`, or record why it could not run at all.
@@ -170,8 +174,7 @@ class IssueLifecycle:
         """
         try:
             return subprocess.run(
-                ["gh", "issue", "view", str(issue_number),
-                 "--json", "number,title,state,labels,body"],
+                self._issue_view_argv(issue_number),
                 capture_output=True, text=True, timeout=15,
                 cwd=self.target_dir,
             )
@@ -189,6 +192,29 @@ class IssueLifecycle:
                 "the `gh` CLI is not installed or not on PATH, so nothing was asked",
                 "Install the GitHub CLI: https://cli.github.com",
             )
+
+    def _issue_view_argv(self, issue_number: int) -> list:
+        """REST when the repo slug is known, `gh issue view` otherwise.
+
+        `gh issue view --json` is GraphQL-backed, and the GraphQL bucket is the
+        one that runs out here: measured 2026-09-13, GraphQL was refusing every
+        call with "rate limit already exceeded" while REST reported 4644/5000
+        remaining. A lifecycle transition that cannot read its own issue is
+        refused, so the whole ladder stalls on the exhausted transport while the
+        healthy one sits idle. #1930/Y011 made this same swap for
+        `gh issue list`; `gh_failure.py` documents why.
+
+        REST returns `state` lowercase where the GraphQL projection returns it
+        upper, so the caller normalises. Falls back to the old argv when no repo
+        slug is configured — `gh issue view` infers the repo from cwd and
+        `gh api` cannot.
+        """
+        repo = self._get_repo()
+        if not repo:
+            return ["gh", "issue", "view", str(issue_number),
+                    "--json", "number,title,state,labels,body"]
+        return ["gh", "api", f"repos/{repo}/issues/{issue_number}",
+                "--jq", "{number,title,state,labels,body}"]
 
     def _unavailable_log(self, issue_number: int) -> dict:
         """Structured context for a fetch that produced no answer at all."""

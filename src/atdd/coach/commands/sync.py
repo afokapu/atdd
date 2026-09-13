@@ -72,10 +72,10 @@ class RepoRefresh:
 
         # Refresh the installed git hooks (#1492).
         #
-        # `atdd sync` is the verb the upgrade banner tells operators to run
-        # ("Run: atdd sync && atdd init"), and it is the verb that stamps
-        # toolkit.last_version to clear that banner — but it did not touch
-        # hooks at all. Combined with `atdd init` bailing out on an already
+        # `atdd sync` is the verb the upgrade banner tells operators to run,
+        # and it is the verb that writes this checkout's toolkit-sync record to
+        # clear that banner — but it did not touch hooks at all. Combined
+        # with `atdd init` bailing out on an already
         # initialised repo, NO sanctioned path refreshed a hook: the only one
         # was `atdd init --force`, which is forbidden (#793). So every hook fix
         # ever made reached only repos initialised after it landed.
@@ -126,16 +126,30 @@ class RepoRefresh:
     def _apply_branch_protection_on_upgrade(self) -> None:
         """Apply branch protection if toolkit was upgraded.
 
-        Detects upgrade by comparing installed version vs toolkit.last_version
-        in .atdd/config.yaml. If upgraded, applies branch protection rules
-        so consumer repos inherit the latest GitHub infrastructure, then
-        verifies the result to surface drift or degraded mode.
+        Detects the upgrade from this checkout's toolkit-sync record (#1641): the
+        version it last synced against, versus the version installed now. If it
+        moved, applies branch protection rules so consumer repos inherit the
+        latest GitHub infrastructure, then verifies the result to surface drift
+        or degraded mode.
+
+        The record, NOT ``toolkit.last_version`` (#1989). That field is in a
+        git-tracked file and had been pinned at 3.106.0 since 2026-06-09, so
+        ``_is_newer(installed, pinned)`` was unconditionally true and this issued
+        a remote branch-protection PUT on EVERY sync — #1599's complaint, with its
+        cause named. Read from the record, the "not first run, not same version"
+        rule below finally means what it says. The consequence is deliberate: a
+        checkout with no record has not synced under this toolkit and takes the
+        first-run path, and branch protection is a repository-wide setting that
+        one checkout applying on upgrade already covers.
+
+        Ordering matters and is unchanged: ``sync()`` calls this BEFORE
+        ``record_toolkit_sync``, so the record still names the previous sync here.
         """
         from atdd import __version__
-        from atdd.version_check import _is_newer, _get_last_toolkit_version
+        from atdd.version_check import _is_newer, _read_sync_record
 
         config = self._load_config()
-        last_version = _get_last_toolkit_version(config)
+        last_version = _read_sync_record(self.target_dir)
 
         # Only apply on upgrade (not first run or same version)
         if last_version is None or not _is_newer(__version__, last_version):

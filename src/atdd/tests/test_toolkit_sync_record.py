@@ -97,24 +97,47 @@ def test_record_ahead_of_installed_stays_quiet(repo):
     assert check_upgrade_sync_needed() is None
 
 
-# --- GT-004: one-time fallback to the legacy tracked field ------------------
+# --- GT-004: no record means no from-version, never the tracked field -------
 
-def test_falls_back_to_legacy_field_when_no_record(repo):
+def test_no_record_names_no_from_version_even_with_a_legacy_field(repo):
+    """The defect this replaces (#1989).
+
+    ``repo`` writes ``toolkit.last_version: 1.0.0`` into the tracked config, which
+    is what every checkout of this repository carries — pinned at 3.106.0 since
+    2026-06-09 and reverted by git the moment anything tries to move it. Reading
+    it produced a from-version that was not merely stale but false, on 99 of 102
+    checkouts measured, on every invocation.
+
+    A checkout with no record has no from-version. Saying so is the answer
+    ``atdd upgrade`` already gives (``upgrader.py:290``, #1820).
+    """
     msg = check_upgrade_sync_needed()
 
-    assert msg is not None
-    assert "1.0.0 → 2.0.0" in msg
+    assert msg == "ATDD upgraded to 2.0.0. Run: atdd upgrade"
+    assert "1.0.0" not in msg
+    assert "→" not in msg
 
 
-def test_legacy_fallback_does_not_write(repo):
+def test_the_read_path_still_writes_nothing(repo):
     """#342: the check runs on every invocation, including `atdd --help`.
 
-    Adopting the legacy value here would put a write back on the read path.
-    Migration is `atdd sync`'s job.
+    Adopting a value here would put a write back on the read path. Migration is
+    `atdd sync`'s job.
     """
     check_upgrade_sync_needed()
 
     assert not _sync_record_path(repo).exists()
+
+
+def test_no_legacy_accessor_survives(repo):
+    """Structural: the deletion, not merely its effect.
+
+    Two readers of the tracked field remained after #1820 — this one and
+    ``sync.py``'s branch-protection check. Pinning the absence of the accessor is
+    what stops a third appearing.
+    """
+    assert not hasattr(version_check, "_legacy_last_version")
+    assert not hasattr(version_check, "_get_last_toolkit_version")
 
 
 def test_atdd_repo_without_any_version_asks_for_sync_without_inventing_a_from(repo):

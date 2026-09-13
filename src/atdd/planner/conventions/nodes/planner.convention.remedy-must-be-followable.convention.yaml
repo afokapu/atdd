@@ -1,0 +1,92 @@
+schema_version: 1.1.0
+rule_id: planner.convention.remedy-must-be-followable
+kind: rule
+status: active
+name: A convention node's remedy must be followable
+statement: >-
+  Operative prose in a convention node — the fix_hint, operational_guidance,
+  normative_text, statement and term text a reader is expected to ACT on — must
+  name only files that exist in the repo and only CLI verbs that still resolve.
+  A fix_hint is an executable promise: if it names a file, that file must be
+  there; if it names a verb, that verb must run.
+notes: >-
+  #1965: five remedies across four nodes were unfollowable — three named a file
+  that is not there, two instructed `atdd issue`, removed in #1303 — and a sixth
+  turned up while designing the rule. Nothing read a fix_hint, so when the verb
+  was removed and the smoke-acceptance validator renamed, every hint quoting
+  them stayed exactly as written. Same family as #1548, where the authorable
+  exemplar carried a URN scheme retired by #1421 and following the documentation
+  produced an invalid artifact. STRICT, and the disposition is the point: a
+  naive scan finds 179 of 332 paths absent, but decomposed by cause 137 are
+  provenance and 34 illustrative, leaving six real. #1958 and #1943 had to
+  settle for advisory at 369-of-473 and 101-of-229 because the remedy was
+  unaffordable; six is affordable, so this refuses instead of logging.
+implementation:
+  type: validator
+  ref: test_convention_remedies_are_followable::test_every_convention_remedy_is_followable
+metadata:
+  severity: 3
+  disposition: strict
+  introduced_in: 4.83.0
+content:
+  fix_hint: >-
+    The named node's prose sends the reader somewhere that is not there. For an
+    absent path: correct it to the real location, or drop the pointer if the
+    thing it named no longer exists (do not leave a half-repair — a path that is
+    merely plausible is what produced this defect). For a retired verb: replace
+    it with the live one — `atdd issue <N> --status <PHASE>` became `atdd coach
+    transition <N> <PHASE>`, and `atdd issue open` became `atdd coach issues
+    open`. Re-run with `pytest
+    src/atdd/planner/validators/test_convention_remedies_are_followable.py -v`.
+  exceptions:
+  - >-
+    Provenance (`source.legacy_path`) is out of scope — it records where a node
+    was extracted from and carries a `legacy_sha`; the monolith it names was
+    deliberately deleted, and pointing at a deleted file is what provenance IS.
+  - >-
+    Illustrative paths in `examples`/`values` blocks are fictional by design; a
+    naming rule's negative example must NOT exist.
+  - >-
+    A schematic formula (`Formula: ... -> contracts/theme/seg1/...`) is a
+    template whose segments are positions, not directories.
+  - >-
+    A path named as an EXCLUDED mechanism ("no plan/_meta.yaml") is a statement
+    of absence; flagging it would invert the node's meaning.
+  - >-
+    A conditional reference ("if it exists", "when present") is a predicate
+    subject, not a pointer.
+  - >-
+    Gitignored runtime state is excused via `git check-ignore`, so the exclusion
+    cannot outlive the path — the day a path leaves `.gitignore` is the day it
+    stops being excused.
+  - >-
+    A path a node declares RETIRED is a historical record. The test is tense,
+    not the token — "#1270 retired the `.atdd/manifest.yaml` mirror" is a
+    record; "the phase labels live under `.atdd/labels.yaml`" is a defect.
+operational_guidance: >-
+  Runs against the checkout and is `platform`-gated. In a consumer repo the
+  nodes arrive from the installed package while the paths they quote are paths
+  in the TOOLKIT repo, so an ungated rule would flag nearly every path as absent
+  in somebody else's repo — the leak `is_atdd_source_repo()` exists to prevent
+  (#272/#276). The installed package also carries none of `plan/`, `docs/` or
+  `.atdd/`, so it is not a root this rule can resolve against.
+terms:
+- term_id: operative_prose
+  label: Operative prose
+  text: >-
+    a string a reader is expected to act on: `fix_hint`,
+    `operational_guidance`, `normative_text`, `statement`, `text`, `notes`,
+    `description`. Distinguished from provenance (a record) and from examples
+    (illustrations) — only operative prose makes a promise.
+- term_id: unfollowable_remedy
+  label: Unfollowable remedy
+  text: >-
+    operative prose naming a repo path absent from the checkout, or a CLI verb
+    that no longer resolves. The reader is sent nowhere at the exact moment they
+    are blocked, which is when a fix_hint is the one part of a rule they read.
+- term_id: retired_verb
+  label: Retired verb
+  text: >-
+    a CLI verb removed from the toolkit whose spelling survives in prose. Each
+    is recorded with the live verb that replaced it, because a remedy saying
+    only "that verb is gone" is itself unfollowable.

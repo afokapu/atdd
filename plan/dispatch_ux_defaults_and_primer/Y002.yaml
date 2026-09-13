@@ -21,7 +21,7 @@ acceptances:
     then:
       abstract:
         - "The return value is None — no banner is emitted"
-        - "When no record exists, the reader returns None and the check falls back to the legacy toolkit.last_version field"
+        - "When no record exists, the reader returns None and the check names only the installed version — the legacy toolkit.last_version field is not consulted, and no accessor for it survives"
         - "When the record names a DIFFERENT (older) version, a banner is returned reporting that version as the from-version (new upgrade)"
     notes: |
       #1641 supersedes the per-version marker-file mechanism this WMBT originally
@@ -30,6 +30,15 @@ acceptances:
       (.atdd/runtime/); only the representation changed, to a single JSON record
       that carries the synced version instead of one file per version. The URN is
       retained as a stable identity — 'marker' in it now means that record.
+
+      #1989 removes the legacy fallback this acceptance previously required. #1641
+      kept a read of the git-tracked toolkit.last_version so repos synced before it
+      would report a real from-version; measured 2026-09-13, 3 of 102 checkouts
+      carry a record, so the fallback was not covering the exception, it WAS the
+      path — and it reported 3.106.0, a value committed on 2026-06-09 and reverted
+      by git whenever anything moved it. A wrong from-version is worse than none,
+      so a checkout with no record now says what it knows and declines what it does
+      not. That is the answer atdd upgrade has given since #1820.
     harness:
       type: "unit"
       category: "backend"

@@ -66,8 +66,6 @@ route_train_wagon_coverage:
   - web/src/**/*-routes.tsx
   - web/src/**/App.tsx
   allowlist: []
-toolkit:
-  last_version: 3.106.0
 github:
   repo: afokapu/atdd
 coach:
