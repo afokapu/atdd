@@ -22,7 +22,7 @@ import pytest
 
 from ._c027_autonomy_claim import resolve_claim
 
-from atdd.coach.gate.decision import GateCheckResult, GateContext, GateVerdict
+from atdd.coach.gate.decision import GateCheckResult, GateContext
 
 pytestmark = [pytest.mark.coach, pytest.mark.platform]
 
