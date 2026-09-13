@@ -27,6 +27,15 @@ terms:
     at Ratify. feature (134/188 failing) and wmbt (294/468 failing) are advisory —
     wmbt.schema.json says in its own $comment that it is not a file gate. A repo promotes
     a kind with plan.spec_validation.enforce in .atdd/config.yaml.
+- term_id: every_authorable_kind_is_governed
+  text: 'No authorable kind may be silently ungoverned. A kind whose artifact has
+    no schema is checked by its own writer''s validator instead, and a kind that is
+    checked by nothing must say so rather than return clean. `contract` is the case
+    that forced this: a contract IS a JSON schema, so it has no meta-schema to validate
+    against, and omitting it from the schema table made `check_unit_spec` report
+    nothing for all three rules `validate_contract` enforces across 14 registered
+    contracts (#2013). Silence that reads as approval is the defect this whole rule
+    exists to prevent.'
 - term_id: atomicity
   text: The Ratify pass runs before locked is set, so a failure leaves the session
     unlocked — the same contract the interlocking, verb-object and artifact-naming
