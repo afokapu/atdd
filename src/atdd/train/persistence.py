@@ -27,7 +27,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterator, Protocol, runtime_checkable
+from typing import Any, Dict, Iterator, Protocol, runtime_checkable
 
 import yaml
 
@@ -568,7 +568,11 @@ class JsonlPersistenceStore:
             # A brand-new record gets a minted uid, never the slug: keying by slug is what
             # produced a store the projection contract refuses (#1622).
             uid = existing.uid if existing is not None else mint_uid()
-            data = dict(existing.data) if existing is not None else {"slug": rec.slug}
+            # Annotated: without it the else-branch narrows `data` to dict[str, str] and
+            # the update below (bools, ints) has no matching overload.
+            data: Dict[str, Any] = (
+                dict(existing.data) if existing is not None else {"slug": rec.slug}
+            )
             data.update({
                 "id": rec.id,
                 "type": rec.type.value,

@@ -171,7 +171,6 @@ def publish_issue(
     from atdd.state import provenance
     from atdd.state.db import connect, init_state_store
     from atdd.state.store import StateStore
-    from atdd.state.work_item_reader import slug_of
     from atdd.state.work_item_writer import create_work_item
     from atdd.planner.commands.feature_binding import plan_is_available
 
