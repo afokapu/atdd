@@ -98,26 +98,52 @@ is what makes the closure loud rather than silent.
 | 2 | #1714 declares `train:govern-lifecycle:enforcement-substrate` / `feature:govern-lifecycle:coder-extension-conventions` | neither exists. `govern-lifecycle` appears in `plan/_wagons.yaml` as a **wagon**; no train namespace of that name exists in `plan/_trains.yaml` | #1714 cannot reach PLANNED, and so cannot legally reach RED, until planner artifacts exist. A RED test written now would carry no acceptance URN — an ad-hoc test, forbidden by gate constraint 1 |
 | 3 | #1714's Artifacts are all `official/…` and `docs/agnostic-classification/…` | those are `atdd-extensions` paths; `atdd-extensions` has no `plan/` tree | #1714 spans two repos: the nodes land in `atdd-extensions`, the coverage gate must live in core, because it reads core's registry |
 
-## Pre-existing red gate: 35 mirror incoherences
+## Reconciled: the 35 mirror incoherences, and why none of them is drift
 
 `test_e001_smoke_001_real_mirrors_all_resolve_to_live_core_rules.py` **fails on
 `origin/main`** with 35 incoherences. Not introduced by this branch (empty diff).
 
 `find_mirror_incoherences` treats a node whose `legacy_rule_id` names no live core rule —
 including a node with no `legacy_rule_id` at all — as a drifted mirror. That encodes
-#1427's premise that *every* extension node mirrors a core rule. Two groups break it:
+#1427's premise that *every* extension node mirrors a core rule.
 
-| Group | Count | Shape |
-|---|---|---|
-| `atdd.extension.coder.base` | 18 | `legacy_rule_id` **equals the node's own `rule_id`**, and that id is not in core — `coder.design.*` (7), `coder.presentation.*` (4), and 7 `*-typescript` stack variants. These are extension-native obligations wearing mirror provenance, not mirrors |
-| `atdd.extension.{coder,tester}.train-interlocking` | 17 | no `legacy_rule_id` at all — genuinely new obligations, correctly having no core ancestor |
+**Adjudicated, all 35. None is a drifted mirror.**
 
-So of `coder.base`'s 48 nodes only **30** mirror a live core rule (the other 2 of the 32
-twins are tester). This matters for #1714 in two ways: the mirror baseline is 30, not 48;
-and the gate as written cannot express "a new agnostic obligation", which is what #1714
-authors. #1714's own output is safe — a node mirroring one of the 96 declares a
-`legacy_rule_id` that *is* live, so it is coherent — but the gate is red before the
-program starts and stays red unless the 35 are adjudicated.
+| Group | Count | Verdict | Evidence |
+|---|---|---|---|
+| `atdd.extension.coder.base` | 18 | **COMPLETED CARVE-OUT** | every one of the 18 legacy ids was removed from core by a single commit, `47c4d414` (#1518, 2026-07-18), whose message hands them to this extension by name: "18 TS rule blocks (complexity-\*-typescript, quality-\*-typescript, no-intra-layer-code-typescript, dead-code-typescript, design-system, gsap, i18n) -> atdd.extension.coder (strict) and vite-coder". 18 of 18 matched, **0 unexplained** |
+| `atdd.extension.{coder,tester}.train-interlocking` | 17 | **EXTENSION-NATIVE** | no `legacy_rule_id` at all: they claim no core ancestor because they never had one |
+
+So the legacy id naming no live core rule is, for all 35, the **correct end state** — in
+the first group because the succession already happened, in the second because there was
+never anything to succeed. The reading that these are "extension-native obligations
+wearing mirror provenance" was wrong: the provenance is accurate and the rule it names is
+gone on purpose.
+
+### The defect this exposes, which does block #1714 and #1993
+
+`find_mirror_incoherences` cannot tell three states apart, and reports the two legitimate
+ones as the fault:
+
+| State | `legacy_rule_id` | Correct verdict | Reported today |
+|---|---|---|---|
+| stale mirror — the core rule was **renamed** | names a dead id | FAIL (this is drift) | FAIL |
+| completed carve-out — the core rule was **deliberately deleted**, this node superseded it | names a dead id | pass | FAIL |
+| extension-native obligation | absent | pass | FAIL |
+
+The two signals are identical in the data, so no widening of the rule can separate them
+from the node alone: a **retirement must be declared**, the same conclusion #1993 reaches
+for `evaluate_core_deletion`'s twinless branch. Both guards need the same missing fact.
+
+This is load-bearing for the program, not cosmetic. #1714 authors 89 new agnostic nodes
+and #1993 then deletes core's copies — which manufactures state 2 eighty-nine times over.
+Left as is, the gate goes from 35 red to roughly 124 red and can never return to green,
+so #1714's SMOKE exit condition is unreachable by construction. Its own output is
+individually fine — a node mirroring one of the 89 names a live core rule while core still
+holds it — but the moment #1993 moves that rule, the node becomes an "incoherence".
+
+Also measured: of `coder.base`'s 48 nodes only **30** mirror a live core rule (the other 2
+of the 32 twins are tester), so the mirror baseline is 30, not 48.
 
 ## Classification — 1 of 28 families settled
 
@@ -186,15 +212,32 @@ Two observations for the herd:
   decision applies to nearly the whole payload: each worker must decide whether a
   locatable per-file violation exists, and reach for `strict`/`advisory` with a detector
   when it does.
-- **`coder.design` and `coder.presentation` already have extension-native nodes** — 7 and
-  4 of the 18 self-referential `coder.base` incoherences above. Those families need
-  reconciliation (is the existing node the mirror, mis-provenanced?) before authoring, or
-  the program creates a second node for an obligation that already has one.
+- **`coder.design` and `coder.presentation` need no reconciliation — author them
+  normally.** An earlier draft of this record warned that these two families already have
+  extension nodes (7 and 4 of the 18 above) and that authoring would duplicate an existing
+  obligation. **That was wrong, and following it would have wasted the work.** The 11
+  extension nodes are #1518's completed carve-out of the *TypeScript/design-system* rules
+  (`token-color`, `orphan-export`, `gsap-layer`, `i18n-config`, …). The 8 core survivors
+  are the *architectural layering* rules #1518 deliberately kept
+  (`wagons-import-from-design`, `tokens-are-pure-values`, `layer-is-thin`,
+  `controllers-never-call-domain`, …). The id sets are disjoint, no survivor is touched by
+  #1518, and no survivor is mirrored by any extension node — they are different
+  obligations that share a family prefix. Do not repoint any of the 11 `legacy_rule_id`s
+  at a survivor: that would falsely mark a survivor twinned and drop a real obligation out
+  of the shortfall.
 
 ## Next, in lifecycle order
 
-1. Adjudicate the 35 incoherences, or #1714's SMOKE gate cannot go green.
-2. Create the planner artifacts #1714 names (correction 2) so an acceptance URN exists;
-   then the no-silent-drop guard can be written as a RED test rather than the tool here.
-3. Per family: classify → (mirror | why-not row) → edges → detector → fixtures.
+1. ~~Adjudicate the 35 incoherences.~~ **Done** — 0 drift, see above. What remains is
+   not 35 investigations but one rule change: teach mirror coherence to accept a
+   **declared retirement**, so a completed carve-out and an extension-native obligation
+   both pass while a genuine rename still fails. Same missing fact #1993 needs for
+   `evaluate_core_deletion`, so the two should share one declaration rather than invent
+   two. Until then #1714's SMOKE exit is unreachable.
+2. ~~Create the planner artifacts #1714 names.~~ **Done** — re-homed onto
+   `wmbt:govern-registry:E003` (the wagon already governs this relation; the train and
+   feature #1714 names do not exist — correction 2). RED and GREEN landed:
+   `atdd.enforce.twin_coverage` is the pinned measure.
+3. Per family: classify → (mirror | why-not row) → edges → detector → fixtures. 89 rules,
+   27 families; `coder.state-store` is settled and needs no node.
 4. Coverage 128/128 → `coverage.py` exits 0 → #1993's precondition is met.
