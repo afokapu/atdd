@@ -79,8 +79,11 @@ families:
   test:
     # test:{wagon}:{feature}:{WMBT}-{HARNESS}-{NNN}-{slug}  (V3 acceptance)
     # test:train:{train_id}:{HARNESS}-{NNN}-{slug}          (V3 journey)
+    #   {train_id} is EITHER a typed train:<subject>:<slug> or a legacy
+    #   NNNN-slug. The typed alternative was missing until #1986: every
+    #   train #1421 retyped had a journey URN this pattern rejected.
     # legacy dot format                                     (migration support)
-    pattern: "^test:([a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[A-Z]\\d{3}-(?:UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE|SMOKE)-\\d{3}-[a-z0-9][a-z0-9-]*|train:\\d{4}-[a-z0-9][a-z0-9-]*:(?:UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE|SMOKE)-\\d{3}-[a-z0-9][a-z0-9-]*|[a-z0-9]+(?:-[a-z0-9]+)*(?::[a-z0-9]+(?:-[a-z0-9]+)*)*(?:\\.[a-z0-9-]+)?)$"
+    pattern: "^test:([a-z][a-z0-9-]*:[a-z][a-z0-9-]*:[A-Z]\\d{3}-(?:UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE|SMOKE)-\\d{3}-[a-z0-9][a-z0-9-]*|train:[a-z][a-z0-9-]*:[a-z][a-z0-9-]*:(?:UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE|SMOKE)-\\d{3}-[a-z0-9][a-z0-9-]*|train:\\d{4}-[a-z0-9][a-z0-9-]*:(?:UNIT|HTTP|EVENT|WS|E2E|A11Y|VIS|METRIC|JOB|DB|SEC|LOAD|SCRIPT|WIDGET|GOLDEN|BLOC|INTEGRATION|RLS|EDGE|REALTIME|STORAGE|SMOKE)-\\d{3}-[a-z0-9][a-z0-9-]*|[a-z0-9]+(?:-[a-z0-9]+)*(?::[a-z0-9]+(?:-[a-z0-9]+)*)*(?:\\.[a-z0-9-]+)?)$"
     segment_count: null
     parent: null
     parse: custom

@@ -1,9 +1,11 @@
-train_id: 0205-detect-unrealized-obligation
+train_id: train:extension-conventions:detect-unrealized-obligation
 title: 0205-detect-unrealized-obligation
 description: 'A gating node is declared but no provider implementation realizes it: an obligation nobody
   can check.'
+category: alternate
 themes:
 - commons
+primary_wagon: enforce-conventions-ci
 sequence:
 - step: 1
   intent: report the obligation with no mechanism
@@ -14,7 +16,6 @@ participants:
 - wagon:bind-extension-conventions
 - wagon:govern-providers
 status: planned
-category: alternate
 source_interlocking:
   interlocking_id: interlocking:enforce-extension-conventions
   route_id: unrealized-obligation-detected

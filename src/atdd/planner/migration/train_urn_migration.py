@@ -48,6 +48,35 @@ LEGACY_TRAIN_ALIASES: Dict[str, Tuple[str, str]] = {
     "0003-author-substrate": ("substrate", "author-artifacts"),
     "0004-admit-substrate": ("substrate", "admit-packages"),
     "0005-bind-substrate": ("substrate", "bind-runtime"),
+    # #1986: the CI-gate journey — one nominal path (0007) and its six
+    # alternates (0201..0206), all one subject. ``extension-conventions`` is not
+    # a style preference: ``is_durable_noun`` rejects ``enforce-conventions`` as
+    # verb-led, so it is the only legal spelling of this subject. Slugs keep the
+    # legacy wording (minus the digits) so the rename stays greppable; the slug
+    # echoing the subject is accepted — see
+    # ``train:documentation-obligation:prove-documentation-obligation``.
+    "0007-enforce-extension-conventions": (
+        "extension-conventions",
+        "enforce-extension-conventions",
+    ),
+    "0201-enforce-strict-failure": ("extension-conventions", "enforce-strict-failure"),
+    "0202-report-advisory-violation": (
+        "extension-conventions",
+        "report-advisory-violation",
+    ),
+    "0203-detect-unbound-declaration": (
+        "extension-conventions",
+        "detect-unbound-declaration",
+    ),
+    "0204-detect-succession-loss": ("extension-conventions", "detect-succession-loss"),
+    "0205-detect-unrealized-obligation": (
+        "extension-conventions",
+        "detect-unrealized-obligation",
+    ),
+    "0206-decommission-orphan-detector": (
+        "extension-conventions",
+        "decommission-orphan-detector",
+    ),
 }
 
 # #1400's trains (0006/0206/0306) retype under ``object-conflict-resolution`` but
@@ -277,16 +306,42 @@ def _registry_entry(existing: Dict[str, dict], legacy_id: str) -> dict:
     return existing.get(legacy_id) or existing.get(typed) or {}
 
 
+#: Bucket that holds any preserved registry row whose subject cannot be derived
+#: (a legacy id with no alias). Readers key off each ENTRY, never the bucket
+#: name, so the row stays fully readable — the odd bucket is a visible marker
+#: that a train is still unmigrated, not a functional distinction.
+_UNMIGRATED_BUCKET = "_unmigrated"
+
+
+def subject_of_typed(train_id: str) -> Optional[str]:
+    """The ``<subject>`` token of a typed ``train:<subject>:<slug>`` id, else None."""
+    parts = train_id.split(":")
+    if len(parts) == 3 and parts[0] == "train" and all(parts[1:]):
+        return parts[1]
+    return None
+
+
 def _rewrite_registry_typed(root: Path, existing: Dict[str, dict]) -> Path:
     """Project the typed ``plan/_trains.yaml``.
 
     Buckets are re-keyed ``trains: {<subject>: {<category>: [entries]}}``. Each
-    entry carries the typed ``train_id``, the ``category`` field, the nested
-    ``path``, and the ``wagons``/``description`` preserved from *existing*.
+    aliased entry carries the typed ``train_id``, the ``category`` field, the
+    nested ``path``, and the ``wagons``/``description`` preserved from *existing*.
+
+    Rows in *existing* that this migration does NOT own — trains other issues
+    typed, which no alias names — are carried through VERBATIM (#1986). The
+    projection used to rebuild the document from :data:`LEGACY_TRAIN_ALIASES`
+    alone, which silently evicted every such row while leaving its document on
+    disk: precisely the half-applied state ``planner.train.registry-coherence``
+    rejects. A row is owned only if it is an aliased legacy id or the typed URN
+    of one; everything else survives untouched.
     """
     trains: Dict[str, Dict[str, List[dict]]] = {}
+
+    owned: set = set(LEGACY_TRAIN_ALIASES)
     for legacy_id, (subject, slug) in sorted(LEGACY_TRAIN_ALIASES.items()):
         typed = forward(legacy_id)
+        owned.add(typed)
         category = category_for_legacy(legacy_id)
         prior = _registry_entry(existing, legacy_id)
         entry = {
@@ -297,6 +352,22 @@ def _rewrite_registry_typed(root: Path, existing: Dict[str, dict]) -> Path:
             "wagons": list(prior.get("wagons", []) or []),
         }
         trains.setdefault(subject, {}).setdefault(category, []).append(entry)
+
+    # Carry through every row the alias map does not account for.
+    for train_id, entry in sorted(existing.items()):
+        if train_id in owned:
+            continue
+        subject = subject_of_typed(train_id)
+        if subject is None:
+            subject = _UNMIGRATED_BUCKET
+            logger.warning(
+                "registry projection: preserving a row whose subject cannot be "
+                "derived; it has no alias and is not a typed URN",
+                extra={"train_id": train_id},
+            )
+        category = entry.get("category") or "nominal"
+        trains.setdefault(subject, {}).setdefault(category, []).append(dict(entry))
+
     for subject in trains:
         for category in trains[subject]:
             trains[subject][category].sort(key=lambda e: e["train_id"])
@@ -331,6 +402,19 @@ def _rewrite_registry_legacy(root: Path, existing: Dict[str, dict]) -> Path:
             "wagons": list(prior.get("wagons", []) or []),
         }
         trains.setdefault(group, {}).setdefault(section, []).append(entry)
+
+    # Symmetric with the typed projection (#1986): rows this migration does not
+    # own survive a revert verbatim, keyed by their own subject. Without this the
+    # rollback is itself destructive — and, because the apply-test fixture
+    # normalizes through revert, it was what hid the forward defect.
+    owned = set(LEGACY_TRAIN_ALIASES) | set(build_alias_map().values())
+    for train_id, entry in sorted(existing.items()):
+        if train_id in owned:
+            continue
+        subject = subject_of_typed(train_id) or _UNMIGRATED_BUCKET
+        category = entry.get("category") or "nominal"
+        trains.setdefault(subject, {}).setdefault(category, []).append(dict(entry))
+
     for group in trains:
         for section in trains[group]:
             trains[group][section].sort(key=lambda e: e["train_id"])

@@ -1,9 +1,11 @@
-train_id: 0201-enforce-strict-failure
+train_id: train:extension-conventions:enforce-strict-failure
 title: 0201-enforce-strict-failure
 description: A strict convention node reports at least one violation, so the enforce job exits non-zero
   and CI fails.
+category: alternate
 themes:
 - commons
+primary_wagon: enforce-conventions-ci
 sequence:
 - step: 1
   intent: emit a failing strict verdict
@@ -14,7 +16,6 @@ participants:
 - wagon:enforce-conventions-ci
 - wagon:verify-enforcement
 status: planned
-category: alternate
 source_interlocking:
   interlocking_id: interlocking:enforce-extension-conventions
   route_id: strict-violation-fails

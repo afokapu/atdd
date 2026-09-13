@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "commons:rule-registry",
   "title": "Core convention rule registry projection",
-  "description": "Core convention rule registry projection exchanged inside train 0007-enforce-extension-conventions.",
+  "description": "Core convention rule registry projection exchanged inside train:extension-conventions:enforce-extension-conventions.",
   "version": "1.0.0",
   "type": "object",
   "properties": {

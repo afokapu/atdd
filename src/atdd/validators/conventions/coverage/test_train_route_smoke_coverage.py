@@ -66,7 +66,11 @@ def test_train_route_smoke_coverage_variant_contract() -> None:
     [
         ("train:self-compliance:validate-lifecycle", "e2e/self-compliance/validate-lifecycle"),
         ("train:substrate:author-artifacts", "e2e/substrate/author-artifacts"),
-        ("0007-enforce-extension-conventions", "e2e/0007-enforce-extension-conventions"),
+        # A legacy-shaped id, deliberately synthetic: the derivation still has a
+        # legacy branch (dual-resolution outlives the migration window), but no
+        # real train carries this spelling any more (#1986), so pinning a live
+        # one here would rot the moment it retires.
+        ("0000-legacy-shaped-train", "e2e/0000-legacy-shaped-train"),
     ],
 )
 def test_e2e_home_mirrors_the_train_identity(tmp_path, train_id, expected):

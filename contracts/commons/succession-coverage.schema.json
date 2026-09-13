@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "commons:succession-coverage",
   "title": "Core-to-extension succession coverage",
-  "description": "Core-to-extension succession coverage exchanged inside train 0007-enforce-extension-conventions.",
+  "description": "Core-to-extension succession coverage exchanged inside train:extension-conventions:enforce-extension-conventions.",
   "version": "1.0.0",
   "type": "object",
   "properties": {
