@@ -3,6 +3,18 @@ edges:
   constraint: mandatory
   control: internal
   foundation: start_to_start
+  reason: 'two halves of convention-node integrity: the orphan rule holds every node
+    reachable from the relationship graph, and this one holds the prose inside those
+    nodes followable — a node can be perfectly connected and still send its reader to
+    a file that is not there'
+  source_ref: planner.convention.remedy-must-be-followable
+  strength: important
+  target_ref: planner.relationship.no-orphan-nodes
+  type: runs_alongside
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: start_to_start
   reason: 'two halves of the toolkit-layout hardcode class: the source-layout rule catches the direct
     find_repo_root() call shape and documents variable indirection as out of scope, which is exactly the
     gap this rule closes'

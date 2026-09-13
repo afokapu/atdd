@@ -69,6 +69,8 @@ from atdd.planner.validators.remedy_followability import (
     RETIRED_VERBS,
     classify,
     path_tokens,
+    verb_documented_as_retired,
+    scan_node,
     scan_nodes,
 )
 
@@ -282,6 +284,48 @@ def test_the_retired_verb_table_names_its_replacement():
     assert "1303" in entry.reason
 
 
+def test_a_verb_named_only_to_document_its_retirement_is_not_an_instruction():
+    """A rule about retired verbs must be able to NAME one to say what replaced it.
+
+    `planner.convention.remedy-must-be-followable` convicted itself the moment
+    it was authored: its own fix_hint says "`atdd issue <N> --status <PHASE>`
+    became `atdd coach transition <N> <PHASE>`", which is the remedy, not an
+    instruction to run the dead verb. This is the verb-side of the tense test
+    the path rule already applies — and it is the same principle, because a
+    rule that cannot describe its own remedy cannot be followed either.
+    """
+    assert verb_documented_as_retired(
+        "For a retired verb: replace it with the live one — `atdd issue <N> "
+        "--status <PHASE>` became `atdd coach transition <N> <PHASE>`, and "
+        "`atdd issue open` became `atdd coach issues open`.",
+        "atdd issue ",
+    )
+
+
+def test_one_instructional_mention_defeats_the_documentation_excuse():
+    """`all`, not `any` — the loophole this rule would otherwise open.
+
+    A node could otherwise explain the replacement in one breath and still tell
+    the reader to run the dead verb in the next, and the retirement prose would
+    excuse the instruction. Here the first mention is documented and the second
+    is a live instruction; the node is NOT excused.
+    """
+    assert not verb_documented_as_retired(
+        "`atdd issue open` was removed in #1303. To list issues, run "
+        "atdd issue open and read the table.",
+        "atdd issue ",
+    )
+    # And the two real defects stay defects: neither carries a marker at all.
+    assert not verb_documented_as_retired(
+        "atdd issue <issue> --status SMOKE", "atdd issue "
+    )
+    assert not verb_documented_as_retired(
+        "or mint one from the main job (run `atdd issue open` to list "
+        "bindable issue slugs).",
+        "atdd issue ",
+    )
+
+
 # ---------------------------------------------------------------------------
 # The corpus. The rule is `strict` at zero, which is only affordable at n=6.
 # ---------------------------------------------------------------------------
@@ -304,32 +348,60 @@ def test_the_corpus_carries_no_unfollowable_remedy():
     )
 
 
-def test_the_six_known_defects_are_each_detected_before_repair():
-    """Pins the census the issue measured, so a repair cannot be credited by
-    loosening the scan. Each entry is (node, token, kind) — the three absent
-    paths, the two retired verbs, and the sixth defect the issue's verdict table
-    did not adjudicate.
+def test_each_of_the_six_defect_shapes_is_detected():
+    """The census the issue measured, pinned as DETECTION rather than as repo state.
 
-    `tests/platform_validation/` is that sixth: `planner.interface.tests-
-    subdirectory` sends the reader to a directory that exists nowhere in the
-    repo, to run two test functions that exist nowhere either, when the
-    enforcement it describes is the validator the same node already names in
-    `implementation.ref`. Unfollowable three times over in one term.
+    An earlier draft of this test asserted the six defects were present in the
+    live corpus. That pinned the census, but it could only pass before the
+    repair — the assertion and `test_the_corpus_carries_no_unfollowable_remedy`
+    are each other's inverse, so one of them had to be wrong after GREEN. What
+    is worth holding forever is not that the repo still contains the defects,
+    but that the scanner still catches their shapes: if someone reintroduces
+    `.atdd/labels.yaml` or an `atdd issue` instruction tomorrow, this is what
+    notices.
+
+    So each case feeds the ORIGINAL prose through the scanner on a synthetic
+    node. The repo-state half of the obligation is held by the corpus test.
+
+    `tests/platform_validation/` is the sixth defect, which the issue's verdict
+    table does not adjudicate: `planner.interface.tests-subdirectory` sent the
+    reader to a directory that exists nowhere, to run two test functions that
+    exist nowhere either, when ONE validator covers both leaf rules
+    (`_ROOTS = ("contracts", "telemetry")`).
     """
-    expected = {
-        ("planner.acceptance.authoring-guidelines",
+    cases = [
+        # (node_id, prose key, the original prose, token, kind)
+        ("planner.acceptance.authoring-guidelines", "operational_guidance",
+         "metric_binding: one metric_id from plan/_lego/acceptance-metrics.yaml "
+         "(no mixed measures).",
          "plan/_lego/acceptance-metrics.yaml", KIND_ABSENT_PATH),
-        ("planner.wmbt.must-have-smoke-acceptance",
+        ("planner.wmbt.must-have-smoke-acceptance", "fix_hint",
+         "4. Re-run the validator to confirm clean (pytest "
+         "src/atdd/planner/validators/test_wmbt_has_smoke_acceptance.py -v).",
          "src/atdd/planner/validators/test_wmbt_has_smoke_acceptance.py",
          KIND_ABSENT_PATH),
-        ("coach.lifecycle.no-terminal-before-lifecycle-satisfied",
+        ("coach.lifecycle.no-terminal-before-lifecycle-satisfied", "fix_hint",
+         "for atdd the phase labels live under .atdd/labels.yaml):",
          ".atdd/labels.yaml", KIND_ABSENT_PATH),
-        ("coach.lifecycle.no-terminal-before-lifecycle-satisfied",
+        ("coach.lifecycle.no-terminal-before-lifecycle-satisfied", "fix_hint",
+         "atdd issue <issue> --status SMOKE",
          "atdd issue ", KIND_RETIRED_VERB),
-        ("planner.plan.confirm-binds-an-issue",
+        ("planner.plan.confirm-binds-an-issue", "fix_hint",
+         "or mint one from the main job (run `atdd issue open` to list "
+         "bindable issue slugs).",
          "atdd issue ", KIND_RETIRED_VERB),
-        ("planner.interface.tests-subdirectory",
+        ("planner.interface.tests-subdirectory", "text",
+         "Enforcement lives in platform validation tests under "
+         "tests/platform_validation/.",
          "tests/platform_validation/", KIND_ABSENT_PATH),
-    }
-    found = {(f.node_id, f.token, f.kind) for f in scan_nodes(_ROOT)}
-    assert expected <= found, f"not detected: {expected - found}"
+    ]
+
+    for node_id, key, prose, token, kind in cases:
+        node = {"rule_id": node_id, "content": {key: prose}}
+        found = {
+            (f.token, f.kind)
+            for f in scan_node(Path(f"{node_id}.convention.yaml"), node, _ROOT)
+        }
+        assert (token, kind) in found, (
+            f"{node_id}: {token!r} ({kind}) not detected in {prose!r}; got {found}"
+        )

@@ -30,13 +30,13 @@ terms:
     - contracts/commons/ux/foundations/ with color.schema.json but no tests/ subdirectory
 - term_id: platform_validation_tests
   label: Enforcing platform validation tests
-  text: Enforcement lives in platform validation tests under tests/platform_validation/.
-    The contracts leaf rule is checked by test_contract_directories_have_tests_subdirectory
-    and the telemetry leaf rule by test_telemetry_directories_have_tests_subdirectory.
+  text: Enforcement lives in src/atdd/planner/validators/test_contract_tests_subdirectory.py.
+    One validator covers both leaf rules — its _ROOTS is ("contracts", "telemetry")
+    — so there is no separate telemetry validator to run.
   values:
-    enforcement: Platform validation tests in tests/platform_validation/
-    contracts_test: test_contract_directories_have_tests_subdirectory
-    telemetry_test: test_telemetry_directories_have_tests_subdirectory
+    enforcement: src/atdd/planner/validators/test_contract_tests_subdirectory.py
+    validator: test_contract_tests_subdirectory
+    covers_roots: contracts, telemetry
 implementation:
   type: validator
   ref: test_contract_tests_subdirectory::test_contract_tests_subdirectory
