@@ -2134,7 +2134,7 @@ wagons:
     to: internal
   consume: []
   wmbt:
-    total: 4
+    total: 5
     D001: minimize likelihood of registry-scope-ambiguity by keeping the atdd validate
       rule registry rooted at the core src/atdd tree alone, recording the core-only
       decision with its evidence, and proving that admitting the extension mirror
@@ -2154,6 +2154,13 @@ wagons:
       by an extension node nor recorded with a why-not verdict in a classification
       record, so a carve-out cannot report success while the obligation it moved has
       silently disappeared
+    E004: minimize likelihood of sanctioned-core-rule-retirement-reported-as-mirror-drift
+      when a core rule leaves core on purpose and an extension carries its obligation,
+      by declaring each sanctioned retirement in an evidence-bearing ledger keyed
+      on the retired core rule_id and naming what succeeds it, and by resolving mirror
+      coherence against that ledger, so a completed carve-out reads as the correct
+      end state while a genuine rename still fails loudly and an undeclared deletion
+      is never forgiven
   total: 0
   manifest: plan/govern_registry/_govern_registry.yaml
   path: plan/govern_registry/
