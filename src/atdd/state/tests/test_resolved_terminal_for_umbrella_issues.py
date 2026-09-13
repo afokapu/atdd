@@ -45,18 +45,26 @@ def test_umbrella_with_no_test_evidence_reaches_resolved():
     """The whole point: no tests for work that produced none."""
     from atdd.state.evidence import check_transition
 
-    violations = check_transition(
-        "wi_umbrella", "INIT", "RESOLVED", UMBRELLA | {"conclusion_digest"})
+    violations = check_transition("wi_umbrella", "INIT", "RESOLVED", UMBRELLA)
     assert violations == [], [v.render() for v in violations]
 
 
-def test_resolved_requires_a_conclusion():
-    """An escape that records a RESULT must carry the result."""
-    from atdd.state.evidence import CLAUSE_ESCAPE_EVIDENCE, check_transition
+def test_resolved_owes_exactly_what_every_escape_owes():
+    """No bespoke evidence for this escape — deliberately.
 
-    violations = check_transition("wi_umbrella", "INIT", "RESOLVED", UMBRELLA)
-    assert [v.clause for v in violations] == [CLAUSE_ESCAPE_EVIDENCE]
-    assert "conclusion_digest" in violations[0].detail
+    The first cut demanded a `conclusion_digest` on top of the operator token, on
+    the reasoning that an escape recording a RESULT should carry the result. Two
+    shipped invariants refused it: #1947's `test_every_declared_escape_edge_is_walkable`
+    holds that every declared escape edge is walkable on an operator token, and the
+    `commons:projection-evidence` schema rejected the bespoke entry shape. Both are
+    right. The merge authority derives tokens from what a COMMIT can show, and no
+    derivation mints a conclusion; the conclusion is body content, gated where body
+    content is gated — not smuggled into the evidence policy.
+    """
+    from atdd.state.evidence import ESCAPES, requires_for
+
+    for escape in ESCAPES:
+        assert requires_for("INIT", escape) == ("operator_token_digest",)
 
 
 def test_resolved_requires_an_operator_decision():
@@ -67,7 +75,7 @@ def test_resolved_requires_an_operator_decision():
     assert [v.clause for v in violations] == [CLAUSE_ESCAPE_EVIDENCE]
 
 
-@pytest.mark.parametrize("target", ["PLANNED", "RED", "GREEN", "COMPLETE"])
+@pytest.mark.parametrize("target", ["PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR"])
 def test_resolved_is_terminal_and_non_resumable(target):
     """Unlike BLOCKED, a resolved item does not come back. Reopening is a new object."""
     from atdd.state.evidence import (
@@ -79,12 +87,25 @@ def test_resolved_is_terminal_and_non_resumable(target):
     assert CLAUSE_TERMINAL_PHASE in [v.clause for v in violations]
 
 
+def test_resolved_to_complete_is_refused_as_derived_not_as_terminal():
+    """COMPLETE is guarded before the escape is, so it answers first — deliberately.
+
+    Both refusals are correct and the ordering is not arbitrary: `complete_is_derived`
+    is the stronger statement (COMPLETE may never be STORED, from anywhere), so it
+    outranks "you cannot leave RESOLVED". Pinned because a future reordering would
+    silently change which reason an operator is given.
+    """
+    from atdd.state.evidence import CLAUSE_COMPLETE_IS_DERIVED, check_transition
+
+    violations = check_transition("wi_umbrella", "RESOLVED", "COMPLETE", UMBRELLA)
+    assert [v.clause for v in violations] == [CLAUSE_COMPLETE_IS_DERIVED]
+
+
 def test_resolved_is_reachable_from_planned_too():
     """A umbrella that got as far as PLANNED before decomposing is still an umbrella."""
     from atdd.state.evidence import check_transition
 
-    violations = check_transition(
-        "wi_umbrella", "PLANNED", "RESOLVED", UMBRELLA | {"conclusion_digest"})
+    violations = check_transition("wi_umbrella", "PLANNED", "RESOLVED", UMBRELLA)
     assert violations == [], [v.render() for v in violations]
 
 
@@ -109,5 +130,5 @@ def test_resolved_does_not_launder_a_skipped_rung():
     """INIT -> RESOLVED must not become a cheap route to GREEN."""
     from atdd.state.evidence import check_transition
 
-    violations = check_transition("wi_x", "PLANNED", "GREEN", UMBRELLA | {"conclusion_digest"})
+    violations = check_transition("wi_x", "PLANNED", "GREEN", UMBRELLA)
     assert violations, "an unevidenced GREEN must still be refused"

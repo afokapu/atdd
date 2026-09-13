@@ -82,7 +82,7 @@ PHASE_RANK: Dict[str, int] = {phase: index for index, phase in enumerate(PHASE_L
 #: entering one is never autonomous. Deliberately NOT `reason_digest`: no projection field
 #: carries an escape's reason, so `evidence_for` could never derive it and the edge would
 #: stay as unwalkable as #1947 found it, merely better named. Give them a field, then tighten.
-ESCAPES: FrozenSet[str] = frozenset({"BLOCKED", "OBSOLETE"})
+ESCAPES: FrozenSet[str] = frozenset({"BLOCKED", "OBSOLETE", "RESOLVED"})
 
 #: Of those, the ones a phase may come back out of: ``BLOCKED`` is symmetric — entered by
 #: operator decision and left by one — while ``OBSOLETE`` declares none and is terminal.

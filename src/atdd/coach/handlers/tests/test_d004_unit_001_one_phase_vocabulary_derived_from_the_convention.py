@@ -46,7 +46,10 @@ pytestmark = [pytest.mark.coach]
 
 #: Off-spine phases: reachable from any rung, ordered against none. The same set
 #: ``state/tests/test_phase_ladder_matches_projection_phases.py`` encodes.
-ESCAPES = {"BLOCKED", "OBSOLETE"}
+#: The one definition (atdd.state.evidence). It had four copies before #1967,
+#: and that issue ADDS a member to the set — restating it here is how the
+#: phase vocabulary forked in #1946.
+from atdd.state.evidence import ESCAPES  # noqa: F401
 
 
 @pytest.fixture(scope="module")

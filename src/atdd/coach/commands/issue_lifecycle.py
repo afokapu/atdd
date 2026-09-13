@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 # Statuses where branch + gate are triggered
 _BRANCH_STATUSES = {"PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR", "BLOCKED"}
-_TERMINAL_STATUSES = {"COMPLETE", "OBSOLETE"}
+_TERMINAL_STATUSES = {"COMPLETE", "OBSOLETE", "RESOLVED"}
 
 
 # Statuses from PLANNED onward require a template-compliant issue body.
@@ -98,6 +98,9 @@ _NEXT_ACTION_HINTS = {
     ),
     "OBSOLETE": _NextAction(
         lines=("  This issue is OBSOLETE. No further action needed.",)
+    ),
+    "RESOLVED": _NextAction(
+        lines=("  This issue is RESOLVED: it answered its question. No merge is owed.",)
     ),
     "BLOCKED": _NextAction(
         lines=("  This issue is BLOCKED. Resolve blockers, then transition back.",)

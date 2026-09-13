@@ -39,7 +39,11 @@ pytestmark = [pytest.mark.coach, pytest.mark.platform]
 #: "expressed against the escape SET" clause is not well-founded as a derivation,
 #: and `test_escape_set_agrees_with_the_ladder_walk` is the achievable version:
 #: it ties this constant to the repo's existing one so the two cannot drift apart.
-_ESCAPES = {"BLOCKED", "OBSOLETE"}
+#: The one definition (``atdd.state.evidence``), bound to this module's private
+#: name. The set had FIVE copies before #1967 — two in production, three in tests
+#: — and that issue adds a member to it. Restating it is exactly how the phase
+#: vocabulary forked in #1946, one layer down.
+from atdd.state.evidence import ESCAPES as _ESCAPES
 
 
 def _spine(phases: dict) -> list:

@@ -47,6 +47,9 @@ class Phase(str, Enum):
     COMPLETE = "COMPLETE"
     BLOCKED = "BLOCKED"
     OBSOLETE = "OBSOLETE"
+    # Success without code (#1967): an umbrella that answered its question and
+    # decomposed it into children. An escape, never a rung — see the convention.
+    RESOLVED = "RESOLVED"
 
     def __str__(self) -> str:
         return self.value

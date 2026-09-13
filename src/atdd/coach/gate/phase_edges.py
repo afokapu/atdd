@@ -140,7 +140,11 @@ def phase_machine(path: Optional[Path] = None) -> Dict[str, Tuple[str, ...]]:
 #: them either, because ``BLOCKED`` transitions back onto the spine. #1946 collapsed
 #: eight copies of the phase vocabulary into one; this set is what could not be
 #: derived, so it lives here once and D004-UNIT-005 pins it against the convention.
-ESCAPES: frozenset = frozenset({"BLOCKED", "OBSOLETE"})
+#: Re-exported, NOT redefined (#1967). This set had three copies and this change
+#: adds a member to it, which is how the phase vocabulary forked in #1946 one
+#: layer down. It lives in ``atdd.state.evidence`` rather than here because coach
+#: may import state and state may never import coach.
+from atdd.state.evidence import ESCAPES  # noqa: E402  (re-export)
 
 
 def _forward_target(declared: Dict[str, Tuple[str, ...]], phase: str) -> Optional[str]:

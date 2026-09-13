@@ -61,6 +61,10 @@ PROJECTION_SUFFIX = ".yaml"
 #: projection asserting phase=COMPLETE is invalid, not merely stale.
 PHASES: Tuple[str, ...] = (
     "INIT", "PLANNED", "RED", "GREEN", "SMOKE", "REFACTOR", "BLOCKED", "OBSOLETE",
+    # Success without code (#1967). Projected, unlike COMPLETE: a resolved umbrella
+    # is a STORED terminal — nothing downstream re-derives it from a merge, because
+    # there is no merge. See the RESOLVED block in phase_machine.convention.yaml.
+    "RESOLVED",
 )
 
 #: Lifecycle phases a store object may carry that are NOT projected. ``COMPLETE`` is

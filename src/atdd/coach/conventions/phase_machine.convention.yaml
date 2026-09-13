@@ -34,7 +34,7 @@ description: |
 phases:
   INIT:
     agent: planner
-    transitions_to: [PLANNED, BLOCKED, OBSOLETE]
+    transitions_to: [PLANNED, RESOLVED, BLOCKED, OBSOLETE]
     pre_commit_gate: "atdd validate planner --local --skip-api"
     # Creating the plan is an operator sign-off: the decomposition is the one
     # artifact no downstream gate can re-derive.
@@ -70,6 +70,23 @@ phases:
     agent: null
     transitions_to: []
     autonomy: null
+  RESOLVED:
+    agent: null
+    transitions_to: []
+    # Success without code. An umbrella that investigated a problem, decomposed it
+    # into children and saw them merge has finished — but the ladder's rungs all
+    # demand test and implementation evidence it never produced, COMPLETE may never
+    # be stored, and TOMBSTONED means "retired", not "succeeded". So it stalled at
+    # PLANNED and the cheapest exit was to write tests for nothing (#1967).
+    #
+    # An ESCAPE, not a rung, and that is load-bearing rather than stylistic: as an
+    # ordinary target of INIT it would give INIT two non-escape targets, `spine()`
+    # would raise, and because TRANSITION_TABLE/PLANNED_PATH are projected at import
+    # (#1946) the coach runtime would not load at all.
+    #
+    # Terminal and NOT resumable, unlike BLOCKED: a resolved question is not
+    # reopened, it is asked again as a new work item.
+    autonomy: operator
   BLOCKED:
     agent: null
     transitions_to: [INIT, PLANNED, RED, GREEN, SMOKE, REFACTOR, OBSOLETE]

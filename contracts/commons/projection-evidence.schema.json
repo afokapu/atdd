@@ -33,6 +33,7 @@
               "COMPLETE",
               "BLOCKED",
               "OBSOLETE",
+              "RESOLVED",
               null
             ],
             "type": [
@@ -74,6 +75,7 @@
               "COMPLETE",
               "BLOCKED",
               "OBSOLETE",
+              "RESOLVED",
               "TOMBSTONED"
             ],
             "type": "string"
