@@ -8,6 +8,11 @@
 Loads the live issue.schema.json, the real create_issue_body, and the real coach
 gate (load_required_sections() + REQUIRED_SUBSECTIONS) from the checkout and
 confirms the three required-section sets are identical.
+
+Carries the #1978 subsection arm too, over the shipped artifacts: every H3 the
+schema requires must appear in the real PARENT-ISSUE-TEMPLATE.md. Before that arm
+existed the template was the one surface this "tri-directional" guard never
+compared for subsections.
 """
 from __future__ import annotations
 
@@ -18,6 +23,7 @@ from ._helpers import (
     load_issue_schema,
     required_section_set,
     sample_spec,
+    template_missing_required_subsections,
 )
 
 
@@ -39,4 +45,12 @@ def test_c011_smoke_001_live_drift_guard_over_real_artifacts():
         f"  schema:    {sorted(schema_sections)}\n"
         f"  gate:      {sorted(gate_sections)}\n"
         f"  generator: {sorted(generator_sections)}"
+    )
+
+    # Real artifact 2 again, for SUBSECTIONS: the template must SHOW every H3 the
+    # schema demands, not merely agree about H2s (#1978).
+    missing_from_template = template_missing_required_subsections()
+    assert missing_from_template == [], (
+        f"schema-required subsections missing from the shipped template: "
+        f"{missing_from_template}"
     )
