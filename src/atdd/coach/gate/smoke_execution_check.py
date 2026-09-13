@@ -102,7 +102,7 @@ def _head_sha(worktree: Path, branch: Optional[str] = None) -> Optional[str]:
             ["git", "rev-parse", rev],
             cwd=str(worktree), capture_output=True, text=True, timeout=_GIT_TIMEOUT_S,
         )
-    except (OSError, subprocess.SubprocessError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except (OSError, subprocess.SubprocessError) as exc:
         logger.debug(
             "smoke-execution gate: cannot resolve HEAD; staleness will not be checked",
             extra={"worktree": str(worktree), "rev": rev, "error": str(exc)},

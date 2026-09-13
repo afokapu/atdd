@@ -31,6 +31,9 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Optional
+import logging
+
+_log = logging.getLogger(__name__)
 
 __all__ = ["ENFORCEMENT_DEFAULT", "resolve_enforcement", "placement_block_reason"]
 
@@ -80,9 +83,10 @@ def placement_block_reason(cwd: Optional[Path] = None) -> Optional[str]:
             f"   (worktree_placement_enforcement: block — set it to `warn` in\n"
             f"    .atdd/config.yaml to downgrade this to a notice)"
         )
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except Exception as exc:
         # Fail OPEN, deliberately, and only here. This gate protects a layout
         # convention, not a correctness invariant: refusing every push in a repo
         # where the check itself is broken would cost far more than the
         # misplaced directory it exists to prevent.
+        _log.warning("placement_block_reason: Exception handled, returning None", extra={"error": str(exc)[:200]})
         return None

@@ -185,7 +185,7 @@ def test_r013_unit_002_no_test_anywhere_reads_installed_hook_content():
             continue
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"))
-        except (OSError, SyntaxError):  # atdd:suppress(coder.logging.coach-silent-swallow)
+        except (OSError, SyntaxError):
             continue
         offenders.extend(
             f"{path.relative_to(_REPO_ROOT)}:{n}" for n in _reads_installed_hook_content(tree)

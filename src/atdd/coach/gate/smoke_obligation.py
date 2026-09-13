@@ -254,7 +254,7 @@ def _load_yaml(path: Optional[Path]) -> Optional[Dict[str, Any]]:
         return None
     try:
         document = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except (OSError, yaml.YAMLError) as exc:
         logger.warning(
             "smoke obligation: unreadable plan file; it contributes no obligation",
             extra={"path": str(path), "error": str(exc).splitlines()[0][:160]},

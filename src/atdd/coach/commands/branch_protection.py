@@ -78,7 +78,8 @@ def verify_branch_protection(repo: str) -> Tuple[ProtectionStatus, List[str]]:
             text=True,
             timeout=15,
         )
-    except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+        logger.warning("verify_branch_protection: (subprocess.TimeoutExpired, FileNotFoundError) handled, returning an empty result", extra={"error": str(exc)[:200]})
         return ProtectionStatus.DEGRADED, [
             "gh CLI not available or request timed out"
         ]
@@ -99,7 +100,8 @@ def verify_branch_protection(repo: str) -> Tuple[ProtectionStatus, List[str]]:
 
     try:
         actual = json.loads(result.stdout)
-    except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except json.JSONDecodeError as exc:
+        logger.debug("verify_branch_protection: json.JSONDecodeError handled, returning an empty result", extra={"error": str(exc)[:200]})
         return ProtectionStatus.DEGRADED, [
             "Could not parse GitHub API response"
         ]
@@ -222,7 +224,8 @@ def apply_branch_protection(repo: str) -> bool:
         else:
             print(f"  Branch protection: FAILED ({stderr[:80]})")
         return False
-    except (subprocess.TimeoutExpired, FileNotFoundError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+        logger.warning("apply_branch_protection: (subprocess.TimeoutExpired, FileNotFoundError) handled, reporting false", extra={"error": str(exc)[:200]})
         print("  Branch protection: SKIPPED (timeout or gh not available)")
         return False
 

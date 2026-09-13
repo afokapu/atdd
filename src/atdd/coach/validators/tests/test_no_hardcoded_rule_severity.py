@@ -161,7 +161,7 @@ def scan_for_hardcoded_severity() -> List[Violation]:
         try:
             source = py_file.read_text(encoding="utf-8")
             tree = ast.parse(source, filename=str(py_file))
-        except (OSError, SyntaxError, UnicodeDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow)
+        except (OSError, SyntaxError, UnicodeDecodeError):
             # Unparseable files are policed by the syntax test_suite; skip.
             continue
         if not _imports_bind_rule(tree):

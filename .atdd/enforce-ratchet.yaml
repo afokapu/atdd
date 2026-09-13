@@ -14,20 +14,19 @@ scope:
   - src/atdd
 
 rules:
-  coder.dead-code.reachability:                                   54
+  coder.dead-code.reachability:                                   51
   coder.dead-code.reachability-typescript:                        16
   coder.design.orphan-ui:                                         5
   coder.design.primitives:                                        5
   coder.error-response.code-format:                               1
-  coder.logging.coach-silent-swallow:                             230
-  coder.logging.structured:                                       15
-  coder.refactor.complexity-cognitive:                            120
+  coder.logging.structured:                                       13
+  coder.refactor.complexity-cognitive:                            117
   coder.refactor.complexity-cyclomatic:                           139
-  coder.refactor.complexity-length:                               66
+  coder.refactor.complexity-length:                               64
   coder.refactor.complexity-nesting:                              162
   coder.refactor.composition-consumer:                            3
   coder.refactor.composition-root:                                1
-  coder.refactor.quality-comments:                                12
+  coder.refactor.quality-comments:                                11
   coder.refactor.quality-duplication:                             48
   coder.refactor.quality-file-length:                             37
   coder.refactor.quality-mi:                                      11
