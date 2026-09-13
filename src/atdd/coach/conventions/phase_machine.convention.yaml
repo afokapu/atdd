@@ -1,11 +1,18 @@
 # Phase Machine Convention — canonical ATDD lifecycle state machine.
 #
-# Single source of truth for per-issue phase transitions
+# Single source of truth for per-issue phase TRANSITIONS
 # (docs/coach-decomposition.md §4.5). Coach-core loads this (via
 # train.persistence.load_conventions) into Conventions.phase_machine as a
 # mapping of Phase -> PhaseSpec. The duplicate state_machine table that used to
 # live in the CLAUDE.md managed block / CONDUCTOR.md template was removed in Child 1
-# (#888); add or change a phase HERE, never in Python and never in CLAUDE.md.
+# (#888), and #1946 collapsed the remaining Python copies into projections of
+# this file.
+#
+# TRANSITIONS are the single source of truth; the VOCABULARY is not, quite.
+# Change an edge, an agent, an autonomy or a pre_commit_gate HERE and nowhere
+# else. ADDING OR REMOVING A PHASE additionally costs one line in
+# atdd.coach.core.types.Phase — see `description` below for why and what
+# catches you if you forget.
 schema_version: "1.0.0"
 convention_id: "coach.phase-machine"
 name: "Phase Machine Convention"
@@ -13,9 +20,38 @@ description: |
   The ATDD per-issue lifecycle as data. Each phase declares the persona that
   drives it (agent), the phases it may transition to (transitions_to), who may
   SUBMIT the transition out of it (autonomy), and an optional pre_commit_gate
-  CLI command run before committing the produced artifact. Adding a new phase is
-  a YAML edit here plus (optionally) new rules — no Coach-core code change
-  (§4.3 property 4).
+  CLI command run before committing the produced artifact.
+
+  WHAT A NEW PHASE COSTS (corrected in #1975; §4.3 property 4 as originally
+  written claimed no Coach-core code change, which #1946 made almost — but not
+  entirely — true).
+
+  A YAML edit here, plus (optionally) new rules, plus EXACTLY ONE Python line:
+  a member of `atdd.coach.core.types.Phase`. Everything else is projected from
+  this file and needs no edit — the transition table and PLANNED_PATH in
+  coach/handlers/state_machine.py, the spine successor maps in commands/coach.py,
+  handlers/watcher.py and commands/auto_phase.py, and the `atdd:<PHASE>` GitHub
+  label set. Ten hand-maintained tables became projections in #1946.
+
+  The enum stays a literal BY DECISION, not by oversight (#1946 Decision 3):
+  building it dynamically from this YAML would leave ~287 `Phase.X` sites across
+  coach/, train/ and state/ unresolvable to the type checker, trading a compile-
+  time error for a runtime AttributeError. One pinned literal, held equal to this
+  file by test, was judged the better trade.
+
+  FORGETTING THE LINE FAILS CLOSED AND IMMEDIATELY — it is a cost, not a trap.
+  `atdd.coach.handlers.state_machine` builds its table at import via
+  `Phase(name)`, so a phase declared here and missing from the enum raises
+  `ValueError: '<PHASE>' is not a valid Phase` and the coach runtime does not
+  load at all. Guards, both from #1946:
+
+    - `D004-UNIT-005::test_the_core_phase_enum_is_pinned_to_the_convention`
+      holds the enum equal to this file.
+    - `D004-UNIT-001::test_adding_a_phase_costs_exactly_one_python_edit`
+      measures the cost this paragraph states, so the two cannot drift.
+    - `D004-SMOKE-001::test_every_declared_phase_is_nameable_by_the_shipped_runtime`
+      proves it in the built wheel, where a projection that never shipped would
+      otherwise pass unnoticed.
 
   `autonomy` (#1626) is the submitting-authority axis: `operator` reserves the
   forward transition for a human sign-off, `agent` lets the phase's own persona
