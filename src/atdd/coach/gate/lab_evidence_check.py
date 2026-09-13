@@ -97,8 +97,11 @@ def _scaffold() -> dict:
         from atdd.planner.commands.author_issue import LAB_SCAFFOLD
 
         return dict(LAB_SCAFFOLD)
-    except Exception:  # noqa: BLE001 - a missing generator must not crash the gate
-        logger.debug("lab-evidence gate: LAB_SCAFFOLD unavailable; marker clause only")
+    except Exception:  # a missing generator must not crash the gate
+        logger.debug(
+            "lab-evidence gate: LAB_SCAFFOLD unavailable; marker clause only",
+            extra={"gate_id": GATE_ID, "rule_id": RULE_ID},
+        )
         return {}
 
 
@@ -201,7 +204,7 @@ class LabEvidenceGateCheck:
 
             with open_state_store(control_root=ctx.worktree) as store:
                 return resolve_issue_body(store, ctx.issue_number)
-        except Exception as exc:  # noqa: BLE001 - an unreachable store fails closed
+        except Exception as exc:  # an unreachable store fails closed
             logger.debug(
                 "lab-evidence gate: cannot read the issue body",
                 extra={"issue": getattr(ctx, "issue_number", None), "error": str(exc)},

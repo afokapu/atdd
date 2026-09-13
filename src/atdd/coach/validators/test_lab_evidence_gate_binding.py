@@ -39,7 +39,6 @@ from typing import List
 import pytest
 
 import atdd
-from atdd.coach.gate.decision import GateCheck
 from atdd.coach.gate.lab_evidence_check import GATE_ID, LabEvidenceGateCheck, lab_violations
 from atdd.coach.gate.registrations import register_lab_evidence_check
 from atdd.coach.gate.registry import GateRegistry
@@ -81,7 +80,7 @@ def _scaffold_is_read_not_guessed() -> List[str]:
     """
     try:
         from atdd.planner.commands.author_issue import LAB_SCAFFOLD
-    except Exception as exc:  # noqa: BLE001 - the export is the wiring under test
+    except Exception as exc:  # the export is the wiring under test
         return [
             f"the planner no longer exports LAB_SCAFFOLD ({exc}), so the gate has no "
             f"source for the scaffold strings and must guess at them"
@@ -116,10 +115,17 @@ def _wiring_faults() -> List[str]:
             f"LabEvidenceGateCheck declares rule_id {check.rule_id!r}, not "
             f"{_RULE.rule_id!r} — the rule names a mechanism that no longer names it back"
         )
-    if not isinstance(check, GateCheck):
+    # Asked structurally rather than with `isinstance(check, GateCheck)`, which the
+    # precedent uses. Both assert the same thing — a runtime_checkable Protocol can
+    # only check member presence, never signatures — but the isinstance form reports
+    # pyright's reportGeneralTypeIssues ("overlaps unsafely"), and the precedent's copy
+    # of that finding is grandfathered into .atdd/baselines/types_toolkit.yaml. Adding
+    # a second copy of a known finding to a ratchet baseline is the opposite of what
+    # the ratchet is for, so the assertion is written the way that needs no entry.
+    if not callable(getattr(check, "run", None)):
         faults.append(
-            "LabEvidenceGateCheck no longer satisfies the #1020 GateCheck Protocol, so "
-            "the registry cannot run it"
+            "LabEvidenceGateCheck no longer satisfies the #1020 GateCheck Protocol "
+            "(no callable `run`), so the registry cannot run it"
         )
 
     registry = GateRegistry()
