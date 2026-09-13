@@ -145,7 +145,7 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 30
+    total: 31
     C015: minimize likelihood of lab-scaffold-strings-the-gate-cannot-read by emitting
       `## Lab` with its four subsections from an exported LAB_SCAFFOLD constant that
       the gate reads, leaving the emitted body schema-valid and template-compliant
