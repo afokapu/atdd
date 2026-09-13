@@ -1,0 +1,48 @@
+urn: feature:govern-lifecycle:enforce-lab-evidence
+wagon: wagon:govern-lifecycle
+description: "Gates INIT's exit on recorded lab evidence (#1950). The lifecycle gates\
+  \ DELIVERY thoroughly \u2014 RED before GREEN, smoke evidence before REFACTOR, an\
+  \ operator at both ends \u2014 and gates PREMISE not at all, so a decomposition\
+  \ built on a false premise is only discovered after the code is written. Adds LabEvidenceGateCheck\
+  \ on the INIT->PLANNED edge, registered through GATE_REGISTRY beside ApprovalTokenGateCheck\
+  \ and SmokeExecutionGateCheck. Two clauses only: a `## Lab` subsection whose content\
+  \ is empty, and one whose content OPENS with an unfilled marker \u2014 the scaffold\
+  \ string the generator wrote (read from the planner's exported LAB_SCAFFOLD, never\
+  \ guessed) or one of To fill / TBD / N/A / TODO / Not measured / Nothing yet. Deliberately\
+  \ NOT reuse of issue_template.check_placeholders, which fires only when a placeholder\
+  \ is the WHOLE LINE (#1904, correctly \u2014 the substring form scored four hits\
+  \ over 120 issues and zero real ones): every hand-written lab in the corpus writes\
+  \ the marker followed by prose on one line, so that check reports compliant=True\
+  \ on three bodies that literally say \"To fill\". And deliberately NOT a length\
+  \ heuristic, which refused four of six legitimate terse answers including `Nothing.`,\
+  \ the correct result for a confirmed hypothesis. Ships registered and INERT: INIT->PLANNED\
+  \ is absent from DEFAULT_GATED_TRANSITIONS, and enabling it repo-wide would refuse\
+  \ 162 of 163 open-at-INIT issues with no per-issue opt-in available, making --force\
+  \ the routine exit. Enablement is a separate operator decision."
+sizing:
+  wmbts: 1
+  footprint_score: 5
+  footprint_size: S
+wmbts:
+- wmbt:govern-lifecycle:E083
+components:
+  backend:
+    presentation:
+    - type: controllers
+      count: 0
+      rationale: "No new CLI surface \u2014 registers into the existing atdd coach\
+        \ transition dispatch"
+    application:
+    - type: use_cases
+      count: 1
+      rationale: "lab_violations \u2014 the pure evaluator reading a `## Lab` section's\
+        \ four subsections and returning every reason it fails to constitute evidence"
+    domain:
+    - type: entities
+      count: 0
+      rationale: Reuses GateCheckResult / GateVerdict; nothing new at runtime
+    integration:
+    - type: repositories
+      count: 0
+      rationale: Reads the issue body already fetched for the transition gate; no
+        store or network surface of its own

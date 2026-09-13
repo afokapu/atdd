@@ -149,6 +149,28 @@ def validate_issue_body(body: str) -> list[str]:
     return violations
 
 
+#: The `## Lab` scaffold, as EXPORTED CONSTANTS rather than prose inlined in the
+#: generator's template string (#1950).
+#:
+#: The INIT->PLANNED lab gate has to decide whether a subsection is still unfilled,
+#: and it can only do that honestly by comparing against the very strings written
+#: here. #1950's lab built the other version first — a regex for "placeholder-shaped
+#: prose" — and it caught three of the four prompts, missing `### Hypothesis` for no
+#: reason but the comma in its text. Reading this mapping catches four of four and
+#: cannot rot: reword a prompt and the gate follows on the next call.
+#:
+#: DIRECTION OF THE DEPENDENCY. This lives planner-side, beside the generator, and
+#: `atdd.coach.gate.lab_evidence_check` reads it. coach -> planner is the permitted
+#: arrow (see this module's header); the reverse would put the body contract behind
+#: the lifecycle.
+LAB_SCAFFOLD: dict[str, str] = {
+    "Hypothesis": "(the premise this issue rests on, stated so it could be false)",
+    "Setup": "(how it was tested against the real system)",
+    "Measured result": "_To fill before INIT -> PLANNED._",
+    "What it changed about the plan": "_To fill._",
+}
+
+
 # ---------------------------------------------------------------------------
 # Generator — emits a compliant-by-construction body (no placeholders).
 # ---------------------------------------------------------------------------
@@ -254,6 +276,25 @@ def create_issue_body(spec: dict | None = None) -> str:
         "| Term | Definition | Example |\n"
         "|------|------------|---------|\n"
         "| schema-driven gate | the validator projects the schema | `validate_issue_body` |"
+    )
+
+    # `## Lab` is emitted but deliberately NOT added to issue.schema.json's
+    # `required` list. Measured over all 400 live bodies, requiring it there took
+    # compliance from 398/400 to 4/400 and failed the K002 back-compat acceptance
+    # by construction. The schema is the BODY contract, binding on every issue ever
+    # written; lab evidence is an EDGE contract, binding only on issues moving
+    # forward. The INIT->PLANNED gate carries the second one.
+    parts.append(
+        "## Lab\n\n"
+        + "\n\n".join(
+            f"### {name}\n\n{LAB_SCAFFOLD[name]}"
+            for name in (
+                "Hypothesis",
+                "Setup",
+                "Measured result",
+                "What it changed about the plan",
+            )
+        )
     )
 
     parts.append(
