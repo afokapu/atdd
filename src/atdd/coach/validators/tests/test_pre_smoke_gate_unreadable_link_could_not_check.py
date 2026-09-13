@@ -232,9 +232,15 @@ class TestTheRuleItselfIsNotWeakened:
             "a pre-SMOKE offender is a FAIL, not a could-not-check"
         )
 
-    @pytest.mark.parametrize("phase", ["SMOKE", "REFACTOR", "COMPLETE"])
+    @pytest.mark.parametrize("phase", ["REFACTOR", "COMPLETE"])
     def test_a_readable_merge_eligible_link_still_passes(self, phase):
-        """#1721/#1735/#1653/#1671 cleared this on rerun and merged. Stays green."""
+        """#1721/#1735/#1653/#1671 cleared this on rerun and merged. Stays green.
+
+        SMOKE left this list in #1999: the merge now waits for REFACTOR, which is the
+        phase the operator signs into. The four issues this docstring names all merged
+        from REFACTOR or later, so none of them is re-judged by the move — what changed
+        is the phase BELOW them, which is covered by the refusal case above.
+        """
         pr = _pr(1757, closing=[{"number": 1756}])
         mgr = FakePRManager({1757: _resolution(1756, phase=phase, strategy="api")})
 
