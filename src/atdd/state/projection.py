@@ -40,7 +40,7 @@ import sqlite3
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Tuple
+from typing import FrozenSet, Any, Dict, List, Mapping, Optional, Tuple
 
 import yaml
 
@@ -92,11 +92,39 @@ FIELD_TYPES: Dict[str, Any] = {
     "owner_actor": str,
     "last_lifecycle_actor": (str, type(None)),
     "train": (str, type(None)),
+    # Grown from the data bag by the #1622 dispositions. Both are NULLABLE and must stay
+    # so: 22 of 737 live projectable objects carry `type: None`, and typed as plain `str`
+    # they refuse the WHOLE projection — assert/validate runs over every document before
+    # the first file is written. `wagon` is nullable for the same reason, and carries
+    # heterogeneous values (full URNs, bare slugs, one prose value), so it takes no pattern.
+    "type": (str, type(None)),
+    "wagon": (str, type(None)),
     "wmbts": list,
     "extension_digests": dict,
     "external_refs": dict,
     "tombstone": dict,
 }
+
+#: Keys the projector OMITS from the document while the store keeps them (#1622).
+#:
+#: Strip is not drop. Each of these has a live reader that reads the **live SQLite store**,
+#: which — per the #1622 ruling recorded in
+#: ``docs/1400-findings/1622-projection-authority-ruling.md`` — is never rebuilt from the
+#: projection. So omitting them costs those readers nothing, while carrying them would put
+#: machine-local or unreliable values into shared state:
+#:
+#: - ``branch``    the pre-commit registration gate's primary index (#1720). Per-machine:
+#:                 written by ``atdd worktree create`` on the host that needs it, so a peer
+#:                 was never going to inherit a useful value.
+#: - ``feature``   49% of its non-null values are a literal the generator substitutes for an
+#:                 omitted ``--feature`` (#2006). Growing it would publish 172 false bindings
+#:                 as authoritative shared state.
+#: - ``worktree``  51 carriers, exactly 1 non-null.
+#: - ``created``   } authoring timestamps and the GitHub id, both re-derivable and neither
+#: - ``id``        } read by a decision module.
+STRIPPED_AT_PROJECTION: FrozenSet[str] = frozenset({
+    "branch", "feature", "worktree", "created", "id",
+})
 
 #: Contract ``required``.
 REQUIRED_FIELDS: Tuple[str, ...] = ("uid", "phase", "state", "owner_actor")
@@ -391,10 +419,17 @@ def build_document(obj: Object) -> Dict[str, Any]:
 
     The ``objects.state`` column is the lifecycle *phase* (the store's long-standing
     convention); every other projection field lives in the object's ``data`` bag and
-    is carried through verbatim, so nothing is silently dropped on the way out. An
-    object that never recorded a retirement is ``ACTIVE``.
+    is carried through verbatim. An object that never recorded a retirement is ``ACTIVE``.
+
+    The one exception is :data:`STRIPPED_AT_PROJECTION` (#1622): those keys stay in the
+    store and are omitted here. Nothing is silently dropped — the set is enumerated, each
+    entry carries its reason, and every live reader of one reads the store rather than the
+    projection.
     """
-    document: Dict[str, Any] = dict(obj.data)
+    document: Dict[str, Any] = {
+        key: value for key, value in obj.data.items()
+        if key not in STRIPPED_AT_PROJECTION
+    }
     document["uid"] = obj.uid
     document["phase"] = obj.state
     document.setdefault("state", STATE_ACTIVE)

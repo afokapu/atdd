@@ -50,4 +50,9 @@ def test_d001_smoke_001_field_ownership_policy(tmp_path) -> None:
     install_policy(repo)
     resolved = atdd_state(repo, "ownership-check")
     assert resolved.returncode == 0, resolved.stdout + resolved.stderr
-    assert "13 field(s)" in resolved.stdout
+    # Derived, not hardcoded: this said "13 field(s)" until #1622 grew `type` and `wagon`,
+    # and a literal here fails the next GROW for a reason that has nothing to do with what
+    # the test is checking — that every field resolves, whatever the policy declares.
+    from atdd.state.projection import FIELD_TYPES
+
+    assert f"{len(FIELD_TYPES)} field(s)" in resolved.stdout, resolved.stdout

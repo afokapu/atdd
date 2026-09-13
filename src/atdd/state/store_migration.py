@@ -32,7 +32,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Dict, FrozenSet, List
 
 from atdd.state.identity import is_uid, mint_uid
 from atdd.state.manifest_import import WORK_ITEM_KIND
@@ -45,7 +45,13 @@ from atdd.state.manifest_migration import (
     LossyMigrationError,
     MigrationDefect,
 )
-from atdd.state.projection import ARCHIVED_PHASES, FIELD_TYPES, PHASES, STATE_ACTIVE
+from atdd.state.projection import (
+    ARCHIVED_PHASES,
+    FIELD_TYPES,
+    PHASES,
+    STATE_ACTIVE,
+    STRIPPED_AT_PROJECTION,
+)
 from atdd.state.store import Object, StateStore
 
 _log = logging.getLogger(__name__)
@@ -59,6 +65,46 @@ DEFECT_UNPROJECTABLE_FIELD = "unprojectable-field"
 #: row key, ``phase`` is ``objects.state``).
 _PROJECTABLE_DATA_FIELDS = frozenset(FIELD_TYPES) - {"uid", "phase"}
 
+#: Keys this migration DELETES from the store (#1622 dispositions).
+#:
+#: Drop is irreversible and the store is the only surviving source of truth, so each entry
+#: is here because the evidence says nothing live reads it — not because it was unrecognised:
+#:
+#: - ``issue_number``  the authoritative linkage is ``external_refs``→uid, which lives in the
+#:                     store; the bag copy is redundant and ``all_work_items()`` already
+#:                     overwrites it. Ruled DROP with the CI-only ruling.
+#: - ``_recovery``     forensic bags from the 2026-07-20 incident. Ruled DROP with the same
+#:                     ruling; all 767 archived first to
+#:                     ``docs/1400-findings/1622-recovery-bags-archive.json``. Seven carry
+#:                     ``needs_operator_review: true`` and those reviews remain owed.
+#: - ``worktree_path`` 130 carriers, every one an absolute host path. Cannot be grown: one
+#:                     host path in a structured field refuses the whole projection.
+#: - ``github_state``  } mirrored GitHub state with neither a bot keeping it fresh nor a
+#: - ``labels``        } consumer reading it. Stale by construction.
+#: - ``label_phase``   }
+#: - ``merge_commit``  } null on every projectable carrier.
+#: - ``closing_prs``   }
+#: - ``archived``      0 projectable carriers.
+#: - ``archetype``     no reader anywhere, tests included.
+#: - ``archetypes``    1 carrier; flips to a relocation only on evidence operators still run
+#:                     ``atdd update --archetypes``. None found.
+#: - ``feature_urn``   4 carriers, no reader. It CONTRADICTS ``feature`` on 3 of its 5
+#:                     objects; that evidence is preserved in
+#:                     ``docs/1400-findings/1622-lab-remaining-five-keys.md``.
+#: - ``file``          7 carriers, 0 non-null — pure null-seeding.
+DROPPED_FROM_STORE: FrozenSet[str] = frozenset({
+    "issue_number", "_recovery", "worktree_path", "github_state", "labels", "label_phase",
+    "merge_commit", "closing_prs", "archived", "archetype", "archetypes", "feature_urn",
+    "file",
+})
+
+#: A key the contract has no field for is a DEFECT only if no disposition covers it. The
+#: three sets are disjoint by construction and the assertion below keeps them that way: a
+#: key that was both stripped and dropped would have two answers to the same question.
+_DISPOSITIONED = STRIPPED_AT_PROJECTION | DROPPED_FROM_STORE
+assert not (STRIPPED_AT_PROJECTION & DROPPED_FROM_STORE), "a key cannot be both stripped and dropped"
+assert not (_DISPOSITIONED & _PROJECTABLE_DATA_FIELDS), "a grown field needs no other disposition"
+
 
 @dataclass(frozen=True)
 class StoreMigrationReport:
@@ -68,6 +114,9 @@ class StoreMigrationReport:
     rekeyed: Dict[str, str] = field(default_factory=dict)
     #: uids that gained an ``owner_actor`` they did not carry.
     attributed: List[str] = field(default_factory=list)
+    #: uid → the :data:`DROPPED_FROM_STORE` keys deleted from it. Recorded per object rather
+    #: than counted: a drop is irreversible, so the report has to say what it took.
+    dropped: Dict[str, List[str]] = field(default_factory=dict)
     #: Objects already carrying contract-shaped identity; left exactly as they were.
     untouched: int = 0
 
@@ -119,12 +168,17 @@ def _projection_defects(index: int, obj: Object, slug: str) -> List[MigrationDef
     lossy write C001 exists to prevent.
 
     ``unprojectable-field``: the ``data`` bag carries a key the contract has no field for
-    (``additionalProperties: false``). Reported, deliberately, rather than stripped: which of
-    these to grow into a real field, which to strip at projection and which to drop is a
-    per-key decision with live readers on the other side of it (#1622 dispositions,
-    ``docs/1400-findings/``), and a migration that dropped them silently would take ``wagon``
-    with it — read by two declared ``hot_path.DECISION_MODULES``, both behind
-    ``except: return {}``, so nothing would raise.
+    (``additionalProperties: false``) **and no disposition covers it**. Still reported rather
+    than stripped, and for the original reason: which keys to grow, strip or drop is a
+    per-key decision with live readers on the other side of it, and a migration that decided
+    silently would have taken ``wagon`` with it — read by two declared
+    ``hot_path.DECISION_MODULES``, both behind ``except: return {}``, so nothing would raise.
+
+    What changed (#1622) is that the decisions have now been made and written down, so the
+    check subtracts them: ``wagon`` and ``type`` were grown into contract fields,
+    :data:`~atdd.state.projection.STRIPPED_AT_PROJECTION` is omitted by the projector while
+    the store keeps it, and :data:`DROPPED_FROM_STORE` is deleted here. A key outside all
+    three is new since the dispositions were taken, and is exactly what this defect is for.
     """
     defects: List[MigrationDefect] = []
     if obj.state not in PHASES:
@@ -140,7 +194,7 @@ def _projection_defects(index: int, obj: Object, slug: str) -> List[MigrationDef
             "it must be grown into a field, stripped at projection, or dropped — "
             "a migration may not decide that silently",
         )
-        for key in sorted(set(obj.data) - _PROJECTABLE_DATA_FIELDS)
+        for key in sorted(set(obj.data) - _PROJECTABLE_DATA_FIELDS - _DISPOSITIONED)
     )
     return defects
 
@@ -166,8 +220,15 @@ def inspect_store(store: StateStore) -> List[MigrationDefect]:
 
 
 def _migrated_data(obj: Object, slug: str, owner_actor: str) -> Dict[str, Any]:
-    """``obj``'s data bag with its slug recorded and an owner guaranteed."""
-    data: Dict[str, Any] = dict(obj.data)
+    """``obj``'s data bag with its slug recorded, an owner guaranteed, and drops applied.
+
+    :data:`DROPPED_FROM_STORE` is deleted here and nowhere else, so there is exactly one
+    place where the store loses a key. The stripped set is NOT touched: those keys stay in
+    the bag and the projector omits them.
+    """
+    data: Dict[str, Any] = {
+        key: value for key, value in obj.data.items() if key not in DROPPED_FROM_STORE
+    }
     data[SLUG_KEY] = slug
     data.setdefault("owner_actor", owner_actor)
     data.setdefault("state", STATE_ACTIVE)
@@ -199,13 +260,19 @@ def migrate_store(
 
     rekeyed: Dict[str, str] = {}
     attributed: List[str] = []
+    dropped: Dict[str, List[str]] = {}
     untouched = 0
     for obj in store.objects.list(kind=WORK_ITEM_KIND):
         needs_owner = not obj.data.get("owner_actor")
         needs_uid = not is_uid(obj.uid)
-        if not needs_owner and not needs_uid and obj.data.get(SLUG_KEY):
+        # A second run must still remove a dropped key that arrived since the first, so
+        # "already migrated" cannot be decided on identity and ownership alone.
+        needs_drop = bool(DROPPED_FROM_STORE & set(obj.data))
+        if not needs_owner and not needs_uid and not needs_drop and obj.data.get(SLUG_KEY):
             untouched += 1
             continue
+        if needs_drop:
+            dropped[obj.uid] = sorted(DROPPED_FROM_STORE & set(obj.data))
         if needs_owner:
             attributed.append(obj.uid)
         store.objects.upsert(  # noqa: N+1 — one write per work item; a bulk migration
@@ -217,15 +284,20 @@ def migrate_store(
             store.objects.rekey(obj.uid, minted)  # noqa: N+1 — see above
             rekeyed[obj.uid] = minted
 
-    report = StoreMigrationReport(rekeyed=rekeyed, attributed=attributed, untouched=untouched)
+    report = StoreMigrationReport(
+        rekeyed=rekeyed, attributed=attributed, dropped=dropped, untouched=untouched,
+    )
     _log.info(
         "state store migrated to contract-shaped identity",
-        extra={"migrated": report.migrated, "attributed": len(attributed), "untouched": untouched},
+        extra={
+            "migrated": report.migrated, "attributed": len(attributed),
+            "objects_with_drops": len(dropped), "untouched": untouched,
+        },
     )
     return report
 
 
 __all__ = [
     "DEFECT_MISSING_SLUG", "DEFECT_UNPROJECTABLE_FIELD", "StoreMigrationReport",
-    "inspect_store", "migrate_store",
+    "DROPPED_FROM_STORE", "inspect_store", "migrate_store",
 ]

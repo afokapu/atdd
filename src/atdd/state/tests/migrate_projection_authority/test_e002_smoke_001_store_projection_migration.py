@@ -222,12 +222,26 @@ class TestTheMigrationMintsIdentityThroughTheShippedCommand:
 class TestOneBadObjectRefusesTheWholeRun:
     """A partial run damages the only surviving source of truth. So there are no partial runs."""
 
+    #: A key no disposition covers. It has to be one nobody has ruled on: after #1622 every
+    #: key the live corpus carries is grown, stripped or dropped, so seeding one of those
+    #: would assert against a decision already made rather than against the guard.
+    #:
+    #: This was `wagon` until #1622 grew it into a contract field — which is precisely the
+    #: refusal working as designed, one key at a time.
+    UNDISPOSITIONED_KEY = "cycle_time_p95"
+
     @pytest.fixture()
     def poisoned(self, tmp_path) -> Path:
+        from atdd.state.store_migration import _DISPOSITIONED, _PROJECTABLE_DATA_FIELDS
+
+        # Fails loudly if someone later disposes of this key, rather than leaving a test
+        # that seeds a legal bag and silently stops testing the refusal.
+        assert self.UNDISPOSITIONED_KEY not in _DISPOSITIONED | _PROJECTABLE_DATA_FIELDS, (
+            f"{self.UNDISPOSITIONED_KEY!r} now has a disposition; this fixture needs a key "
+            f"that still has none, or it no longer poisons anything"
+        )
         root = make_checkout(tmp_path / "poisoned")
-        # `wagon` is a real store key with no field in the projection contract — the exact
-        # shape of the 18 divergent keys #1622 is about, not an invented one.
-        _seed_legacy_store(root, extra_data={"wagon": "govern-lifecycle"})
+        _seed_legacy_store(root, extra_data={self.UNDISPOSITIONED_KEY: "42ms"})
         return root
 
     def test_the_run_exits_non_zero_and_names_the_offending_object(self, poisoned):
@@ -235,7 +249,7 @@ class TestOneBadObjectRefusesTheWholeRun:
 
         assert result.returncode != 0, "an unmigratable object must refuse the run"
         report = result.stdout + result.stderr
-        assert "wagon" in report, f"the offending FIELD must be named:\n{report}"
+        assert self.UNDISPOSITIONED_KEY in report, f"the offending FIELD must be named:\n{report}"
         assert "first-legacy-item" in report, f"the offending OBJECT must be named:\n{report}"
 
     def test_a_refused_run_mutates_nothing(self, poisoned):
@@ -259,7 +273,7 @@ class TestOneBadObjectRefusesTheWholeRun:
         result = atdd_state(poisoned, "migrate-store", "--dry-run")
 
         assert result.returncode != 0, "--dry-run must still report the refusal"
-        assert "wagon" in result.stdout + result.stderr
+        assert self.UNDISPOSITIONED_KEY in result.stdout + result.stderr
         assert _digest(_store_path(poisoned)) == before, "--dry-run must write nothing"
 
 

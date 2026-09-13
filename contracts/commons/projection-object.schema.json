@@ -88,10 +88,24 @@
         "null"
       ]
     },
+    "type": {
+      "description": "The issue Type (implementation, bug, refactor). Mutable authoring metadata. Nullable: live objects carry null and the contract must admit them (#1622).",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "uid": {
       "description": "Immutable, globally unique, never reused (section 10 rule 1).",
       "pattern": "^wi_[0-9A-HJKMNP-TV-Z]{26}$",
       "type": "string"
+    },
+    "wagon": {
+      "description": "The wagon the work item belongs to. Core train ops; conflict unless same digest, as for its sibling `train`. Nullable, and deliberately without a pattern: live values are heterogeneous — full URNs, bare slugs, and one prose value (#1622).",
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "wmbts": {
       "description": "Test-owned; policy-defined merge.",
