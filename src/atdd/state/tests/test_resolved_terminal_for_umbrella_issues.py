@@ -70,7 +70,7 @@ def test_resolved_owes_exactly_what_every_escape_owes():
 def test_resolved_requires_an_operator_decision():
     from atdd.state.evidence import CLAUSE_ESCAPE_EVIDENCE, check_transition
 
-    unsigned = (UMBRELLA - {"operator_token_digest"}) | {"conclusion_digest"}
+    unsigned = UMBRELLA - {"operator_token_digest"}
     violations = check_transition("wi_umbrella", "INIT", "RESOLVED", unsigned)
     assert [v.clause for v in violations] == [CLAUSE_ESCAPE_EVIDENCE]
 
