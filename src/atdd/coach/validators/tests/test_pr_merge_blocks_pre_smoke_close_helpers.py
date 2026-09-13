@@ -100,12 +100,24 @@ def test_evaluate_emits_violations_for_init_and_planned_defensively():
 # ---------------------------------------------------------------------------
 
 
-def test_evaluate_quiet_for_smoke_phase():
-    """SMOKE is the first merge-eligible phase."""
+def test_evaluate_refuses_at_smoke_phase():
+    """SMOKE stopped being merge-eligible in #1999 — REFACTOR is now the first.
+
+    This test asserted the opposite until 2026-09-13, and it was right when written:
+    SMOKE was where the evidence landed, so it looked like the first phase a merge
+    could follow. What it missed is that the operator's signature is given on the way
+    INTO REFACTOR, so a merge permitted at SMOKE is a merge that skips the signature
+    entirely — measured, PR #1991 closing issue #1982, which still reads SMOKE.
+
+    Re-aimed rather than deleted: the case it covers (a merge-eligibility boundary,
+    asserted on the pure evaluator) is exactly the right case, and only the boundary
+    moved.
+    """
     violations = evaluate_pr_merge_violations([
         _resolution(phase_label="SMOKE", strategy="body"),
     ])
-    assert violations == []
+    assert len(violations) == 1
+    assert "SMOKE" in violations[0].detail
 
 
 def test_evaluate_quiet_for_refactor_phase():
@@ -167,8 +179,14 @@ def test_evaluate_emits_one_violation_per_offending_pr():
 # ---------------------------------------------------------------------------
 
 
-def test_blocked_phases_are_pre_smoke():
-    assert _BLOCKED_PHASES == frozenset({"INIT", "PLANNED", "RED", "GREEN"})
+def test_blocked_phases_are_pre_refactor():
+    """SMOKE joined the set in #1999 so the merge waits for the operator's signature.
+
+    Renamed with the change: the set is no longer "pre-SMOKE", it is "pre-REFACTOR",
+    and a name that still said the old thing would be the first place a reader was
+    misled about what the rule now enforces.
+    """
+    assert _BLOCKED_PHASES == frozenset({"INIT", "PLANNED", "RED", "GREEN", "SMOKE"})
 
 
 def test_auto_closing_strategies_are_api_and_body_only():
