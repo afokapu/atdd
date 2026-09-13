@@ -32,5 +32,7 @@ parity:
   reviewed_at: '2026-06-17'
 terms:
 - term_id: runtime_state
-  text: ephemeral per-run files under the runtime dir; never a delivery artifact unless explicitly declared
-    publishable.
+  text: ephemeral per-run files a run writes and rewrites — those under the runtime dir, and the
+    per-phase validation receipts under .atdd/baselines/validation/; never a delivery artifact unless
+    explicitly declared publishable. The curated ratchet baselines beside those receipts
+    (lint_toolkit, types_toolkit, four_tier_toolkit) are authored delivery artifacts and are excluded.

@@ -67,3 +67,7 @@ coverage.xml
 Thumbs.db
 
 .launch_prompt.txt
+# Per-run validation pass-receipts: derived, read by nothing, rewritten by
+# every passing `atdd validate`. NOT .atdd/baselines/ wholesale — the curated
+# ratchets beside them are each their gate's floor and must stay tracked.
+.atdd/baselines/validation/

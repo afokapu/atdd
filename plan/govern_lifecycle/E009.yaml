@@ -1,64 +1,209 @@
-urn: "wmbt:govern-lifecycle:E009"
-step: "execute"
-direction: "minimize"
-dimension: "likelihood"
-object_of_control: "runtime-artifacts-committed-into-feature-pr-diff"
-context_clarifier: "when an agent runs atdd coach or any coach sub-command during development, coach writes ephemeral per-run state under .atdd/runtime/; if .atdd/runtime/ is not fully gitignored and an agent uses git add -A or git commit -a, that runtime state rides into the PR diff — PR #749 shipped .atdd/runtime/coach/358/planner-358-e7620840.session.json and two appended lines in .atdd/runtime/coach/decisions.jsonl from an unrelated zombie issue (#358); green CI gave false confidence because no check inspected the diff file set"
-lens: "functional.effectiveness"
-statement: "minimize likelihood of runtime-artifacts-committed-into-feature-pr-diff when an agent or developer commits changes during coach-active development by fully gitignoring .atdd/runtime/ and declaring a strict coach.pr.runtime-artifacts-blocked rule in pr.convention.yaml with a paired atdd validate coach validator that fails when the branch diff vs the default branch adds or modifies any .atdd/runtime/** path"
-# acc:govern-lifecycle:E009-UNIT-001-convention-declares-runtime-artifacts-rule retired (#1207):
-# the "convention declares + binds the rule" assertion moved to convention variant
-# binding/runtime_artifacts_rule_binding (family-parity: binding = 4/4 both); the rule's
-# severity/disposition/fix_hint properties are enforced generically by the
-# presence/binding rule-id variants. The legacy anchored test
-# (test_e009_unit_001_convention_declares_runtime_artifacts_rule.py) is decommissioned.
+urn: wmbt:govern-lifecycle:E009
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: runtime-artifacts-committed-into-feature-pr-diff
+context_clarifier: "when an agent runs atdd coach or any coach sub-command during\
+  \ development, coach writes ephemeral per-run state under .atdd/runtime/; if .atdd/runtime/\
+  \ is not fully gitignored and an agent uses git add -A or git commit -a, that runtime\
+  \ state rides into the PR diff \u2014 PR #749 shipped .atdd/runtime/coach/358/planner-358-e7620840.session.json\
+  \ and two appended lines in .atdd/runtime/coach/decisions.jsonl from an unrelated\
+  \ zombie issue (#358); green CI gave false confidence because no check inspected\
+  \ the diff file set"
+lens: functional.effectiveness
+statement: minimize likelihood of runtime-artifacts-committed-into-feature-pr-diff
+  when an agent or developer commits changes during coach-active development by fully
+  gitignoring .atdd/runtime/ and declaring a strict coach.pr.runtime-artifacts-blocked
+  rule in pr.convention.yaml with a paired atdd validate coach validator that fails
+  when the branch diff vs the default branch adds or modifies any .atdd/runtime/**
+  path
 acceptances:
-  - identity:
-      urn: "acc:govern-lifecycle:E009-UNIT-002-evaluator-emits-violation-on-runtime-path-in-diff"
-      id: "AC-UNIT-002"
-      purpose: "The pure evaluator emits exactly one Violation when the diff file set contains a path matching .atdd/runtime/**, and returns empty when no such path is present"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "evaluate_runtime_artifact_violations(changed_files) is the pure evaluator in test_e009_runtime_artifacts_blocked.py"
-        - "changed_files is a list of file paths (strings) from the branch diff vs the default branch"
-    when:
-      abstract:
-        - "evaluate_runtime_artifact_violations(['.atdd/runtime/coach/decisions.jsonl']) is called"
-        - "evaluate_runtime_artifact_violations(['.atdd/runtime/agents/planner-358/events.jsonl', 'src/foo.py']) is called"
-        - "evaluate_runtime_artifact_violations(['src/foo.py', 'plan/bar.yaml']) is called"
-    then:
-      abstract:
-        - "First call returns exactly one Violation with rule_id coach.pr.runtime-artifacts-blocked"
-        - "Second call returns exactly one Violation naming the .atdd/runtime path; src/foo.py does not trigger a Violation"
-        - "Third call returns [] — no .atdd/runtime paths, no Violation"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-18"
-
-  - identity:
-      urn: "acc:govern-lifecycle:E009-SMOKE-001-real-validate-coach-runs-runtime-guard"
-      id: "AC-SMOKE-001"
-      purpose: "Running atdd validate coach --local --skip-api on this repo collects and executes test_e009_runtime_artifacts_blocked.py and it reports PASS (no .atdd/runtime paths in the current branch diff)"
-      phase: "SMOKE"
-    harness:
-      type: "integration"
-      category: "backend"
-    given:
-      abstract:
-        - "test_e009_runtime_artifacts_blocked.py is registered under src/atdd/coach/validators/"
-        - ".atdd/runtime/ is fully gitignored with no tracked files remaining"
-        - "The current branch diff vs the default branch contains no .atdd/runtime/** paths"
-    when:
-      abstract: "atdd validate coach --local --skip-api is invoked from the repo root"
-    then:
-      abstract:
-        - "pytest collects test_e009_runtime_artifacts_blocked.py"
-        - "The validator runs (not skipped) and reports PASS for the current branch"
-        - "atdd rules show coach.pr.runtime-artifacts-blocked exits 0 and prints the strict disposition"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-05-18"
+- identity:
+    urn: acc:govern-lifecycle:E009-UNIT-002-evaluator-emits-violation-on-runtime-path-in-diff
+    id: AC-UNIT-002
+    purpose: The pure evaluator emits exactly one Violation when the diff file set
+      contains a path matching .atdd/runtime/**, and returns empty when no such path
+      is present
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - evaluate_runtime_artifact_violations(changed_files) is the pure evaluator in
+      test_e009_runtime_artifacts_blocked.py
+    - changed_files is a list of file paths (strings) from the branch diff vs the
+      default branch
+  when:
+    abstract:
+    - evaluate_runtime_artifact_violations(['.atdd/runtime/coach/decisions.jsonl'])
+      is called
+    - evaluate_runtime_artifact_violations(['.atdd/runtime/agents/planner-358/events.jsonl',
+      'src/foo.py']) is called
+    - evaluate_runtime_artifact_violations(['src/foo.py', 'plan/bar.yaml']) is called
+  then:
+    abstract:
+    - First call returns exactly one Violation with rule_id coach.pr.runtime-artifacts-blocked
+    - Second call returns exactly one Violation naming the .atdd/runtime path; src/foo.py
+      does not trigger a Violation
+    - "Third call returns [] \u2014 no .atdd/runtime paths, no Violation"
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-05-18'
+- identity:
+    urn: acc:govern-lifecycle:E009-SMOKE-001-real-validate-coach-runs-runtime-guard
+    id: AC-SMOKE-001
+    purpose: Running atdd validate coach --local --skip-api on this repo collects
+      and executes test_e009_runtime_artifacts_blocked.py and it reports PASS (no
+      .atdd/runtime paths in the current branch diff)
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - test_e009_runtime_artifacts_blocked.py is registered under src/atdd/coach/validators/
+    - .atdd/runtime/ is fully gitignored with no tracked files remaining
+    - The current branch diff vs the default branch contains no .atdd/runtime/** paths
+  when:
+    abstract: atdd validate coach --local --skip-api is invoked from the repo root
+  then:
+    abstract:
+    - pytest collects test_e009_runtime_artifacts_blocked.py
+    - The validator runs (not skipped) and reports PASS for the current branch
+    - atdd rules show coach.pr.runtime-artifacts-blocked exits 0 and prints the strict
+      disposition
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-05-18'
+- given:
+    abstract:
+    - evaluate_runtime_artifact_violations(changed_files) is the pure evaluator in
+      test_e009_runtime_artifacts_blocked.py
+    - changed_files is a list of file paths from the branch diff vs the default branch
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-003
+    phase: RED
+    purpose: "The rule's statement already names 'validation logs' as per-run state\
+      \ that must never enter a delivery diff, but the evaluator reads only .atdd/runtime/.\
+      \ Widening runtime_state and the evaluator together makes the enforced scope\
+      \ the stated scope \u2014 without flagging the curated ratchet baselines, which\
+      \ are tracked delivery artifacts sharing the .atdd/baselines/ directory"
+    urn: acc:govern-lifecycle:E009-UNIT-003-evaluator-covers-the-per-run-validation-receipt-it-already-prohibits
+  metadata:
+    feature: feature:govern-lifecycle:validator-blocks-runtime-artifacts-in-pr-diff
+    tags:
+    - convention-scope-parity
+    wagon: govern-lifecycle
+  signal:
+    logs:
+    - coach.pr.runtime-artifacts-blocked error log carrying rule_id and the offending
+      path
+  then:
+    abstract:
+    - "First call returns exactly one Violation naming the rule \u2014 the per-run\
+      \ validation receipt is now seen"
+    - Second call still returns exactly one Violation, so E009's original runtime
+      coverage is not regressed
+    - "Third call returns [] \u2014 a curated ratchet baseline is a tracked delivery\
+      \ artifact, not per-run state, and must never be flagged"
+  when:
+    abstract: the pure evaluator is asked for violations over a changed-file list
+      holding a per-phase validation receipt, over one holding a .atdd/runtime path,
+      and over one holding only source plus a curated ratchet baseline
+- given:
+    abstract:
+    - A throwaway git repo that has never run atdd init
+    - A throwaway git repo already initialised, carrying a .gitignore from before
+      this entry existed
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-004
+    phase: RED
+    purpose: atdd init early-returns on an already-initialised repo, so seeding at
+      init alone reaches nobody who already ran it; atdd sync is the sanctioned refresh
+      that backfills
+    urn: acc:govern-lifecycle:E009-UNIT-004-the-ignore-entry-reaches-repos-initialised-before-it-existed
+  metadata:
+    feature: feature:govern-lifecycle:validator-blocks-runtime-artifacts-in-pr-diff
+    tags:
+    - consumer-propagation
+    wagon: govern-lifecycle
+  signal:
+    logs:
+    - coach.pr.runtime-artifacts-blocked error log carrying rule_id and the offending
+      path
+  then:
+    abstract:
+    - Both repos carry the validation-receipt ignore entry
+    - The re-seed adds no duplicate line
+    - sync does not create .atdd/ in a repo that never ran init
+  when:
+    abstract: the initializer seeds entries on the fresh repo, atdd sync refreshes
+      the already-initialised repo, and the seed then runs a second time
+- given:
+    abstract:
+    - A repo seeded with the initializer's ignore entries
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-005
+    phase: RED
+    purpose: The 2026-07-20 mass-deletion came from an ignore entry that looked correct
+      and took a tracked sibling with it (#1580). .atdd/baselines/ holds both a derived
+      receipt and three curated ratchets whose absence makes their gates pass on unlimited
+      new debt
+    urn: acc:govern-lifecycle:E009-UNIT-005-the-ignore-entry-does-not-swallow-the-curated-ratchets
+  metadata:
+    feature: feature:govern-lifecycle:validator-blocks-runtime-artifacts-in-pr-diff
+    tags:
+    - ratchet-preservation
+    - 1580-parity
+    wagon: govern-lifecycle
+  signal:
+    logs:
+    - coach.pr.runtime-artifacts-blocked error log carrying rule_id and the offending
+      path
+  then:
+    abstract:
+    - A per-phase validation receipt is ignored
+    - lint_toolkit.yaml, types_toolkit.yaml and four_tier_toolkit.yaml are NOT ignored,
+      so each ratchet keeps its floor
+    - The guarantee is checked against real git, not against the .gitignore text
+  when:
+    abstract: git check-ignore is asked about each path under .atdd/baselines/
+- given:
+    abstract:
+    - A real clone with the ignore entry applied and the five receipts untracked
+  harness:
+    category: backend
+    type: smoke
+  identity:
+    id: AC-SMOKE-002
+    phase: RED
+    purpose: The defect is observed as a dirty working tree seconds after a commit,
+      so the proof must be the real writer running against a real repo rather than
+      a mocked path
+    urn: acc:govern-lifecycle:E009-SMOKE-002-a-real-passing-validate-leaves-the-tree-clean
+  metadata:
+    feature: feature:govern-lifecycle:validator-blocks-runtime-artifacts-in-pr-diff
+    tags:
+    - observed-defect
+    wagon: govern-lifecycle
+  signal:
+    logs:
+    - coach.pr.runtime-artifacts-blocked error log carrying rule_id and the offending
+      path
+  then:
+    abstract:
+    - The receipts are present on disk, so local use is unaffected
+    - git status --porcelain is empty, so no commit, rebase or push is perturbed
+  when:
+    abstract: the real baseline writer rewrites every phase receipt, as a passing
+      atdd validate does
