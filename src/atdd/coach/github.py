@@ -189,22 +189,58 @@ class GitHubClient:
         self._check_gh()
 
     def _check_gh(self) -> None:
-        """Verify `gh` CLI is available and authenticated."""
+        """Verify `gh` is available and the credential can reach the API.
+
+        `gh auth status` resolves the IDENTITY — it calls ``/user``. That is a
+        different question from "can this credential do the work", and the two
+        come apart exactly where it matters: the Actions ``GITHUB_TOKEN`` is an
+        installation token that cannot call ``/user`` while being able to perform
+        every repo-scoped call it was issued for, and a repo-scoped fine-grained
+        PAT fails the same check for the same reason.
+
+        So a non-zero status is a HINT and a real call is the VERDICT (#1937).
+        The healthy path is unchanged — one ``gh auth status`` — and the second
+        call is spent only on the path that was about to refuse anyway.
+        """
         try:
-            result = subprocess.run(
+            status = subprocess.run(
                 ["gh", "auth", "status"],
                 capture_output=True, text=True, timeout=10,
             )
-            if result.returncode != 0:
-                raise GitHubClientError(
-                    "gh CLI not authenticated.\n"
-                    "Run: gh auth login"
-                )
         except FileNotFoundError:
             raise GitHubClientError(
                 "gh CLI not found.\n"
                 "Install: https://cli.github.com"
             )
+        if status.returncode == 0:
+            return
+
+        # Probe with a REPO-scoped call, never ``/user``: ``/user`` is the exact
+        # call the installation token cannot make, so probing with it would
+        # reproduce the bug inside the fix.
+        try:
+            probe = subprocess.run(
+                ["gh", "api", f"repos/{self.repo}", "--jq", ".name"],
+                capture_output=True, text=True, timeout=10,
+            )
+        except FileNotFoundError:  # pragma: no cover - gh vanished mid-check
+            raise GitHubClientError(
+                "gh CLI not found.\n"
+                "Install: https://cli.github.com"
+            )
+        if probe.returncode == 0:
+            return
+
+        # Both failed: a real refusal. Quote what gh said rather than discarding
+        # it — "Run: gh auth login" addresses nobody in CI, and the stderr is the
+        # only thing that says which of the two actually went wrong.
+        raise GitHubClientError(
+            "gh cannot reach the GitHub API with the current credential.\n"
+            f"gh auth status said: {status.stderr.strip() or '(no stderr)'}\n"
+            f"the probe call said: {probe.stderr.strip() or '(no stderr)'}\n"
+            "On a workstation: gh auth login. In CI: check the job's GH_TOKEN "
+            "and the workflow's permissions: block."
+        )
 
     def _run_gh(self, args: List[str], input_text: Optional[str] = None) -> str:
         """Run a `gh` command and return stdout."""

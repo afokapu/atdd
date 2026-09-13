@@ -744,6 +744,24 @@ def _evict_train_from_other_buckets(trains: dict, tid: str, *, keep: tuple) -> N
             del trains[group]
 
 
+def _load_train_registry(registry_path: Path) -> dict:
+    """Read ``plan/_trains.yaml`` and reject a shape the upsert cannot write into.
+
+    Split out of :func:`_upsert_train_registry` (#1942) so the shape refusal can
+    be raised BEFORE the per-train document is written. Reordering the two writes
+    to document-first would otherwise have moved this guard behind the document
+    write, and a refused legacy-shape author would start leaving a partial tree —
+    which is the very residue class the reorder exists to remove. Validate
+    everything first, then write; the upsert still re-reads at write time, so the
+    read-modify-write window is exactly as narrow as it was before.
+    """
+    registry = {}
+    if registry_path.exists():
+        registry = yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
+    _reject_legacy_registry_shape(registry_path, registry)
+    return registry
+
+
 def _upsert_train_registry(registry_path: Path, tid: str, spec: dict, home: tuple) -> None:
     """Upsert the train's entry into its bucket in plan/_trains.yaml.
 
@@ -754,10 +772,7 @@ def _upsert_train_registry(registry_path: Path, tid: str, spec: dict, home: tupl
     even after its manifest had been rewritten by hand (#1915).
     """
     group, sub, rel_path, _per_train = home
-    registry = {}
-    if registry_path.exists():
-        registry = yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
-    _reject_legacy_registry_shape(registry_path, registry)
+    registry = _load_train_registry(registry_path)
     registry.setdefault("trains", {})
     _evict_train_from_other_buckets(registry["trains"], tid, keep=(group, sub))
     bucket = registry["trains"].setdefault(group, {}).setdefault(sub, [])
@@ -882,7 +897,29 @@ def create_train(spec: dict, *, root: Path | str | None = None) -> Path:
     # form keeps its flat home + digit buckets during the transition.
     home = _train_home(tid, spec, plan)
     per_train = home[3]
-    _upsert_train_registry(registry_path, tid, spec, home)
+
+    # DOCUMENT FIRST, REGISTRY SECOND — the order every plan writer agrees on
+    # (#1942). It is not arbitrary: a failure between the two writes leaves
+    # residue either way, and the two residues are not equally bad. Writing the
+    # document first can only orphan a file that nothing references — inert, and
+    # findable by a coherence scan. Writing the registry first leaves a row
+    # naming a document that is not on disk, which is a dangling pointer every
+    # consumer resolves through; measured on the real corpus it turns
+    # `test_route_space_admission` into a bare FileNotFoundError, so the gate
+    # stops reporting the damage and starts crashing on it. `create_contract`
+    # and `create_interlocking` already wrote in this order; this one did not,
+    # so the failure residue depended on which writer ran.
+    #
+    # This is ordering, not atomicity: a staged commit of both artifacts is the
+    # correct end state and is deliberately out of scope here. Ordering plus
+    # `planner.train.registry-coherence` (which checks both directions)
+    # removes the exposure that ordering alone can remove.
+    #
+    # Validation still precedes EVERY write. Moving the registry write second
+    # would otherwise have dragged its shape guard behind the document write, so
+    # a refused legacy-shape author would begin leaving the partial tree the
+    # reorder exists to prevent (caught by E004-UNIT-001's refusal assertion).
+    _load_train_registry(registry_path)
 
     per_train.parent.mkdir(parents=True, exist_ok=True)
     # Write on every author. Skipping when the file existed made a re-authored
@@ -891,6 +928,8 @@ def create_train(spec: dict, *, root: Path | str | None = None) -> Path:
     # operator to author the change as a NEW plan session against the same
     # issue — straight back through here (#1915).
     _write_yaml(per_train, _merge_train_doc(per_train, _build_train_doc(tid, spec)))
+
+    _upsert_train_registry(registry_path, tid, spec, home)
     return per_train
 
 

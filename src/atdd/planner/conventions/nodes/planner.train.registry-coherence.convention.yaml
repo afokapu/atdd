@@ -1,0 +1,69 @@
+schema_version: 1.0.0
+rule_id: planner.train.registry-coherence
+kind: rule
+status: active
+name: The train registry and the documents it indexes both exist
+statement: Every row in plan/_trains.yaml must name a path that is a file on disk, and
+  every per-train document under plan/_trains must be named by a registry row. Coherence
+  is bidirectional - a row naming an absent document is a dangling pointer consumers
+  resolve through, and a document no row names is an orphan.
+terms:
+- term_id: dangling_row
+  text: a plan/_trains.yaml entry whose path does not resolve to a file. The residue create_train
+    left when it wrote the registry before the document (#1942); every consumer that walks
+    the registry resolves through it, and test_route_space_admission dies on it with a bare
+    FileNotFoundError rather than reporting it.
+- term_id: orphan_document
+  text: a per-train document under plan/_trains that no registry row names. Inert - nothing
+    resolves through it - and it is the residue create_train's document-before-registry
+    ordering deliberately leaves, so it must be reportable or that choice is unsupported.
+- term_id: registry_sidecar
+  text: an underscore-prefixed name under plan/_trains - _aliases.yaml, the _interlockings
+    subtree - which is not a per-train document. The _interlockings subtree has its own
+    coherence rules (planner.interlocking.registry-mirrors-document,
+    planner.train.interlocking-home).
+implementation:
+  type: validator
+  ref: test_train_registry_coherence::test_every_registry_row_resolves_and_every_document_is_registered
+metadata:
+  severity: 3
+  # strict from the start: measured at authoring time, the corpus carries 21 registry
+  # rows and 21 per-train documents with zero violations in either direction, so there
+  # is no debt to ratchet down and no reason to land this advisory.
+  disposition: strict
+  introduced_in: 1942
+  core_design_refs:
+  - afokapu/atdd#1942
+  - afokapu/atdd#1915
+validation:
+  family: coherence
+  template: cross_artifact_existence_agreement
+  variant: planner_train_registry_existence
+  phase: CONFIRM
+  enforcement: confirm-blocking
+  subject_kind: train
+  failure_evidence:
+  - train_id
+  - direction
+  - registry_value
+  - document_value
+notes: |
+  Why this is a NEW node rather than a validator hung on planner.train.registry.
+
+  planner.train.registry already claims, at disposition: strict, that "every registry
+  entry MUST have a corresponding spec file" - the dangling direction of this rule. It
+  has never been able to enforce it: its implementation.ref names the Y003 sweep's
+  convention variant conventions/resolution/test_train_validation, which instantiates
+  direct_reference_resolution and checks that a train's participant references resolve
+  to existing wagons. It never reads a path. The reverse-coherence binder
+  (coach/validators/test_rule_validator_binding.py) exempts convention-variant refs from
+  the bind_rule callsite requirement, so the gap drew no complaint.
+
+  Repointing that node here was the first attempt and is wrong: the Y003 guard
+  (validators/conventions/tests/test_y003_sweep_coverage_guards.py, SWEPT_RULE_TO_VARIANT)
+  deliberately pins planner.train.registry to a conventions/ variant, so the ref is an
+  architectural decision owned by the sweep, not an oversight to undo from here.
+
+  So the claim is enforced under its own id, and closing the gap on
+  planner.train.registry - by giving its swept variant a real path-existence check, or by
+  folding that node into this one - stays with the conventions-sweep owners.
