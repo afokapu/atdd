@@ -2,16 +2,17 @@ urn: feature:govern-registry:govern-registry
 wagon: wagon:govern-registry
 description: The govern-registry lane of train 0007-enforce-extension-conventions.
 sizing:
-  wmbts: 3
+  wmbts: 4
   footprint_score: 5
   footprint_size: S
 wmbts:
 - wmbt:govern-registry:D001
 - wmbt:govern-registry:E001
 - wmbt:govern-registry:E002
+- wmbt:govern-registry:C001
 components:
   backend:
     application:
     - type: use_cases
-      count: 3
+      count: 4
       rationale: one use case per WMBT in govern-registry

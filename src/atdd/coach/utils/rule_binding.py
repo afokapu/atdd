@@ -1179,6 +1179,52 @@ def clear_cache(
     _OVERRIDE_REPO_ROOT = Path(override_repo_root) if override_repo_root is not None else None
 
 
+# ---------------------------------------------------------------------------
+# Mirror provenance (wmbt:govern-registry:C001)
+# ---------------------------------------------------------------------------
+#: The installed-extension tree, as consecutive path parts. A convention node under
+#: it is a candidate MIRROR of a core rule rather than an independent declaration.
+_EXTENSION_TREE_PARTS = (".atdd", "extensions")
+
+
+def _is_extension_node(file_path: Path) -> bool:
+    """True when *file_path* lives under an installed extension tree.
+
+    Provenance alone cannot decide this: a CORE node carries ``source.legacy_rule_id``
+    too (naming the monolith it was extracted from), so a location-blind rule would
+    make every extracted core node exclude itself.
+    """
+    parts = file_path.resolve().parts
+    marker = _EXTENSION_TREE_PARTS
+    return any(
+        parts[i : i + len(marker)] == marker for i in range(len(parts) - len(marker) + 1)
+    )
+
+
+def _mirrored_core_rule_id(file_path: Path) -> Optional[str]:
+    """The core rule_id *file_path* declares itself a mirror of, or None.
+
+    Reads the single-node ``source.legacy_rule_id`` (the field #1427's mirror-coherence
+    guard already resolves against the live core registry). Only single-node files
+    carry it: a top-level ``source:`` cannot say which of a monolith's ``rules:`` it
+    describes, so a monolith is never treated as a mirror.
+    """
+    try:
+        with open(file_path) as fh:
+            data = yaml.safe_load(fh)
+    except (OSError, yaml.YAMLError):  # atdd:suppress(coder.logging.coach-silent-swallow)
+        # Unreadable / malformed YAML is policed by test_rule_id_uniqueness; treat it
+        # as carrying no provenance so the existing walk decides its fate.
+        return None
+    if not isinstance(data, dict) or not data.get("rule_id") or data.get("rules"):
+        return None
+    source = data.get("source")
+    if not isinstance(source, dict):
+        return None
+    legacy = source.get("legacy_rule_id")
+    return legacy if isinstance(legacy, str) and legacy else None
+
+
 def _load_registry() -> Dict[str, List[RuleMetadata]]:
     """Walk every convention file and index rules by canonical id and alias.
 
@@ -1197,7 +1243,7 @@ def _load_registry() -> Dict[str, List[RuleMetadata]]:
     canonical_ids: set = set()
     alias_to_canonical: Dict[str, str] = {}
 
-    for file_path in find_convention_files(roots):
+    def admit(file_path: Path) -> None:
         for _, _, rule in extract_rules(file_path):
             meta = _rule_metadata(rule, file_path)
             if meta is None:
@@ -1206,6 +1252,23 @@ def _load_registry() -> Dict[str, List[RuleMetadata]]:
             registry.setdefault(meta.rule_id, []).append(meta)
             canonical_ids.add(meta.rule_id)
             _register_aliases(registry, canonical_ids, alias_to_canonical, meta)
+
+    # Core first, so an extension node's declared provenance can be resolved against
+    # the live core rule set (wmbt:govern-registry:C001). Admitting by FILE alone made
+    # every mirror a rival declaration of its core twin, so the 32 doubly-declared ids
+    # raised AmbiguousRuleError the moment the extension tree entered the roots.
+    extension_files: List[Path] = []
+    for file_path in find_convention_files(roots):
+        if _is_extension_node(file_path):
+            extension_files.append(file_path)
+        else:
+            admit(file_path)
+
+    core_ids = frozenset(canonical_ids)
+    for file_path in extension_files:
+        if _mirrored_core_rule_id(file_path) in core_ids:
+            continue  # a mirror of a live core rule; core is the authority
+        admit(file_path)
 
     repo_root = _registry_repo_root()
     if repo_root is not None:
