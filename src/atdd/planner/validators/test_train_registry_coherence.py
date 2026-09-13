@@ -57,7 +57,24 @@ from atdd.coach.utils.rule_binding import bind_rule
 
 _RULE_ID = "planner.train.registry-coherence"
 _RULE = bind_rule(_RULE_ID)
-_NODES_DIR = "src/atdd/planner/conventions/nodes"
+
+
+def _own_node_path() -> Path:
+    """This rule's convention node, in atdd's OWN source tree.
+
+    The toolkit-only path lives inside this helper rather than at module scope on
+    purpose. Only the two ``platform``-marked tests below call it — they read
+    atdd's own node, which is absent when atdd is an installed package — and a
+    module-level constant would make the whole module look consumer-hostile to
+    the R005 source-layout scan even though its live corpus test runs anywhere.
+    Marking the entire module ``platform`` (as the interlocking sibling does)
+    would instead cost consumers the live rule, which is the half worth keeping.
+    """
+    return (
+        find_repo_root() / "src/atdd/planner/conventions/nodes"
+        / f"{_RULE_ID}.convention.yaml"
+    )
+
 
 REGISTRY_REL = "plan/_trains.yaml"
 TRAINS_DIR_REL = "plan/_trains"
@@ -283,7 +300,7 @@ def test_every_emitted_evidence_key_is_declared_by_the_convention_node(tmp_path)
         rows=[_row(_TID, _REL)],
         documents={"plan/_trains/probe-subject/other.yaml": _doc("train:probe-subject:other")},
     )
-    node = find_repo_root() / _NODES_DIR / f"{_RULE_ID}.convention.yaml"
+    node = _own_node_path()
     doc = yaml.safe_load(node.read_text(encoding="utf-8"))
     declared = set((doc.get("validation") or {}).get("failure_evidence") or [])
 
@@ -302,7 +319,7 @@ def test_the_node_binds_this_module_and_not_a_reference_resolver():
     must not repeat it: its ref has to name THIS module, whose live test actually
     stats the files.
     """
-    node = find_repo_root() / _NODES_DIR / f"{_RULE_ID}.convention.yaml"
+    node = _own_node_path()
     doc = yaml.safe_load(node.read_text(encoding="utf-8"))
     ref = (doc.get("implementation") or {}).get("ref", "")
 
