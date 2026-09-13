@@ -1910,6 +1910,11 @@ wagons:
       by examining every parent before deciding, reporting all drifted parents rather
       than the first, and reserving the skip for the one case where there is genuinely
       nothing to check (#1907)
+    E082: "minimize likelihood of credentials-refused-for-failing-an-identity-check-they-need-not-pass\n\
+      \    when GitHubClient is constructed, by confirming a non-zero gh auth status\
+      \ with a real\n    repo-scoped call before refusing and by quoting what gh actually\
+      \ said, so the Actions\n    GITHUB_TOKEN is not reported as unauthenticated\
+      \ for being unable to call /user (#1937)"
     E081: minimize likelihood of pre-red-trains-failed-by-coverage-validators when
       the tester coverage validators run, by resolving the owning work item's phase
       through the shipped is_pre_test_phase and owning_issue_phase helpers and binding

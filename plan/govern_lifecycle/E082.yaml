@@ -1,0 +1,76 @@
+urn: wmbt:govern-lifecycle:E082
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: credentials-refused-for-failing-an-identity-check-they-need-not-pass
+context_clarifier: when GitHubClient is constructed, _check_gh runs `gh auth status`
+  and treats a non-zero exit as proof the credential cannot work, but that command
+  resolves the identity by calling /user, which the Actions GITHUB_TOKEN and any repo-scoped
+  fine-grained PAT cannot do while still being able to perform every call they were
+  issued for
+lens: functional.effectiveness
+statement: minimize likelihood of credentials-refused-for-failing-an-identity-check-they-need-not-pass
+  when GitHubClient is constructed, by confirming a non-zero status with a real repo-scoped
+  call before refusing and by quoting what gh actually said
+acceptances:
+- identity:
+    urn: acc:govern-lifecycle:E082-SMOKE-001-the-real-gh-on-this-machine-constructs-a-client
+    id: AC-SMOKE-001
+    purpose: Verify against the real installed gh and its real credential that a client
+      constructs whenever that credential can reach the API
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real checkout, the installed gh CLI and whatever credential it actually holds
+  when:
+    abstract: the credential's ability to reach the API is established directly, and
+      a GitHubClient is constructed against the same credential
+    action: invoke
+  then:
+    abstract:
+    - the client constructs whenever the direct call succeeds, whatever gh auth status
+      reports
+    - "the two verdicts agree \u2014 the gate never refuses a credential the direct\
+      \ call proved usable"
+    assertions:
+    - type: equals
+  signal: {}
+  metadata:
+    wagon: govern-lifecycle
+    author: atdd:self-compliance
+    created: '2026-09-10'
+- identity:
+    urn: acc:govern-lifecycle:E082-UNIT-001-status-is-a-hint-a-real-call-is-the-verdict
+    id: AC-UNIT-001
+    purpose: "GitHubClient constructs whenever the credential can reach the API, whatever\
+      \ gh auth status says, and still refuses when it cannot \u2014 quoting what\
+      \ gh reported"
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a gh on PATH whose auth status and api subcommands are fixed per credential
+      regime
+  when:
+    abstract: GitHubClient is constructed against each regime
+    action: invoke
+  then:
+    abstract:
+    - a credential failing auth status but reaching the API constructs a client, covering
+      the Actions installation token and a repo-scoped fine-grained PAT
+    - a credential failing both is still refused
+    - a missing gh is still refused, naming the install path rather than a login
+    - the refusal quotes the stderr gh produced instead of discarding it
+    - the healthy path issues exactly one gh call, as it does today
+    assertions:
+    - type: equals
+  signal: {}
+  metadata:
+    wagon: govern-lifecycle
+    author: atdd:self-compliance
+    created: '2026-09-10'
