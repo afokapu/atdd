@@ -1,0 +1,137 @@
+urn: "wmbt:drive-state-machine:C003"
+step: "confirm"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "operator-approvals-spent-on-content-the-operator-never-reviewed"
+context_clarifier: "when an approval token is verified for a gated transition, because build_token signs issue, edge, branch name and expiry and no commit enters the scope, so an approval given at one commit still verifies after the branch advances, and the 24h TTL leaves the branch free to move for the whole window"
+lens: "functional.effectiveness"
+statement: "minimize quantity of operator-approvals-spent-on-content-the-operator-never-reviewed when an approval token is verified for a gated transition"
+acceptances:
+  - identity:
+      urn: "acc:drive-state-machine:C003-UNIT-001-an-approval-does-not-survive-a-new-commit"
+      id: "AC-UNIT-001"
+      purpose: "The approval is for a commit, and it stops applying when the commit changes"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An approval minted for a gated edge while the branch head is one commit"
+        - "A SECOND REAL COMMIT on that branch, not an edited token field"
+    when:
+      abstract: "The token is verified after the branch head moves"
+    then:
+      abstract:
+        - "Verification refuses"
+        - "Verification at the original commit still succeeds"
+        - "The second commit is real: editing the recorded head in the file already fails today's signature check, so a test that only edits the field passes without the binding existing"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-13"
+  - identity:
+      urn: "acc:drive-state-machine:C003-UNIT-002-signing-the-head-is-not-binding-it"
+      id: "AC-UNIT-002"
+      purpose: "The scope makes the head tamper-evident; a comparison makes it binding"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A token whose recorded head is covered by the signature"
+        - "A currently-resolved head that differs from it"
+    when:
+      abstract: "The token is verified"
+    then:
+      abstract:
+        - "Editing the recorded head invalidates the signature, and stripping it does too"
+        - "A differing CURRENT head is refused by an explicit comparison, not by the signature"
+        - "Both are asserted, because measured 2026-09-13 the signed scope alone verified TRUE at the original commit and TRUE after the branch moved: the message is recomputed from the token's own body and is the same string at both"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-13"
+  - identity:
+      urn: "acc:drive-state-machine:C003-UNIT-003-a-headless-token-verifies-unchanged"
+      id: "AC-UNIT-003"
+      purpose: "A token is read under the regime it was minted in"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A token carrying no head, in each regime the corpus contains: pre-binding, branch-and-expiry bound, and schema-versioned"
+    when:
+      abstract: "The token is verified under the head-aware scheme"
+    then:
+      abstract:
+        - "Its verdict is exactly what it is today"
+        - "The head is read off the token, never folded in from the resolver: measured 2026-09-13, reading it off the token left 311 of 311 corpus verdicts unchanged, and folding in the resolved head made a headless token refuse, which would break the whole corpus at once"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-13"
+  - identity:
+      urn: "acc:drive-state-machine:C003-UNIT-004-the-recorded-head-is-the-reviewed-head"
+      id: "AC-UNIT-004"
+      purpose: "The commit the token names is the commit the operator looked at"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "An issue whose local branch ref and whose reviewed pull-request head are the same commit"
+        - "An issue where the local branch ref is AHEAD of the reviewed head, carrying commits that were never pushed"
+    when:
+      abstract: "The mint resolves the head it will record"
+    then:
+      abstract:
+        - "The first records that commit"
+        - "The second either records the reviewed head or refuses and says it could not establish which commit was reviewed"
+        - "It never silently records the unpushed local commit: measured 2026-09-13 across the 23 open pull requests, the local ref equalled the reviewed head 11 times out of 14, and in two of the three misses the local ref was ahead by three and by one unpushed commit"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-13"
+  - identity:
+      urn: "acc:drive-state-machine:C003-UNIT-005-the-refusal-says-the-content-moved"
+      id: "AC-UNIT-005"
+      purpose: "A refusal an operator cannot act on is the defect this toolkit is named for"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A token refused because the branch advanced under it"
+        - "A token refused because it expired"
+        - "A token refused because the issue is bound to a different branch"
+    when:
+      abstract: "Each refusal is diagnosed"
+    then:
+      abstract:
+        - "The first names the content change and is distinguishable from the other two"
+        - "Each names the operator action that clears it"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-13"
+  - identity:
+      urn: "acc:drive-state-machine:C003-SMOKE-001-a-real-push-under-a-live-token-refuses"
+      id: "AC-SMOKE-001"
+      purpose: "Against real git, the approval stops applying when the work moves"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real repository on a real branch, an approval minted for a gated edge, and a real commit pushed afterwards"
+    when:
+      abstract: "The gated transition is attempted"
+    then:
+      abstract:
+        - "The gate refuses and names the content change"
+        - "Re-approving at the new head allows it"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-13"
