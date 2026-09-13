@@ -1,0 +1,147 @@
+urn: wmbt:govern-lifecycle:E083
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: issues-leaving-init-with-no-evidence-their-premise-was-tested
+context_clarifier: "when an issue crosses INIT->PLANNED, because INIT asks for scope,\
+  \ architecture and decisions \u2014 all of which can be written confidently and\
+  \ be wrong \u2014 and nothing between INIT and code asks whether any of it was checked\
+  \ against the system, while the two readers that could ask are both structurally\
+  \ unable to: check_placeholders fires only on a whole-line placeholder (#1904) and\
+  \ so reports compliant=True on every body in the corpus that writes `_To fill._`\
+  \ followed by prose, and issue.schema.json cannot carry the obligation at all because\
+  \ making the section required drops body compliance from 398/400 to 4/400 and fails\
+  \ the K002 back-compat acceptance by construction"
+lens: functional.effectiveness
+statement: minimize likelihood of issues-leaving-init-with-no-evidence-their-premise-was-tested
+  by refusing INIT->PLANNED while any `## Lab` subsection is absent, empty, or opens
+  with an unfilled marker read from the generator's exported LAB_SCAFFOLD
+acceptances:
+- identity:
+    urn: acc:govern-lifecycle:E083-UNIT-001-lab-gate-resolves-every-state
+    id: AC-UNIT-001
+    purpose: lab_violations() refuses the five unfilled states and passes the three
+      filled ones, so a negative result and a terse honest answer both satisfy the
+      gate
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - an issue body carrying `## Lab` with its four subsections, in the state the
+      case under test sets
+  when:
+    abstract: lab_violations() is run over that body
+    action: invoke
+  then:
+    abstract:
+    - the `## Lab` section absent yields a violation naming the section
+    - the generator's scaffold still intact yields one violation per unfilled subsection
+    - the four headings present with empty bodies yields one violation per empty subsection
+    - markers deleted but content still `N/A` / `Not measured yet.` / `Nothing yet.`
+      yields a violation per subsection
+    - an unfilled marker followed by explanatory prose on the same line yields a violation,
+      for the ASCII and the unicode-arrow spelling alike
+    - a lab whose hypothesis was CONFIRMED yields no violation
+    - "a lab whose hypothesis was DISPROVED yields no violation \u2014 a negative\
+      \ result is never penalised"
+    - '`Nothing.` as the whole of `### What it changed about the plan` yields no violation,
+      and neither does a one-row result table'
+    assertions:
+    - type: equals
+  signal: {}
+  metadata:
+    wagon: govern-lifecycle
+    author: atdd:self-compliance
+    created: '2026-09-13'
+- identity:
+    urn: acc:govern-lifecycle:E083-UNIT-002-gate-reads-the-exported-scaffold
+    id: AC-UNIT-002
+    purpose: the check resolves every scaffold prompt by reading the planner's LAB_SCAFFOLD
+      constant rather than pattern-matching placeholder-shaped prose
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - the generator's exported LAB_SCAFFOLD mapping and a body freshly emitted by
+      create_issue_body
+  when:
+    abstract: lab_violations() is run over the freshly emitted body
+    action: invoke
+  then:
+    abstract:
+    - all four subsections are reported unfilled, the one whose prompt contains a
+      comma included
+    - the check reads the scaffold strings from LAB_SCAFFOLD, so changing a prompt
+      in the generator cannot leave the gate matching the old string
+    - no regex branch stands in for a scaffold string the generator declares
+    assertions:
+    - type: equals
+  signal: {}
+  metadata:
+    wagon: govern-lifecycle
+    author: atdd:self-compliance
+    created: '2026-09-13'
+- identity:
+    urn: acc:govern-lifecycle:E083-UNIT-003-registered-for-init-planned-and-inert-while-ungated
+    id: AC-UNIT-003
+    purpose: the check is registered for INIT->PLANNED and provably inert until the
+      edge is gated, so landing it cannot start refusing in-flight issues
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a GATE_REGISTRY the registration function has been called against
+    - a config that gates the INIT->PLANNED edge, and one that does not
+  when:
+    abstract: evaluate_transition_gate is run for INIT->PLANNED against each config
+    action: invoke
+  then:
+    abstract:
+    - the check appears in the registry's checks for INIT->PLANNED
+    - registration happens at the transition dispatch, never as an import-time side
+      effect
+    - the transition proceeds while the edge is ungated, whatever the body says
+    - the transition is refused on an unfilled lab once the edge is gated
+    assertions:
+    - type: equals
+  signal: {}
+  metadata:
+    wagon: govern-lifecycle
+    author: atdd:self-compliance
+    created: '2026-09-13'
+- identity:
+    urn: acc:govern-lifecycle:E083-SMOKE-001-real-transition-refused-then-allowed
+    id: AC-SMOKE-001
+    purpose: Verify the real `atdd coach transition <N> PLANNED` is refused on an
+      unfilled lab and proceeds once it is filled, against a real checkout with the
+      edge gated
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout whose .atdd/config.yaml gates INIT->PLANNED
+    - an issue at INIT whose `## Lab` is unfilled, and the same issue once it is filled
+  when:
+    abstract: '`atdd coach transition <N> PLANNED` is invoked through the installed
+      CLI'
+    action: invoke
+  then:
+    abstract:
+    - the unfilled body exits non-zero and the output names each unfilled subsection
+    - the filled body exits zero and the phase label advances
+    - the refusal names the gate id and the bound rule id rather than a bare message
+    assertions:
+    - type: equals
+  signal: {}
+  metadata:
+    wagon: govern-lifecycle
+    author: atdd:self-compliance
+    created: '2026-09-13'

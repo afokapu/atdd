@@ -1,0 +1,106 @@
+urn: wmbt:author-atdd-substrate:C015
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: lab-scaffold-strings-the-gate-cannot-read
+context_clarifier: "when the INIT->PLANNED lab gate decides whether a `## Lab` subsection\
+  \ is still unfilled, because the generator writes the scaffold prose and a gate\
+  \ that pattern-matches at it rather than reading it will miss any prompt whose shape\
+  \ the pattern did not anticipate \u2014 measured, a regex guessing at placeholder-shaped\
+  \ prose caught three of the four prompts and missed `### Hypothesis` for no reason\
+  \ but a comma in its text"
+lens: functional.sustainability
+statement: minimize likelihood of lab-scaffold-strings-the-gate-cannot-read by emitting
+  `## Lab` with its four subsections from an exported LAB_SCAFFOLD constant that the
+  gate reads, leaving the emitted body schema-valid and template-compliant
+acceptances:
+- identity:
+    urn: acc:author-atdd-substrate:C015-UNIT-001-generator-emits-lab-from-the-exported-scaffold
+    id: AC-UNIT-001
+    purpose: create_issue_body emits `## Lab` with its four subsections, seeded from
+      LAB_SCAFFOLD, so the generator and the gate share one source for the scaffold
+      strings
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a minimal issue spec and the exported LAB_SCAFFOLD mapping
+  when:
+    abstract: create_issue_body renders the body
+    action: invoke
+  then:
+    abstract:
+    - '`## Lab` is present with `### Hypothesis`, `### Setup`, `### Measured result`
+      and `### What it changed about the plan`'
+    - each subsection's content is exactly its LAB_SCAFFOLD value, so no scaffold
+      string is written twice
+    - LAB_SCAFFOLD is importable from the planner author module, the direction a coach-side
+      reader may depend on
+    assertions:
+    - type: equals
+  signal: {}
+  metadata:
+    wagon: author-atdd-substrate
+    author: atdd:self-compliance
+    created: '2026-09-13'
+- identity:
+    urn: acc:author-atdd-substrate:C015-UNIT-002-emitted-body-stays-valid-and-compliant
+    id: AC-UNIT-002
+    purpose: adding the section regresses neither schema validity nor template compliance,
+      for the emitted body or for the live corpus
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a body emitted by create_issue_body with the `## Lab` section present
+    - the checked-in real-issue-body fixtures
+  when:
+    abstract: validate_issue_body and check_issue_compliance are run over each
+    action: invoke
+  then:
+    abstract:
+    - the emitted body reports no schema violation
+    - the emitted body reports compliant, with no missing section and no placeholder
+      hit
+    - issue.schema.json's required list is unchanged, so no existing body is newly
+      rejected
+    - the real-body fixtures still validate, keeping the K002 back-compat guarantee
+      intact
+    assertions:
+    - type: equals
+  signal: {}
+  metadata:
+    wagon: author-atdd-substrate
+    author: atdd:self-compliance
+    created: '2026-09-13'
+- identity:
+    urn: acc:author-atdd-substrate:C015-SMOKE-001-real-cli-emits-lab-and-body-still-passes
+    id: AC-SMOKE-001
+    purpose: Verify the real `atdd author issue` emits the `## Lab` scaffold and the
+      emitted body still passes the schema-driven gate untouched
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - a real repo checkout, the installed atdd CLI, a temp control root and a stubbed
+      gh on PATH
+  when:
+    abstract: '`atdd author issue` is invoked and its body read from stdout'
+    action: invoke
+  then:
+    abstract:
+    - the emitted body carries `## Lab` and its four subsections
+    - the emitted body passes the schema-driven gate with no manual edit
+    assertions:
+    - type: equals
+  signal: {}
+  metadata:
+    wagon: author-atdd-substrate
+    author: atdd:self-compliance
+    created: '2026-09-13'

@@ -86,6 +86,7 @@ features:
   - urn: "feature:govern-lifecycle:test-suite-is-collectable"
   - urn: "feature:govern-lifecycle:release-steps-carry-their-credential"
   - urn: "feature:govern-lifecycle:stale-worktree-bindings-are-cleared"
+  - urn: "feature:govern-lifecycle:enforce-lab-evidence"
 
 wmbt:
   total: 144
