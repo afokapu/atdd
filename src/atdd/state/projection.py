@@ -556,6 +556,17 @@ def hydrate(projection_dir: Path, store: StateStore) -> HydrateResult:
     Runs with **zero** sync providers registered and against no committed SQLite
     store: the committed YAML at HEAD is the only input. This is the read half of
     the CI guarantee — CI hydrates what the branch committed, then re-projects it.
+
+    **That is the whole of it: this is not disaster recovery** (#1622 ruling). It
+    rebuilds ``store.objects`` and nothing else — in particular it never repopulates
+    ``external_refs``, so a store hydrated from a projection cannot resolve an issue
+    number to a uid. Restore from the SQLite store, never from here.
+
+    The consequence a caller must hold on to: :meth:`ObjectStore.upsert` is a
+    wholesale replace, not a merge. Any key the projector stops emitting is deleted
+    from every hydrated store on the next cycle. That is why dropping a key is a
+    corpus decision and not a formatting one — see
+    ``docs/1400-findings/1622-projection-authority-ruling.md``.
     """
     documents = read_projection(projection_dir)
     for uid in sorted(documents):
