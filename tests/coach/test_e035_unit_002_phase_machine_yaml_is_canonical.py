@@ -4,12 +4,11 @@
 # Phase: RED
 # Layer: backend.integration
 """AC-UNIT-002 — ``phase_machine.convention.yaml`` is the canonical source of
-phase transitions (matching docs/coach-decomposition.md §4.5), and the CLAUDE.md
-managed block (and the CONDUCTOR.md template it is generated from) no longer carry a
-duplicate ``state_machine.transitions`` mapping.
+phase transitions, matching docs/coach-decomposition.md §4.5.
 
-RED state: ``src/atdd/coach/conventions/phase_machine.convention.yaml`` does not
-exist yet, and the CONDUCTOR.md template still contains a ``state_machine:`` block.
+It was also the single source of truth *relative to* the CLAUDE.md managed block and
+the CONDUCTOR.md template it was generated from. Both were deleted (#1811/#1812/#1941),
+so that half of the acceptance is satisfied by construction (#1979).
 """
 from __future__ import annotations
 
@@ -19,14 +18,11 @@ import pytest
 import yaml
 
 import atdd
-from atdd.coach.utils.repo import find_repo_root
 
 pytestmark = pytest.mark.coach
 
-REPO_ROOT = find_repo_root()
 ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
 PHASE_MACHINE_YAML = ATDD_PKG_DIR / "coach" / "conventions" / "phase_machine.convention.yaml"
-ATDD_TEMPLATE = ATDD_PKG_DIR / "coach" / "templates" / "CONDUCTOR.md"
 
 # §4.5 canonical data.
 EXPECTED = {
@@ -72,19 +68,10 @@ def test_init_carries_pre_commit_gate():
     assert init.get("pre_commit_gate") == "atdd validate planner --local --skip-api"
 
 
-def test_claude_md_has_no_duplicate_state_machine_block():
-    """The repo CLAUDE.md managed block must not carry a state_machine transition table."""
-    claude_md = REPO_ROOT / "CLAUDE.md"
-    text = claude_md.read_text()
-    assert "state_machine:" not in text, (
-        "CLAUDE.md still contains a state_machine transition table; "
-        "phase_machine.convention.yaml is now the single source (§4.5)."
-    )
-
-
-def test_atdd_template_has_no_duplicate_state_machine_block():
-    text = ATDD_TEMPLATE.read_text()
-    assert "state_machine:" not in text, (
-        "CONDUCTOR.md template still contains a state_machine transition table; "
-        "remove it so CLAUDE.md regenerates without the duplicate (§4.5)."
-    )
+# The two tests that stood here asserted that the CLAUDE.md managed block and the
+# CONDUCTOR.md template carried no duplicate `state_machine:` mapping. #1811 retired
+# the agent-config projection, #1812 deleted the CONDUCTOR.md template and #1941
+# deleted CLAUDE.md, so the duplicate source this acceptance guards against cannot
+# exist: phase_machine.convention.yaml is the only remaining declaration (#1979).
+# Both tests had been failing on `read_text()` of a deleted path — they asserted
+# nothing about the invariant, they just errored.

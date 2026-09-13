@@ -5,11 +5,10 @@ worktree at `{{worktree_path}}` on branch `{{branch}}`.
 
 ## Pre-flight
 
-1. Read CLAUDE.md in the worktree root.
-2. Run `atdd gate` to confirm ATDD rules are loaded (output includes available diagnostic commands).
-3. Run `atdd repo validate` to check URN traceability — fix any errors before writing code.
-4. Run `gh issue view {{issue_number}} --json body --jq '.body'` to see the full issue body.
-5. Run `atdd repo graph --wagon {{wagon}} --format launch-prompt` to see the wagon architecture (re-run before committing PLANNED to catch architectural drift).
+1. Run `atdd gate` to load the ATDD rules and confirm them (output includes available diagnostic commands).
+2. Run `atdd repo validate` to check URN traceability — fix any errors before writing code.
+3. Run `gh issue view {{issue_number}} --json body --jq '.body'` to see the full issue body.
+4. Run `atdd repo graph --wagon {{wagon}} --format launch-prompt` to see the wagon architecture (re-run before committing PLANNED to catch architectural drift).
 
 ## Wagon Architecture
 

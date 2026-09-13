@@ -196,8 +196,6 @@ Typical structure after `atdd init`:
 your-project/
 ├── main/
 ├── feat-some-feature/
-├── CLAUDE.md
-├── AGENTS.md
 └── .atdd/
     ├── manifest.yaml
     ├── config.yaml
@@ -370,22 +368,18 @@ atdd validate --coverage
 atdd validate --verify-baseline
 ```
 
-### Agent config sync
+### Refresh an initialised checkout
 
 ```bash
 atdd sync
-atdd sync --agent claude
-atdd sync --verify
-atdd sync --status
 ```
 
-| Agent | Managed file |
-|---|---|
-| claude | `CLAUDE.md` |
-| codex | `AGENTS.md` |
-| gemini | `GEMINI.md` |
-| glm | `GLM.md` |
-| qwen | `QWEN.md` |
+Refreshes installed git hooks, atdd's operational `.gitignore` entries, exported
+schemas and the toolkit stamp. It takes no flags.
+
+It is not an agent-config sync, whatever the verb suggests: #1811 retired the
+projection that rendered a managed ATDD block into per-agent files, and #1941
+deleted the artifacts it had left behind.
 
 ### Discovery & visualization
 
@@ -610,7 +604,7 @@ atdd --help
 
 ```bash
 python -m pip uninstall atdd
-# Then manually delete .atdd/ and managed blocks in CLAUDE.md / AGENTS.md / etc.
+# Then manually delete .atdd/
 ```
 
 ---

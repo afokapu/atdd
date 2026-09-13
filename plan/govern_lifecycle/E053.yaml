@@ -31,21 +31,20 @@ acceptances:
   - identity:
       urn: "acc:govern-lifecycle:E053-UNIT-002-claude-md-source-of-truth-debanners-projects-v2"
       id: "AC-UNIT-002"
-      purpose: "CLAUDE.md (and the synced GEMINI/GLM/AGENTS copies) declares the source of truth as GitHub Issue labels + local manifest and no longer names Projects v2"
+      purpose: "RETIRED (#1979) — the four rendered agent-config files this acceptance read were deleted with the projection itself; the residual Projects-v2 guarantee it shared is carried by E053-UNIT-001 over shipped code"
       phase: "GREEN"
     harness:
       type: "unit"
       category: "backend"
     given:
       abstract:
-        - "The rendered CLAUDE.md and its synced GEMINI.md / GLM.md / AGENTS.md siblings"
+        - "No agent-config projection: #1811 retired it, #1812 deleted the CONDUCTOR.md template and #1941 deleted CLAUDE.md / AGENTS.md / GEMINI.md / GLM.md"
     when:
-      abstract: "The issues.source_of_truth declaration is read from each file"
+      abstract: "The shipped tree is searched for a declaration of issues.source_of_truth"
     then:
       abstract:
-        - "issues.source_of_truth no longer contains the strings 'Projects v2', 'Project v2' or 'Projects-v2'"
-        - "issues.source_of_truth names GitHub Issues (labels) plus the local .atdd/manifest.yaml as the state carriers"
-        - "The four files agree (atdd sync renders the same source_of_truth into each)"
+        - "No shipped artifact declares an issues.source_of_truth naming 'Projects v2', 'Project v2' or 'Projects-v2' — there is no such declaration left to carry one"
+        - "The Projects-v2 residue guarantee over shipped code is asserted by E053-UNIT-001, which remains bound and live"
     metadata:
       author: "atdd:self-compliance"
       created: "2026-06-11"
