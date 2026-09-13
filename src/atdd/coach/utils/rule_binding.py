@@ -28,6 +28,7 @@ Related substrate:
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -75,7 +76,6 @@ class DuplicateRuleError(LookupError):
 # Application-layer callers register callbacks here so domain code emits
 # bind_rule boundary events without importing upward.
 from typing import Callable as _Callable  # noqa: E402 (guarded by TYPE_CHECKING-safe pattern)
-import logging
 
 _log = logging.getLogger(__name__)
 
