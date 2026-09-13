@@ -9,7 +9,7 @@ items; it now holds 1,035, and `origin/main` has moved 206 commits. Counts below
 |---|---|---|---|---|
 | `branch` | 302 | 185 | STRIP (115 proj, 48 non-null) | **STRIP — rationale replaced** |
 | `worktree_path` | 130 | 130 | DROP (25 proj) | **DROP — confirmed, stronger** |
-| `feature` | 390 | 348 | GROW (96 proj, 33 non-null) | **GROW refuted — ruling owed** |
+| `feature` | 390 | 348 | GROW (96 proj, 33 non-null) | **STRIP — ruled 2026-09-13** |
 | `feature_urn` | 4 | 4 | never dispositioned | **DROP — after recording its evidence** |
 | `file` | 7 | 0 | never dispositioned | **DROP — trivial** |
 
@@ -61,8 +61,21 @@ Live bag reader: one — `coach/commands/issue_feature_binding.py:280`, feeding 
 callers; the apparent hits are `URNGrammar.feature`, the name collision the findings
 flagged.)
 
-**Ruling owed.** Three coherent options: fix the writer to stop defaulting and re-measure;
-STRIP and let the validator keep reading the live store; or GROW and accept 49% noise.
+**Ruled 2026-09-13: STRIP**, and the writer defect is split out as **#2006**.
+
+STRIP rather than GROW because growing publishes 172 false bindings as authoritative shared
+state, and the `train` precedent shows what that produces. STRIP rather than "fix the writer
+first" because the two are independent: the one live bag reader
+(`issue_feature_binding_scanner`, via `issue_feature_binding.py:280`) reads the **live**
+store, which the projection never rebuilds — the same reasoning that saved `branch`. So
+stripping costs that validator nothing, and #1622 does not wait on #2006.
+
+What #2006 owns: stopping the default at `author_issue.py:186-187` for both `feature` and
+`train`, and deciding what an unsupplied binding stores instead. It explicitly does **not**
+own backfilling the 172 + 53 affected work items — that needs its answer first.
+
+Note `train` is not covered by this ruling. It is already a `FIELD_TYPES` field carrying 19%
+defaulted values today; #1622 changes nothing about it, and #2006 only stops the inflow.
 
 ## `feature_urn` — DROP, but record this first
 
