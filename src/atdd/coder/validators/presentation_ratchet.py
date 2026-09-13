@@ -33,10 +33,13 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Tuple
+import logging
 
 import yaml
 
 from atdd.coach.validators._violation import Violation
+
+_log = logging.getLogger(__name__)
 
 
 # Per issue body Phase 1: walk presentation files in three runtimes.
@@ -197,7 +200,11 @@ def _file_line_count(repo_root: Path, ref: str, path: str) -> int:
             text=True,
             stderr=subprocess.DEVNULL,
         )
-    except subprocess.CalledProcessError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except subprocess.CalledProcessError as exc:
+        _log.warning(
+            "_file_line_count: subprocess.CalledProcessError handled, reporting success to the caller",
+            extra={"error": str(exc)[:200]},
+        )
         return 0
     if not content:
         return 0

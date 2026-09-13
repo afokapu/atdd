@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 from typing import List, Optional
+import logging
 
 from atdd.coach.utils.rule_binding import RuleNotInRegistryError, bind_rule
 from atdd.coach.utils.suppression_scanner import (
@@ -36,6 +37,8 @@ from atdd.coach.utils.suppression_scanner import (
     find_suppressions,
 )
 from atdd.coach.validators._violation import Violation
+
+_log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -71,8 +74,11 @@ def _read_marker_line(marker: SuppressionMarker) -> str:
         lines = marker.file_path.read_text(encoding="utf-8").splitlines()
         if 0 < marker.line <= len(lines):
             return lines[marker.line - 1].strip()
-    except (OSError, UnicodeDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow)
-        pass
+    except (OSError, UnicodeDecodeError) as exc:
+        _log.warning(
+            "_read_marker_line: (OSError, UnicodeDecodeError) handled, continuing past the failure",
+            extra={"error": str(exc)[:200]},
+        )
     return ""
 
 
@@ -100,7 +106,11 @@ def _get_disposition(rule_id: str) -> Optional[str]:
     """Look up disposition for a rule, returning None on unknown rules."""
     try:
         return bind_rule(rule_id).disposition
-    except (RuleNotInRegistryError, Exception):  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except (RuleNotInRegistryError, Exception) as exc:
+        _log.warning(
+            "_get_disposition: (RuleNotInRegistryError, Exception) handled, returning None",
+            extra={"error": str(exc)[:200]},
+        )
         return None
 
 

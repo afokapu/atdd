@@ -18,6 +18,7 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import List, Optional
+import logging
 
 import atdd
 
@@ -27,6 +28,8 @@ from atdd.coach.runtime.suppression_filter import apply_suppression
 from atdd.coach.runtime.risk_score import compute_risk_score, write_risk_score
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.validators._violation import Violation
+
+_log = logging.getLogger(__name__)
 
 _ATDD_PKG_DIR = Path(atdd.__file__).resolve().parent
 
@@ -59,7 +62,11 @@ def handle(ctx: CoachContext, transition: Transition) -> HandlerResult:
 
     try:
         repo_root = find_repo_root()
-    except (RuntimeError, OSError) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+    except (RuntimeError, OSError) as e:
+        _log.warning(
+            "handle: (RuntimeError, OSError) handled, continuing past the failure",
+            extra={"error": str(e)[:200]},
+        )
         print(f"[validator_dispatch] repo root not found: {e}", file=sys.stderr)
         return HandlerResult.ERROR
 
@@ -126,7 +133,11 @@ def _get_head_sha(repo_root: Path) -> str:
             check=True,
         )
         return proc.stdout.strip() or "unknown"
-    except (subprocess.CalledProcessError, FileNotFoundError, OSError) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError) as e:
+        _log.warning(
+            "_get_head_sha: (subprocess.CalledProcessError, FileNotFoundError, OSError) handled, returning 'unknown'",
+            extra={"error": str(e)[:200]},
+        )
         print(f"[validator_dispatch] git rev-parse HEAD failed: {e}", file=sys.stderr)
         return "unknown"
 
@@ -158,7 +169,11 @@ def _phase_archetypes(phase_name: str, repo_root: Path) -> set[str]:
             if archetype in ("planner", "tester", "coder", "coach"):
                 archetypes.add(archetype)
         return archetypes if archetypes else set(_PHASE_ARCHETYPES.get(phase_name, []))
-    except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+    except Exception as e:
+        _log.warning(
+            "_phase_archetypes: Exception handled, continuing past the failure",
+            extra={"error": str(e)[:200]},
+        )
         print(f"[validator_dispatch] phase archetype resolution failed: {e}", file=sys.stderr)
         return set(_PHASE_ARCHETYPES.get(phase_name, []))
 
@@ -189,7 +204,11 @@ def _record_to_violation(record: dict) -> Optional[Violation]:
             detail=record["detail"],
             fix_hint_ref=record.get("fix_hint_ref"),
         )
-    except (KeyError, ValueError) as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+    except (KeyError, ValueError) as e:
+        _log.debug(
+            "_record_to_violation: (KeyError, ValueError) handled, returning None",
+            extra={"error": str(e)[:200]},
+        )
         print(f"[validator_dispatch] invalid violation record: {e}", file=sys.stderr)
         return None
 

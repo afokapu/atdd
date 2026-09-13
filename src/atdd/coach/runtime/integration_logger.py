@@ -35,6 +35,9 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
+import logging
+
+_log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Module state
@@ -184,7 +187,11 @@ def _default_runtime_dir() -> Path:
 
     try:
         return find_repo_root() / ".atdd" / "runtime"
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+    except Exception as exc:
+        _log.warning(
+            "_default_runtime_dir: Exception handled, continuing past the failure",
+            extra={"error": str(exc)[:200]},
+        )
         print("[integration_logger] could not find repo root; using cwd", file=sys.stderr)
         return Path(".atdd") / "runtime"
 

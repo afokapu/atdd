@@ -15,6 +15,7 @@ import json
 import yaml
 from pathlib import Path
 from typing import Dict, Any, List, Tuple, Optional
+import logging
 import pytest
 
 import atdd
@@ -24,6 +25,8 @@ from atdd.coach.utils.config import (
     get_train_config,
     resolve_stack_container,
 )
+
+_log = logging.getLogger(__name__)
 
 
 # Path constants
@@ -239,8 +242,11 @@ def train_files() -> List[Tuple[Path, Dict]]:
                         train_data = yaml.safe_load(f)
                         if train_data:
                             train_files_data.append((train_file, train_data))
-                except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
-                    pass
+                except Exception as exc:
+                    _log.warning(
+                        "train_files: Exception handled, continuing past the failure",
+                        extra={"error": str(exc)[:200]},
+                    )
 
     return train_files_data
 
@@ -513,8 +519,11 @@ def feature_files() -> List[Tuple[Path, Dict[str, Any]]]:
                             data = yaml.safe_load(f)
                             if data:
                                 features.append((feature_file, data))
-                    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
-                        pass
+                    except Exception as exc:
+                        _log.warning(
+                            "feature_files: Exception handled, continuing past the failure",
+                            extra={"error": str(exc)[:200]},
+                        )
     return features
 
 
@@ -544,8 +553,11 @@ def wmbt_files() -> List[Tuple[Path, Dict[str, Any]]]:
                             data = yaml.safe_load(f)
                             if data:
                                 wmbts.append((wmbt_file, data))
-                    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
-                        pass
+                    except Exception as exc:
+                        _log.warning(
+                            "wmbt_files: Exception handled, continuing past the failure",
+                            extra={"error": str(exc)[:200]},
+                        )
     return wmbts
 
 

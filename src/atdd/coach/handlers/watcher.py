@@ -18,6 +18,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
+import logging
 
 from atdd.coach.commands.durability import DecisionWriter
 from atdd.coach.commands.event_queue import CoachEventQueue
@@ -31,6 +32,8 @@ from atdd.coach.handlers.state_machine import (
     Transition,
     can_transition,
 )
+
+_log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -150,7 +153,11 @@ class WatcherEventLoop:
     def _make_decision_writer(self) -> Optional[DecisionWriter]:
         try:
             return DecisionWriter(runtime_dir=self.runtime_dir)
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+        except Exception as exc:
+            _log.warning(
+                "_make_decision_writer: Exception handled, returning None",
+                extra={"error": str(exc)[:200]},
+            )
             return None
 
     # --- background watchers ------------------------------------------------

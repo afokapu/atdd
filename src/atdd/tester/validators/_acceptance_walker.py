@@ -263,11 +263,15 @@ def _relpath(path: Path, repo_root: Path) -> str:
     """Best-effort relative path; falls back to absolute when outside the root."""
     try:
         return str(path.resolve().relative_to(repo_root.resolve()))
-    except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except ValueError as exc:
         # Path outside repo_root (e.g., absolute fixture path under tmp).
         # Falling back to the absolute string is the documented behavior
         # — the caller uses the result purely for Violation.location, not
         # for reading the file again.
+        _logger.debug(
+            "_relpath: ValueError handled, continuing past the failure",
+            extra={"error": str(exc)[:200]},
+        )
         return str(path)
 
 
@@ -395,9 +399,13 @@ def _linear_phase_order() -> List[str]:
     """
     try:
         data = yaml.safe_load(_PHASE_MACHINE_PATH.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError):  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except (OSError, yaml.YAMLError) as exc:
         # Phase order is a toolkit constant; an unreadable convention falls back
         # to the documented linear order rather than masking the comparison.
+        _logger.warning(
+            "_linear_phase_order: (OSError, yaml.YAMLError) handled, continuing past the failure",
+            extra={"error": str(exc)[:200]},
+        )
         return list(_LINEAR_PHASE_FALLBACK)
     phases = data.get("phases") if isinstance(data, dict) else None
     if not isinstance(phases, dict) or "INIT" not in phases:
@@ -462,9 +470,13 @@ def _store_work_items(repo_root: Path) -> List[dict]:
 
         with WorkItemReader(control_root=repo_root) as reader:
             return reader.all_work_items()
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except Exception as exc:
         # An unreadable/uninitialisable store must not crash the validator; the
         # fail-closed caller then requires the test (status-quo behavior).
+        _logger.warning(
+            "_store_work_items: Exception handled, returning an empty result",
+            extra={"error": str(exc)[:200]},
+        )
         return []
 
 

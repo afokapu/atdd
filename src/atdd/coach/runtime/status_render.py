@@ -12,8 +12,11 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from typing import Optional
+import logging
 
 from atdd.coach.runtime.reader import Decision, Judgment
+
+_log = logging.getLogger(__name__)
 
 
 def _format_hms(seconds: float) -> str:
@@ -31,7 +34,11 @@ def _elapsed(start_iso: Optional[str]) -> str:
         now = datetime.now(timezone.utc)
         delta = max(0.0, (now - start).total_seconds())
         return _format_hms(delta)
-    except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+    except ValueError as exc:
+        _log.debug(
+            "_elapsed: ValueError handled, returning 'unknown'",
+            extra={"error": str(exc)[:200]},
+        )
         return "unknown"
 
 

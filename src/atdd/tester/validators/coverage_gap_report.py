@@ -16,9 +16,12 @@ import re
 from pathlib import Path
 from collections import defaultdict
 from typing import Dict, List, Set, Tuple
+import logging
 
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.config import resolve_code_root
+
+_log = logging.getLogger(__name__)
 
 
 # Path constants
@@ -116,7 +119,11 @@ def extract_ac_reference_from_docstring(file_path: str, test_name: str) -> str |
     try:
         with open(REPO_ROOT / file_path, 'r', encoding='utf-8') as f:
             content = f.read()
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except Exception as exc:
+        _log.warning(
+            "extract_ac_reference_from_docstring: Exception handled, returning None",
+            extra={"error": str(exc)[:200]},
+        )
         return None
 
     ac_from_header = None

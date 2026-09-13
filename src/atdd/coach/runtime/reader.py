@@ -22,6 +22,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
+import logging
+
+_log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -67,8 +70,11 @@ def _read_jsonl(path: Path) -> list[dict]:
         if line:
             try:
                 records.append(json.loads(line))
-            except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
-                pass
+            except json.JSONDecodeError as exc:
+                _log.debug(
+                    "_read_jsonl: json.JSONDecodeError handled, continuing past the failure",
+                    extra={"error": str(exc)[:200]},
+                )
     return records
 
 
@@ -167,13 +173,19 @@ def read_agent_state(
                     state.last_heartbeat = datetime.fromisoformat(
                         observed.replace("Z", "+00:00")
                     )
-                except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
-                    pass
+                except ValueError as exc:
+                    _log.debug(
+                        "read_agent_state: ValueError handled, continuing past the failure",
+                        extra={"error": str(exc)[:200]},
+                    )
             state.status = hb.get("status", "unknown")
             if "token_count" in hb:
                 state.token_count = hb["token_count"]
-        except (json.JSONDecodeError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
-            pass
+        except (json.JSONDecodeError, OSError) as exc:
+            _log.warning(
+                "read_agent_state: (json.JSONDecodeError, OSError) handled, continuing past the failure",
+                extra={"error": str(exc)[:200]},
+            )
 
     context_path = agent_dir / "context.json"
     if context_path.exists():
@@ -181,8 +193,11 @@ def read_agent_state(
             ctx = json.loads(context_path.read_text(encoding="utf-8"))
             state.issue = ctx.get("issue")
             state.phase = ctx.get("phase")
-        except (json.JSONDecodeError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
-            pass
+        except (json.JSONDecodeError, OSError) as exc:
+            _log.warning(
+                "read_agent_state: (json.JSONDecodeError, OSError) handled, continuing past the failure",
+                extra={"error": str(exc)[:200]},
+            )
 
     return state
 
@@ -199,8 +214,11 @@ def read_agent_sessions(runtime_dir: Path) -> list[dict]:
         for session_file in sorted(issue_dir.glob("*.session.json")):
             try:
                 sessions.append(json.loads(session_file.read_text(encoding="utf-8")))
-            except (json.JSONDecodeError, OSError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
-                pass
+            except (json.JSONDecodeError, OSError) as exc:
+                _log.warning(
+                    "read_agent_sessions: (json.JSONDecodeError, OSError) handled, continuing past the failure",
+                    extra={"error": str(exc)[:200]},
+                )
     return sessions
 
 
