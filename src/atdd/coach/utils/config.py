@@ -263,7 +263,11 @@ def load_atdd_config(repo_root: Path) -> Dict[str, Any]:
         with open(config_path) as f:
             config = yaml.safe_load(f)
             return config if config else {}
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except Exception as exc:
+        logger.warning(
+            "load_atdd_config: Exception handled, returning an empty result",
+            extra={"error": str(exc)[:200]},
+        )
         return {}
 
 

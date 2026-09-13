@@ -96,8 +96,11 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional, Literal
+import logging
 
 import yaml
+
+_log = logging.getLogger(__name__)
 
 # No logger needed - removed _bootstrap dependency
 
@@ -1372,7 +1375,11 @@ def main() -> int:
 
     try:
         return _run_urn_command(args)
-    except ValueError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except ValueError as exc:
+        _log.debug(
+            "main: ValueError handled, reporting failure to the caller (exit 1)",
+            extra={"error": str(exc)[:200]},
+        )
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 

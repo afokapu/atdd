@@ -22,8 +22,11 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Set
+import logging
 
 import yaml
+
+_log = logging.getLogger(__name__)
 
 
 # Theme → synonym set for the force-fit heuristic.
@@ -107,7 +110,11 @@ def _load_yaml_safely(path: Path) -> Optional[dict]:
     try:
         with open(path) as f:
             doc = yaml.safe_load(f)
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except Exception as exc:
+        _log.warning(
+            "_load_yaml_safely: Exception handled, returning None",
+            extra={"error": str(exc)[:200]},
+        )
         return None
     return doc if isinstance(doc, dict) else None
 
@@ -196,7 +203,11 @@ def _collect_pyproject_keywords(repo_root: Path) -> List[str]:
         return []
     try:
         text = path.read_text()
-    except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except OSError as exc:
+        _log.warning(
+            "_collect_pyproject_keywords: OSError handled, returning an empty result",
+            extra={"error": str(exc)[:200]},
+        )
         return []
 
     # Minimal keyword extraction: parse the `keywords = [...]` array.
@@ -221,7 +232,11 @@ def _collect_package_json_keywords(repo_root: Path) -> List[str]:
         import json
 
         data = json.loads(path.read_text())
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except Exception as exc:
+        _log.warning(
+            "_collect_package_json_keywords: Exception handled, returning an empty result",
+            extra={"error": str(exc)[:200]},
+        )
         return []
     keywords = data.get("keywords") if isinstance(data, dict) else None
     if not isinstance(keywords, list):
