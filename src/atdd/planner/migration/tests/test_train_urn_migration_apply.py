@@ -33,6 +33,7 @@ import yaml
 from atdd.coach.utils.graph.resolver import TrainResolver
 from atdd.coach.utils.graph.urn import URNGrammar
 from atdd.planner.migration import train_urn_migration as mig
+from atdd.planner.migration import registry_projection as regproj
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _REAL_TRAINS_DIR = _REPO_ROOT / "plan" / "_trains"
@@ -140,7 +141,7 @@ def test_migrated_files_validate_against_typed_schema(repo: Path) -> None:
 
 
 def test_registry_entries_point_at_real_files_and_preserve_wagons(repo: Path) -> None:
-    before = mig._flatten_registry(_load(repo / "plan" / "_trains.yaml").get("trains", {}))
+    before = regproj._flatten_registry(_load(repo / "plan" / "_trains.yaml").get("trains", {}))
     wagons_before = {
         mig.forward(legacy): before[legacy].get("wagons", [])
         for legacy in _EXPECTED_FORWARD
@@ -148,7 +149,7 @@ def test_registry_entries_point_at_real_files_and_preserve_wagons(repo: Path) ->
 
     mig.apply(repo)
 
-    after = mig._flatten_registry(_load(repo / "plan" / "_trains.yaml").get("trains", {}))
+    after = regproj._flatten_registry(_load(repo / "plan" / "_trains.yaml").get("trains", {}))
     migrated = {mig.forward(k) for k in _EXPECTED_FORWARD}
     # Superset, not equality: rows this migration does not own are preserved
     # rather than evicted (#1986). Equality here is what encoded the eviction.
@@ -206,7 +207,7 @@ def test_revert_is_a_true_inverse(repo: Path) -> None:
 
     # registry back to a legacy-shaped, reader-valid state -- and, like apply,
     # carrying through every row the alias map does not own (#1986).
-    restored = mig._flatten_registry(_load(repo / "plan" / "_trains.yaml").get("trains", {}))
+    restored = regproj._flatten_registry(_load(repo / "plan" / "_trains.yaml").get("trains", {}))
     assert set(_EXPECTED_FORWARD) <= set(restored)
     assert not (set(restored) & {mig.forward(k) for k in _EXPECTED_FORWARD}), (
         "no migrated train may remain under its typed id after a revert"
@@ -240,7 +241,7 @@ def live_repo(tmp_path: Path) -> Path:
 
 
 def _registry_ids(root: Path) -> set:
-    return set(mig._flatten_registry(_load(root / "plan" / "_trains.yaml").get("trains", {})))
+    return set(regproj._flatten_registry(_load(root / "plan" / "_trains.yaml").get("trains", {})))
 
 
 def _unowned_ids(before: set) -> set:

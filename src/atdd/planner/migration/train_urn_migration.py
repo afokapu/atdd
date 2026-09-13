@@ -245,22 +245,14 @@ def plan_relocations(root: Path) -> List[Tuple[Path, Path]]:
 # ---------------------------------------------------------------------------
 # Registry projection — lives in ``registry_projection`` (#1986).
 #
-# Re-exported here under the names callers already use, so the split is an
-# internal reorganisation rather than a change of surface. ``apply``/``revert``
-# below call these; the tests and ``issue.py`` reach them through this module.
+# Only the three names ``apply``/``revert`` below actually call are imported.
+# Everything else the split moved stays in that module and is imported from it
+# directly by its callers, so this module re-exports nothing it does not use.
 # ---------------------------------------------------------------------------
 from .registry_projection import (  # noqa: E402  (placed after the data it consumes)
-    _carry_through_unowned,
-    _collect_train_entries,
-    _flatten_registry,
     _load_registry,
-    _owned_ids,
-    _registry_entry,
     _rewrite_registry_legacy,
     _rewrite_registry_typed,
-    _UNMIGRATED_BUCKET,
-    _write_registry,
-    subject_of_typed,
 )
 
 

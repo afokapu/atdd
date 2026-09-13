@@ -92,9 +92,7 @@ def _write_registry(root: Path, doc: dict) -> Path:
 def _registry_entry(existing: Dict[str, dict], legacy_id: str) -> dict:
     """The pre-migration registry entry for ``legacy_id`` — matched by the legacy
     id or (on an idempotent re-run) by its already-typed id. ``{}`` if absent."""
-    from .train_urn_migration import (  # local: avoids a circular import
-        LEGACY_TRAIN_ALIASES, forward, category_for_legacy,
-    )
+    from .train_urn_migration import forward  # local: avoids a circular import
     typed = forward(legacy_id)
     return existing.get(legacy_id) or existing.get(typed) or {}
 
@@ -117,9 +115,7 @@ def subject_of_typed(train_id: str) -> Optional[str]:
 def _owned_ids() -> set:
     """Every registry id this migration authors: each aliased legacy id and the
     typed URN it becomes. Anything else in the registry belongs to someone else."""
-    from .train_urn_migration import (  # local: avoids a circular import
-        LEGACY_TRAIN_ALIASES, forward, category_for_legacy,
-    )
+    from .train_urn_migration import LEGACY_TRAIN_ALIASES  # local: circular
     from .train_urn_migration import build_alias_map
     return set(LEGACY_TRAIN_ALIASES) | set(build_alias_map().values())
 
@@ -200,7 +196,7 @@ def _rewrite_registry_legacy(root: Path, existing: Dict[str, dict]) -> Path:
     every reader. Entries are matched to their legacy ids via the inverse map.
     """
     from .train_urn_migration import (  # local: avoids a circular import
-        LEGACY_TRAIN_ALIASES, forward, category_for_legacy,
+        LEGACY_TRAIN_ALIASES, forward,
     )
     from .train_urn_migration import _CATEGORY_BY_DIGIT
     from atdd.coach.utils.theme_map import get_theme_map
