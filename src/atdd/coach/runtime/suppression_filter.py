@@ -75,10 +75,7 @@ def _read_marker_line(marker: SuppressionMarker) -> str:
         if 0 < marker.line <= len(lines):
             return lines[marker.line - 1].strip()
     except (OSError, UnicodeDecodeError) as exc:
-        _log.warning(
-            "_read_marker_line: (OSError, UnicodeDecodeError) handled, continuing past the failure",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_read_marker_line: (OSError, UnicodeDecodeError) handled, continuing past the failure", extra={"error": str(exc)[:200]})
     return ""
 
 
@@ -107,10 +104,7 @@ def _get_disposition(rule_id: str) -> Optional[str]:
     try:
         return bind_rule(rule_id).disposition
     except (RuleNotInRegistryError, Exception) as exc:
-        _log.warning(
-            "_get_disposition: (RuleNotInRegistryError, Exception) handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_get_disposition: (RuleNotInRegistryError, Exception) handled, returning None", extra={"error": str(exc)[:200]})
         return None
 
 

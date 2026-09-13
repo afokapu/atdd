@@ -89,10 +89,7 @@ def _git(repo_root: Path, *args: str, timeout: int = 15) -> Optional[subprocess.
             ["git", *args], cwd=repo_root, capture_output=True, text=True, timeout=timeout,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
-        _log.warning(
-            "_git: (subprocess.TimeoutExpired, FileNotFoundError, OSError) handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_git: (subprocess.TimeoutExpired, FileNotFoundError, OSError) handled, returning None", extra={"error": str(exc)[:200]})
         return None
 
 
@@ -134,10 +131,7 @@ def _has_merged_pr(repo_root: Path, branch: str) -> bool:
             cwd=repo_root, capture_output=True, text=True, timeout=20,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
-        _log.warning(
-            "_has_merged_pr: (subprocess.TimeoutExpired, FileNotFoundError, OSError) handled, reporting false",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_has_merged_pr: (subprocess.TimeoutExpired, FileNotFoundError, OSError) handled, reporting false", extra={"error": str(exc)[:200]})
         return False
     if res.returncode != 0:
         return False

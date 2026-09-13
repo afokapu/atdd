@@ -154,10 +154,7 @@ class WatcherEventLoop:
         try:
             return DecisionWriter(runtime_dir=self.runtime_dir)
         except Exception as exc:
-            _log.warning(
-                "_make_decision_writer: Exception handled, returning None",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("_make_decision_writer: Exception handled, returning None", extra={"error": str(exc)[:200]})
             return None
 
     # --- background watchers ------------------------------------------------

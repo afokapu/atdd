@@ -201,10 +201,7 @@ def _file_line_count(repo_root: Path, ref: str, path: str) -> int:
             stderr=subprocess.DEVNULL,
         )
     except subprocess.CalledProcessError as exc:
-        _log.warning(
-            "_file_line_count: subprocess.CalledProcessError handled, reporting success to the caller",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_file_line_count: subprocess.CalledProcessError handled, reporting success to the caller", extra={"error": str(exc)[:200]})
         return 0
     if not content:
         return 0

@@ -217,10 +217,7 @@ class ManifestScanner:
 
             return consumers
         except Exception as exc:
-            _log.warning(
-                "_extract_consumers: Exception handled, returning an empty result",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("_extract_consumers: Exception handled, returning an empty result", extra={"error": str(exc)[:200]})
             return []
 
 
@@ -272,10 +269,7 @@ class ContractScanner:
             metadata = data.get("x-artifact-metadata", {})
             return metadata.get("consumers", [])
         except Exception as exc:
-            _log.warning(
-                "_extract_consumers: Exception handled, returning an empty result",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("_extract_consumers: Exception handled, returning an empty result", extra={"error": str(exc)[:200]})
             return []
 
     @staticmethod
@@ -287,10 +281,7 @@ class ContractScanner:
 
             return data.get("$id")
         except Exception as exc:
-            _log.warning(
-                "_extract_contract_id: Exception handled, returning None",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("_extract_contract_id: Exception handled, returning None", extra={"error": str(exc)[:200]})
             return None
 
 
@@ -321,10 +312,7 @@ class FileUpdater:
 
             return True
         except Exception as e:
-            _log.warning(
-                "update_manifest: Exception handled, reporting false",
-                extra={"error": str(e)[:200]},
-            )
+            _log.warning("update_manifest: Exception handled, reporting false", extra={"error": str(e)[:200]})
             print(f"Error updating manifest {manifest_path}: {e}")
             return False
 
@@ -351,10 +339,7 @@ class FileUpdater:
 
             return True
         except Exception as e:
-            _log.warning(
-                "update_contract: Exception handled, reporting false",
-                extra={"error": str(e)[:200]},
-            )
+            _log.warning("update_contract: Exception handled, reporting false", extra={"error": str(e)[:200]})
             print(f"Error updating contract {contract_path}: {e}")
             return False
 
@@ -377,10 +362,7 @@ class FileUpdater:
 
             return True
         except Exception as e:
-            _log.warning(
-                "remove_contract_consumer: Exception handled, reporting false",
-                extra={"error": str(e)[:200]},
-            )
+            _log.warning("remove_contract_consumer: Exception handled, reporting false", extra={"error": str(e)[:200]})
             print(f"Error removing consumer from contract {contract_path}: {e}")
             return False
 

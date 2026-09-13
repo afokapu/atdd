@@ -193,10 +193,7 @@ def _infer_module_path_str(archetype: str, module_basename: str) -> str:
         # outside ``src/atdd/<archetype>/validators/``. We render a
         # human-readable marker instead of swallowing silently; logging
         # would noise every legitimate repo-rule lookup.
-        _log.warning(
-            "_infer_module_path_str: ValidatorResolutionError handled, continuing past the failure",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_infer_module_path_str: ValidatorResolutionError handled, continuing past the failure", extra={"error": str(exc)[:200]})
         return (
             f"src/atdd/{archetype}/validators/{module_basename}.py "
             f"(substrate dispatcher)"
@@ -223,10 +220,7 @@ def _resolve_callsites(meta: RuleMetadata) -> List[_Callsite]:
         # invocation when one rule has a typo'd validator field, and
         # the rule-binding validators (`test_rule_validator_binding`)
         # already enforce the format at validation time.
-        _log.debug(
-            "_resolve_callsites: ValueError handled, returning an empty result",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.debug("_resolve_callsites: ValueError handled, returning an empty result", extra={"error": str(exc)[:200]})
         return [_Callsite(validator_field=meta.validator, module_path="<malformed>")]
     module_path = _infer_module_path_str(archetype, module_basename)
     return [_Callsite(validator_field=meta.validator, module_path=module_path)]
@@ -253,17 +247,11 @@ class RulesCommand:
         try:
             meta = bind_rule(rule_id)
         except RuleNotInRegistryError as exc:
-            _log.warning(
-                "show: RuleNotInRegistryError handled, reporting failure to the caller (exit 1)",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("show: RuleNotInRegistryError handled, reporting failure to the caller (exit 1)", extra={"error": str(exc)[:200]})
             print(f"Error: {exc}", file=sys.stderr)
             return 1
         except AmbiguousRuleError as exc:
-            _log.warning(
-                "show: AmbiguousRuleError handled, reporting failure to the caller (exit 1)",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("show: AmbiguousRuleError handled, reporting failure to the caller (exit 1)", extra={"error": str(exc)[:200]})
             print(f"Error: {exc}", file=sys.stderr)
             return 1
 
@@ -299,17 +287,11 @@ class RulesCommand:
         try:
             meta = bind_rule(rule_id)
         except RuleNotInRegistryError as exc:
-            _log.warning(
-                "where: RuleNotInRegistryError handled, reporting failure to the caller (exit 1)",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("where: RuleNotInRegistryError handled, reporting failure to the caller (exit 1)", extra={"error": str(exc)[:200]})
             print(f"Error: {exc}", file=sys.stderr)
             return 1
         except AmbiguousRuleError as exc:
-            _log.warning(
-                "where: AmbiguousRuleError handled, reporting failure to the caller (exit 1)",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("where: AmbiguousRuleError handled, reporting failure to the caller (exit 1)", extra={"error": str(exc)[:200]})
             print(f"Error: {exc}", file=sys.stderr)
             return 1
 

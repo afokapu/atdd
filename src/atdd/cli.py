@@ -275,10 +275,7 @@ def _get_pr_changed_files(repo_root) -> list:
         )
         return [line.strip() for line in diff.stdout.splitlines() if line.strip()]
     except Exception as exc:
-        _log.warning(
-            "_get_pr_changed_files: Exception handled, returning an empty result",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_get_pr_changed_files: Exception handled, returning an empty result", extra={"error": str(exc)[:200]})
         warnings.warn(f"[GT-002] could not determine PR changed files: {exc}", stacklevel=2)
         return []
 
@@ -2850,10 +2847,7 @@ def cli() -> int:
         from atdd.coach.utils.repo import ensure_repo_not_falsely_bare
         ensure_repo_not_falsely_bare()
     except Exception as exc:
-        _log.warning(
-            "cli: Exception handled, continuing past the failure",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("cli: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
 
     # Check if repo needs sync after ATDD upgrade (at startup)
     # Skip if running 'atdd upgrade' — it handles its own messaging — or

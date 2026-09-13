@@ -83,10 +83,7 @@ def _emit_gate_verdict(
         try:
             hook(validator_id, disposition_tier, passed, len(violations), driving_ids)
         except Exception as exc:
-            _logger.warning(
-                "_emit_gate_verdict: Exception handled, continuing past the failure",
-                extra={"error": str(exc)[:200]},
-            )
+            _logger.warning("_emit_gate_verdict: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
 
 
 # Inline marker grammar (mirrors atdd.coach.utils.suppression_scanner). Used
@@ -123,10 +120,7 @@ def _record_observed_violation(
         try:
             setattr(session, "_atdd", namespace)
         except (AttributeError, TypeError) as exc:
-            _logger.debug(
-                "_record_observed_violation: (AttributeError, TypeError) handled, returning None",
-                extra={"error": str(exc)[:200]},
-            )
+            _logger.debug("_record_observed_violation: (AttributeError, TypeError) handled, returning None", extra={"error": str(exc)[:200]})
             return
     observed = namespace.get("observed_violations")
     if not isinstance(observed, list):
@@ -217,10 +211,7 @@ def _record_rule_outcome(rule_id: str, outcome: str) -> None:
         try:
             setattr(session, "_atdd", namespace)
         except (AttributeError, TypeError) as exc:
-            _logger.debug(
-                "_record_rule_outcome: (AttributeError, TypeError) handled, returning None",
-                extra={"error": str(exc)[:200]},
-            )
+            _logger.debug("_record_rule_outcome: (AttributeError, TypeError) handled, returning None", extra={"error": str(exc)[:200]})
             return
     outcomes = namespace.get("rule_outcomes")
     if not isinstance(outcomes, dict):
@@ -270,10 +261,7 @@ def _read_line(repo_root: Path, rel_path: str, lineno: int) -> Optional[str]:
                 if idx == lineno:
                     return line
     except (OSError, UnicodeDecodeError) as exc:
-        _logger.warning(
-            "_read_line: (OSError, UnicodeDecodeError) handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _logger.warning("_read_line: (OSError, UnicodeDecodeError) handled, returning None", extra={"error": str(exc)[:200]})
         return None
     return None
 
@@ -361,10 +349,7 @@ def _emit_validator_reports(
             emit_reports(tuple(reports))
     except Exception as exc:
         # Emission is best-effort; never let it perturb the gate verdict.
-        _logger.warning(
-            "_emit_validator_reports: Exception handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _logger.warning("_emit_validator_reports: Exception handled, returning None", extra={"error": str(exc)[:200]})
         return
 
 

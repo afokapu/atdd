@@ -180,18 +180,12 @@ def fetch_issue(issue_number: int) -> dict:
             text=True,
         )
     except (FileNotFoundError, subprocess.CalledProcessError) as exc:
-        _log.warning(
-            "fetch_issue: (FileNotFoundError, subprocess.CalledProcessError) handled, returning an empty result",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("fetch_issue: (FileNotFoundError, subprocess.CalledProcessError) handled, returning an empty result", extra={"error": str(exc)[:200]})
         return {}
     try:
         return json.loads(result.stdout)
     except json.JSONDecodeError as exc:
-        _log.debug(
-            "fetch_issue: json.JSONDecodeError handled, returning an empty result",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.debug("fetch_issue: json.JSONDecodeError handled, returning an empty result", extra={"error": str(exc)[:200]})
         return {}
 
 
@@ -216,10 +210,7 @@ def _derive_worktree_path(branch: str) -> str:
     except Exception as exc:
         # Prompt rendering must not fail because a repo root is unresolvable;
         # fall back to the legacy relative form rather than emitting nothing.
-        _log.warning(
-            "_derive_worktree_path: Exception handled, continuing past the failure",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_derive_worktree_path: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
         return f"../{branch.replace('/', '-')}"
 
 

@@ -88,8 +88,5 @@ def placement_block_reason(cwd: Optional[Path] = None) -> Optional[str]:
         # convention, not a correctness invariant: refusing every push in a repo
         # where the check itself is broken would cost far more than the
         # misplaced directory it exists to prevent.
-        _log.warning(
-            "placement_block_reason: Exception handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("placement_block_reason: Exception handled, returning None", extra={"error": str(exc)[:200]})
         return None

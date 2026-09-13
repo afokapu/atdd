@@ -264,10 +264,7 @@ def load_atdd_config(repo_root: Path) -> Dict[str, Any]:
             config = yaml.safe_load(f)
             return config if config else {}
     except Exception as exc:
-        logger.warning(
-            "load_atdd_config: Exception handled, returning an empty result",
-            extra={"error": str(exc)[:200]},
-        )
+        logger.warning("load_atdd_config: Exception handled, returning an empty result", extra={"error": str(exc)[:200]})
         return {}
 
 

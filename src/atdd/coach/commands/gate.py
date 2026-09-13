@@ -97,10 +97,7 @@ class ATDDGate:
             data = yaml.safe_load(rules_path.read_text(encoding="utf-8"))
             return data.get("rules") if isinstance(data, dict) else None
         except Exception as exc:
-            _log.warning(
-                "_load_agent_rules: Exception handled, returning None",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("_load_agent_rules: Exception handled, returning None", extra={"error": str(exc)[:200]})
             return None
 
     def _load_issue_convention(self) -> Optional[str]:

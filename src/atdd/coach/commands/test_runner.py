@@ -106,7 +106,7 @@ class TestRunner:
         pyproject = self.repo_root / "pyproject.toml"
         try:
             return pyproject.is_file() and 'name = "atdd"' in pyproject.read_text(encoding="utf-8")
-        except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-16
+        except OSError:
             return False
 
     def _resolve_atdd_pkg_dir(self) -> Path:

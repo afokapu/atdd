@@ -203,10 +203,7 @@ class ProducerValidator:
                     wagon_data = yaml.safe_load(f)
                     return wagon_data.get("theme", "unknown")
             except:
-                _log.warning(
-                    "_get_wagon_theme: exception handled, continuing past the failure",
-                    extra={"error": "unbound (bare except)"},
-                )
+                _log.warning("_get_wagon_theme: exception handled, continuing past the failure", extra={"error": "unbound (bare except)"})
 
         return "unknown"
 

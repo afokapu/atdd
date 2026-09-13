@@ -243,10 +243,7 @@ def train_files() -> List[Tuple[Path, Dict]]:
                         if train_data:
                             train_files_data.append((train_file, train_data))
                 except Exception as exc:
-                    _log.warning(
-                        "train_files: Exception handled, continuing past the failure",
-                        extra={"error": str(exc)[:200]},
-                    )
+                    _log.warning("train_files: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
 
     return train_files_data
 
@@ -520,10 +517,7 @@ def feature_files() -> List[Tuple[Path, Dict[str, Any]]]:
                             if data:
                                 features.append((feature_file, data))
                     except Exception as exc:
-                        _log.warning(
-                            "feature_files: Exception handled, continuing past the failure",
-                            extra={"error": str(exc)[:200]},
-                        )
+                        _log.warning("feature_files: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
     return features
 
 
@@ -554,10 +548,7 @@ def wmbt_files() -> List[Tuple[Path, Dict[str, Any]]]:
                             if data:
                                 wmbts.append((wmbt_file, data))
                     except Exception as exc:
-                        _log.warning(
-                            "wmbt_files: Exception handled, continuing past the failure",
-                            extra={"error": str(exc)[:200]},
-                        )
+                        _log.warning("wmbt_files: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
     return wmbts
 
 

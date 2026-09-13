@@ -219,10 +219,7 @@ def _fetch_issue_body(issue_number: int) -> str:
             timeout=30,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        _log.warning(
-            "_fetch_issue_body: (OSError, subprocess.SubprocessError) handled, continuing past the failure",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_fetch_issue_body: (OSError, subprocess.SubprocessError) handled, continuing past the failure", extra={"error": str(exc)[:200]})
         return f"(issue #{issue_number} body unavailable — `gh issue view` could not be run)"
     if proc.returncode != 0:
         return f"(issue #{issue_number} body unavailable — `gh issue view` exited {proc.returncode})"
@@ -626,10 +623,7 @@ def run(
                 graph_context=graph_context,
             ))
         except llm_registry.LLMUnavailable as exc:
-            _log.warning(
-                "run: llm_registry.LLMUnavailable handled, reporting failure to the caller (exit 5)",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("run: llm_registry.LLMUnavailable handled, reporting failure to the caller (exit 5)", extra={"error": str(exc)[:200]})
             _print_error(f"LLM unavailable ({llm_id!r}): {exc}")
             return 5
 
@@ -641,10 +635,7 @@ def run(
                 raw_response=raw if isinstance(raw, dict) else {},
             )
         except ValueError as exc:
-            _log.debug(
-                "run: ValueError handled, reporting failure to the caller (exit 4)",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.debug("run: ValueError handled, reporting failure to the caller (exit 4)", extra={"error": str(exc)[:200]})
             _print_error(f"pass {i}/{llm_id} invalid response: {exc}")
             return 4
 
@@ -657,10 +648,7 @@ def run(
         try:
             _validate_pass_record(record)
         except jsonschema.ValidationError as exc:
-            _log.warning(
-                "run: jsonschema.ValidationError handled, reporting failure to the caller (exit 4)",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("run: jsonschema.ValidationError handled, reporting failure to the caller (exit 4)", extra={"error": str(exc)[:200]})
             field = ".".join(str(p) for p in exc.absolute_path) or "<root>"
             _print_error(
                 f"pass {i}/{llm_id} schema violation at {field!r}: {exc.message}"
@@ -673,10 +661,7 @@ def run(
         try:
             _resolve_finding_rule_ids(record)
         except Exception as exc:
-            _log.warning(
-                "run: Exception handled, reporting failure to the caller (exit 4)",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("run: Exception handled, reporting failure to the caller (exit 4)", extra={"error": str(exc)[:200]})
             _print_error(f"pass {i}/{llm_id} rule binding failed: {exc}")
             return 4
 
@@ -690,10 +675,7 @@ def run(
     try:
         jsonschema.Draft202012Validator(_aggregate_schema()).validate(aggregate)
     except jsonschema.ValidationError as exc:
-        _log.warning(
-            "run: jsonschema.ValidationError handled, reporting failure to the caller (exit 4)",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("run: jsonschema.ValidationError handled, reporting failure to the caller (exit 4)", extra={"error": str(exc)[:200]})
         field = ".".join(str(p) for p in exc.absolute_path) or "<root>"
         _print_error(
             f"aggregate schema violation at {field!r}: {exc.message}"

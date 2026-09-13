@@ -66,10 +66,7 @@ def run(argv: list[str]) -> int:
     try:
         issue_number = int(ns.number)
     except ValueError as exc:
-        _log.debug(
-            "run: ValueError handled, reporting failure to the caller (exit 1)",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.debug("run: ValueError handled, reporting failure to the caller (exit 1)", extra={"error": str(exc)[:200]})
         print(f"Error: invalid issue number '{ns.number}'")
         return 1
 

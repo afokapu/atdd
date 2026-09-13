@@ -41,7 +41,7 @@ _RULE_ID = "coach.issue.feature-binding-must-resolve"
 def _scan_live() -> List[Violation]:
     try:
         return scan_store_bindings(find_repo_root())
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+    except Exception:
         # An unreachable store must not break the gate; the store-health
         # validators own that failure mode.
         return []

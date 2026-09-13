@@ -261,10 +261,7 @@ def scan_text(code: str, filename: str = "<string>") -> List[PollutionViolation]
     try:
         tree = ast.parse(code, filename=filename)
     except SyntaxError as exc:
-        _log.warning(
-            "scan_text: SyntaxError handled, returning an empty result",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("scan_text: SyntaxError handled, returning an empty result", extra={"error": str(exc)[:200]})
         print(f"meta-validator: parse error in {filename}: {exc}", file=sys.stderr)
         return []
 

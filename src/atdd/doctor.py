@@ -124,10 +124,7 @@ def _repo_is_atdd_checkout(repo_root: Optional[Path]) -> bool:
     try:
         return 'name = "atdd"' in pyproject.read_text(encoding="utf-8")
     except OSError as exc:
-        _log.warning(
-            "_repo_is_atdd_checkout: OSError handled, reporting false",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_repo_is_atdd_checkout: OSError handled, reporting false", extra={"error": str(exc)[:200]})
         return False
 
 
@@ -161,10 +158,7 @@ def _hook_python_can_import_atdd() -> bool:
                 timeout=15,
             )
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
-            _log.warning(
-                "_hook_python_can_import_atdd: (subprocess.TimeoutExpired, FileNotFoundError, OSError) handled, reporting false",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("_hook_python_can_import_atdd: (subprocess.TimeoutExpired, FileNotFoundError, OSError) handled, reporting false", extra={"error": str(exc)[:200]})
             return False
         if result.returncode != 0:
             return False

@@ -389,10 +389,7 @@ class RepositoryInventory:
                 "source": "registry"
             }
         except Exception as exc:
-            _log.warning(
-                "_scan_telemetry_from_registry: Exception handled, returning an empty result",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("_scan_telemetry_from_registry: Exception handled, returning an empty result", extra={"error": str(exc)[:200]})
             return {"total": 0, "by_theme": {}, "source": "error"}
 
     def count_test_cases_in_file(self, test_file: Path) -> int:
@@ -406,10 +403,7 @@ class RepositoryInventory:
                 matches = re.findall(pattern, content, re.MULTILINE)
                 return len(matches)
         except:
-            _log.warning(
-                "count_test_cases_in_file: exception handled, reporting success to the caller",
-                extra={"error": "unbound (bare except)"},
-            )
+            _log.warning("count_test_cases_in_file: exception handled, reporting success to the caller", extra={"error": "unbound (bare except)"})
             return 0
 
     def scan_tests(self) -> Dict[str, Any]:

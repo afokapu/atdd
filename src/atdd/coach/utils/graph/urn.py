@@ -1376,10 +1376,7 @@ def main() -> int:
     try:
         return _run_urn_command(args)
     except ValueError as exc:
-        _log.debug(
-            "main: ValueError handled, reporting failure to the caller (exit 1)",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.debug("main: ValueError handled, reporting failure to the caller (exit 1)", extra={"error": str(exc)[:200]})
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 

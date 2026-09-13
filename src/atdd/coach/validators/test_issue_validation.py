@@ -215,7 +215,7 @@ def _store_resolved_issue_numbers(candidate_numbers):
                 if reader.get(num) is not None:
                     resolved.add(num)
         return resolved
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-19
+    except Exception:
         return set()
 
 

@@ -120,10 +120,7 @@ def extract_ac_reference_from_docstring(file_path: str, test_name: str) -> str |
         with open(REPO_ROOT / file_path, 'r', encoding='utf-8') as f:
             content = f.read()
     except Exception as exc:
-        _log.warning(
-            "extract_ac_reference_from_docstring: Exception handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("extract_ac_reference_from_docstring: Exception handled, returning None", extra={"error": str(exc)[:200]})
         return None
 
     ac_from_header = None

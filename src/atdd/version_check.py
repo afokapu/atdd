@@ -65,10 +65,7 @@ def _read_direct_url() -> Optional[dict]:
             import json as _json
             return _json.loads(raw)
     except Exception as exc:
-        logger.warning(
-            "_read_direct_url: Exception handled, continuing past the failure",
-            extra={"error": str(exc)[:200]},
-        )
+        logger.warning("_read_direct_url: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
     return None
 
 
@@ -116,10 +113,7 @@ def _parse_version(version: str) -> Tuple[int, ...]:
     try:
         return tuple(int(x) for x in version.split(".")[:3])
     except (ValueError, AttributeError) as exc:
-        logger.debug(
-            "_parse_version: (ValueError, AttributeError) handled, returning an empty result",
-            extra={"error": str(exc)[:200]},
-        )
+        logger.debug("_parse_version: (ValueError, AttributeError) handled, returning an empty result", extra={"error": str(exc)[:200]})
         return (0, 0, 0)
 
 
@@ -135,10 +129,7 @@ def _load_cache() -> dict:
             with open(CACHE_FILE) as f:
                 return json.load(f)
     except (json.JSONDecodeError, OSError) as exc:
-        logger.warning(
-            "_load_cache: (json.JSONDecodeError, OSError) handled, continuing past the failure",
-            extra={"error": str(exc)[:200]},
-        )
+        logger.warning("_load_cache: (json.JSONDecodeError, OSError) handled, continuing past the failure", extra={"error": str(exc)[:200]})
     return {}
 
 
@@ -149,10 +140,7 @@ def _save_cache(data: dict) -> None:
         with open(CACHE_FILE, "w") as f:
             json.dump(data, f)
     except OSError as exc:
-        logger.warning(
-            "_save_cache: OSError handled, continuing past the failure",
-            extra={"error": str(exc)[:200]},
-        )
+        logger.warning("_save_cache: OSError handled, continuing past the failure", extra={"error": str(exc)[:200]})
 
 
 def _fetch_latest_version() -> Optional[str]:
@@ -168,10 +156,7 @@ def _fetch_latest_version() -> Optional[str]:
             data = json.loads(response.read().decode())
             return data.get("info", {}).get("version")
     except (URLError, json.JSONDecodeError, OSError, TimeoutError) as exc:
-        logger.warning(
-            "_fetch_latest_version: (URLError, json.JSONDecodeError, OSError, TimeoutError) handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        logger.warning("_fetch_latest_version: (URLError, json.JSONDecodeError, OSError, TimeoutError) handled, returning None", extra={"error": str(exc)[:200]})
         return None
 
 
@@ -229,10 +214,7 @@ def print_update_notice() -> None:
         if notice:
             print(notice, file=sys.stderr)
     except Exception as exc:
-        logger.warning(
-            "print_update_notice: Exception handled, continuing past the failure",
-            extra={"error": str(exc)[:200]},
-        )
+        logger.warning("print_update_notice: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
 
 
 # --- Repo sync upgrade check ---
@@ -252,10 +234,7 @@ def _load_repo_config() -> Tuple[Optional[dict], Optional[Path]]:
         with open(config_path) as f:
             return yaml.safe_load(f) or {}, config_path
     except (yaml.YAMLError, OSError) as exc:
-        logger.warning(
-            "_load_repo_config: (yaml.YAMLError, OSError) handled, returning an empty result",
-            extra={"error": str(exc)[:200]},
-        )
+        logger.warning("_load_repo_config: (yaml.YAMLError, OSError) handled, returning an empty result", extra={"error": str(exc)[:200]})
         return None, None
 
 
@@ -274,10 +253,7 @@ def _read_sync_record(root: Optional[Path] = None) -> Optional[str]:
         with open(_sync_record_path(root)) as f:
             data = json.load(f)
     except (json.JSONDecodeError, OSError) as exc:
-        logger.warning(
-            "_read_sync_record: (json.JSONDecodeError, OSError) handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        logger.warning("_read_sync_record: (json.JSONDecodeError, OSError) handled, returning None", extra={"error": str(exc)[:200]})
         return None
     if not isinstance(data, dict):
         return None
@@ -442,10 +418,7 @@ def print_upgrade_sync_notice() -> None:
             print(file=sys.stderr)
             _print_placement_drift_notice()
     except Exception as exc:
-        logger.warning(
-            "print_upgrade_sync_notice: Exception handled, continuing past the failure",
-            extra={"error": str(exc)[:200]},
-        )
+        logger.warning("print_upgrade_sync_notice: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
 
 
 def _print_placement_drift_notice() -> None:
@@ -470,10 +443,7 @@ def _print_placement_drift_notice() -> None:
             print(f"ℹ️  {drift}", file=sys.stderr)
             print(file=sys.stderr)
     except Exception as exc:
-        logger.warning(
-            "_print_placement_drift_notice: Exception handled, continuing past the failure",
-            extra={"error": str(exc)[:200]},
-        )
+        logger.warning("_print_placement_drift_notice: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
 
 
 # --- Version gate (git hook enforcement) ---
@@ -520,10 +490,7 @@ def installed_cli_version() -> Optional[str]:
             env=env, cwd=tempfile.gettempdir(),
         )
     except Exception as exc:
-        logger.warning(
-            "installed_cli_version: Exception handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        logger.warning("installed_cli_version: Exception handled, returning None", extra={"error": str(exc)[:200]})
         return None
 
     if result.returncode != 0:
@@ -636,10 +603,7 @@ def _verify_installed_version(expected: Optional[str]) -> bool:
         )
         return False
     except Exception as exc:
-        logger.warning(
-            "_verify_installed_version: Exception handled, reporting false",
-            extra={"error": str(exc)[:200]},
-        )
+        logger.warning("_verify_installed_version: Exception handled, reporting false", extra={"error": str(exc)[:200]})
         return False
 
     if result.returncode != 0:

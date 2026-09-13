@@ -50,10 +50,7 @@ def _build_scanner_registry() -> dict[str, Callable[[Path], Tuple[int, List[Viol
         )
         registry["coder.logging.coach-silent-swallow"] = scan_silent_swallows_python
     except ImportError as exc:
-        _log.debug(
-            "_build_scanner_registry: ImportError handled, continuing past the failure",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.debug("_build_scanner_registry: ImportError handled, continuing past the failure", extra={"error": str(exc)[:200]})
     return registry
 
 
@@ -214,10 +211,7 @@ def check_orphaned_baseline_keys(repo_root: Path) -> List[str]:
     try:
         data = yaml.safe_load(coder_yaml.read_text(encoding="utf-8")) or {}
     except (OSError, yaml.YAMLError) as exc:
-        _log.warning(
-            "check_orphaned_baseline_keys: (OSError, yaml.YAMLError) handled, returning an empty result",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("check_orphaned_baseline_keys: (OSError, yaml.YAMLError) handled, returning an empty result", extra={"error": str(exc)[:200]})
         return []
 
     warnings: List[str] = []

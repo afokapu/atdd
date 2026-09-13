@@ -105,10 +105,7 @@ def _git_ls_files(root: Path) -> Optional[List[Path]]:
             check=False,
         )
     except (FileNotFoundError, OSError) as exc:
-        _log.warning(
-            "_git_ls_files: (FileNotFoundError, OSError) handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_git_ls_files: (FileNotFoundError, OSError) handled, returning None", extra={"error": str(exc)[:200]})
         return None
     if result.returncode != 0:
         return None

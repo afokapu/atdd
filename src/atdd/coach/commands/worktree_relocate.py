@@ -66,10 +66,7 @@ def run_relocate(
     try:
         repo_root = find_worktree_root(worktree)
     except Exception as exc:
-        _log.warning(
-            "run_relocate: Exception handled, reporting failure to the caller (exit 1)",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("run_relocate: Exception handled, reporting failure to the caller (exit 1)", extra={"error": str(exc)[:200]})
         if quiet:
             return 0
         print(f"Error: {exc}")
@@ -102,10 +99,7 @@ def run_relocate(
     except Exception as exc:
         # The move is transactional — a failed store write rolls the git move
         # back — so there is nothing half-applied to report or clean up here.
-        _log.warning(
-            "run_relocate: Exception handled, reporting failure to the caller (exit 1)",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("run_relocate: Exception handled, reporting failure to the caller (exit 1)", extra={"error": str(exc)[:200]})
         print(f"\nError: relocation failed, nothing was changed: {exc}")
         return 1
 

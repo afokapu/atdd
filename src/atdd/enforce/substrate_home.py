@@ -48,10 +48,7 @@ def _control_root_or_none(repo_root: Path) -> Optional[Path]:
 
         return resolve_control_root(Path(repo_root)).control_root
     except Exception as exc:
-        _log.warning(
-            "_control_root_or_none: Exception handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_control_root_or_none: Exception handled, returning None", extra={"error": str(exc)[:200]})
         return None
 
 

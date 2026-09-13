@@ -68,10 +68,7 @@ def pytest_sessionstart(session: pytest.Session) -> None:
         except (AttributeError, TypeError) as exc:
             # The session object cannot host our namespace (test harness
             # passed something exotic). Skip wiring; nothing to record.
-            _log.debug(
-                "pytest_sessionstart: (AttributeError, TypeError) handled, returning None",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.debug("pytest_sessionstart: (AttributeError, TypeError) handled, returning None", extra={"error": str(exc)[:200]})
             return
     namespace.setdefault("observed_violations", [])
     set_active_pytest_session(session)
@@ -175,10 +172,7 @@ def _resolve_repo_root(session: pytest.Session) -> Path:
     except (RuntimeError, OSError) as exc:
         # No repo on disk (synthetic test session). Fall back to the cwd
         # which is what the substrate's other plugins use as last resort.
-        _log.warning(
-            "_resolve_repo_root: (RuntimeError, OSError) handled, continuing past the failure",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_resolve_repo_root: (RuntimeError, OSError) handled, continuing past the failure", extra={"error": str(exc)[:200]})
         return Path.cwd()
 
 
@@ -200,10 +194,7 @@ def _resolve_sha(repo_root: Path) -> str:
         # No git, no env override, nothing to anchor on. Use a sentinel so
         # the plugin still produces an artifact coach can see (and the
         # subprocess test asserts on a synthetic SHA via ATDD_VALIDATION_SHA).
-        _log.warning(
-            "_resolve_sha: (subprocess.CalledProcessError, FileNotFoundError, OSError) handled, returning 'unknown'",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_resolve_sha: (subprocess.CalledProcessError, FileNotFoundError, OSError) handled, returning 'unknown'", extra={"error": str(exc)[:200]})
         print(
             f"[violation_collector] git rev-parse HEAD failed in {repo_root}: "
             f"{exc}; using SHA sentinel 'unknown'",
@@ -226,10 +217,7 @@ def _emit_validator_invocation_log(
         if not ilog.is_enabled():
             return
     except ImportError as exc:
-        _log.debug(
-            "_emit_validator_invocation_log: ImportError handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.debug("_emit_validator_invocation_log: ImportError handled, returning None", extra={"error": str(exc)[:200]})
         return
 
     sha = out_path.parent.name  # parent dir is the SHA

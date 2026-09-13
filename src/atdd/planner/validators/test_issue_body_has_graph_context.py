@@ -121,7 +121,7 @@ def _open_atdd_issues() -> List[Dict[str, Any]]:
             if "created_at" in item and "createdAt" not in item:
                 item["createdAt"] = item["created_at"]
         return items
-    except Exception as e:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+    except Exception as e:
         pytest.skip(f"Cannot query GitHub issues: {e}")
 
 

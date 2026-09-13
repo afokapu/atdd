@@ -84,10 +84,7 @@ def _reserved_themes(root: Optional[Path]) -> frozenset:
     except Exception as exc:
         # A malformed taxonomy must not turn every subject into a violation;
         # the structural blocklist still applies.
-        _log.warning(
-            "_reserved_themes: Exception handled, continuing past the failure",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_reserved_themes: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
         return frozenset()
 
 

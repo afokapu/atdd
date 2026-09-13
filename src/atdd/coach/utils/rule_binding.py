@@ -295,10 +295,7 @@ def extract_rules(
         # Unreadable / malformed YAML is policed by test_rule_id_uniqueness;
         # bind_rule treats such files as empty so a single broken convention
         # does not break the entire registry walk.
-        _log.warning(
-            "extract_rules: (OSError, yaml.YAMLError) handled, returning an empty result",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("extract_rules: (OSError, yaml.YAMLError) handled, returning an empty result", extra={"error": str(exc)[:200]})
         return []
     if data is None:
         return []
@@ -537,19 +534,13 @@ def _acceptance_identity(acc_urn: str, repo_root: Path) -> Optional[dict]:
     try:
         from atdd.coach.utils.graph.resolver import AcceptanceResolver
     except Exception as exc:
-        _log.warning(
-            "_acceptance_identity: Exception handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_acceptance_identity: Exception handled, returning None", extra={"error": str(exc)[:200]})
         return None
 
     try:
         resolution = AcceptanceResolver(repo_root=repo_root).resolve(acc_urn)
     except Exception as exc:
-        _log.warning(
-            "_acceptance_identity: Exception handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_acceptance_identity: Exception handled, returning None", extra={"error": str(exc)[:200]})
         return None
 
     if not resolution.is_resolved or not resolution.resolved_paths:
@@ -559,10 +550,7 @@ def _acceptance_identity(acc_urn: str, repo_root: Path) -> Optional[dict]:
         with open(resolution.resolved_paths[0], encoding="utf-8") as fh:
             data = yaml.safe_load(fh)
     except (OSError, yaml.YAMLError) as exc:
-        _log.warning(
-            "_acceptance_identity: (OSError, yaml.YAMLError) handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_acceptance_identity: (OSError, yaml.YAMLError) handled, returning None", extra={"error": str(exc)[:200]})
         return None
 
     if not isinstance(data, dict):
@@ -1398,10 +1386,7 @@ def bind_rule(rule_id: str) -> RuleMetadata:
         try:
             hook(result)
         except Exception as exc:
-            _log.warning(
-                "bind_rule: Exception handled, continuing past the failure",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("bind_rule: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
     return result
 
 

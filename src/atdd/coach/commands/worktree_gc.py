@@ -27,10 +27,7 @@ def _real_worktree_paths(repo_root: Path) -> Set[Path]:
             cwd=repo_root,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
-        _log.warning(
-            "_real_worktree_paths: (subprocess.TimeoutExpired, FileNotFoundError) handled, continuing past the failure",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_real_worktree_paths: (subprocess.TimeoutExpired, FileNotFoundError) handled, continuing past the failure", extra={"error": str(exc)[:200]})
         return set()
 
     paths: Set[Path] = set()

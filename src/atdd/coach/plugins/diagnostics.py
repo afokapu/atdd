@@ -243,10 +243,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
             _print_summary(artifact_path)
         except Exception as exc:
             # Never let summary failure mask the test outcome.
-            logger.warning(
-                "pytest_sessionfinish: Exception handled, continuing past the failure",
-                extra={"error": str(exc)[:200]},
-            )
+            logger.warning("pytest_sessionfinish: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
 
 
 # ---------------------------------------------------------------------------

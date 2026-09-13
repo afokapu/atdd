@@ -77,10 +77,7 @@ class LivenessChecker:
         try:
             data = json.loads(hb.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
-            _log.warning(
-                "_read_heartbeat_age: (OSError, json.JSONDecodeError) handled, returning an empty result",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("_read_heartbeat_age: (OSError, json.JSONDecodeError) handled, returning an empty result", extra={"error": str(exc)[:200]})
             return (None, float("inf"))
         observed = data.get("observed_at")
         if not observed:
@@ -88,10 +85,7 @@ class LivenessChecker:
         try:
             ts = datetime.fromisoformat(observed.replace("Z", "+00:00"))
         except ValueError as exc:
-            _log.debug(
-                "_read_heartbeat_age: ValueError handled, returning an empty result",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.debug("_read_heartbeat_age: ValueError handled, returning an empty result", extra={"error": str(exc)[:200]})
             return (observed, float("inf"))
         if ts.tzinfo is None:
             ts = ts.replace(tzinfo=timezone.utc)

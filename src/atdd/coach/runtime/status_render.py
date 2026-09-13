@@ -35,10 +35,7 @@ def _elapsed(start_iso: Optional[str]) -> str:
         delta = max(0.0, (now - start).total_seconds())
         return _format_hms(delta)
     except ValueError as exc:
-        _log.debug(
-            "_elapsed: ValueError handled, returning 'unknown'",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.debug("_elapsed: ValueError handled, returning 'unknown'", extra={"error": str(exc)[:200]})
         return "unknown"
 
 

@@ -80,10 +80,7 @@ class GitWatcher:
                 cwd=wt, capture_output=True, text=True, check=True,
             ).stdout.strip()
         except (subprocess.CalledProcessError, FileNotFoundError) as exc:
-            _log.warning(
-                "_scan_commits: (subprocess.CalledProcessError, FileNotFoundError) handled, reporting success to the caller",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("_scan_commits: (subprocess.CalledProcessError, FileNotFoundError) handled, reporting success to the caller", extra={"error": str(exc)[:200]})
             return 0
         prev = self._last_sha.get(wt)
         self._last_sha[wt] = sha
@@ -107,10 +104,7 @@ class GitWatcher:
                 cwd=wt, capture_output=True, text=True, check=True,
             ).stdout.strip()
         except (subprocess.CalledProcessError, FileNotFoundError) as exc:
-            _log.warning(
-                "_scan_commits: (subprocess.CalledProcessError, FileNotFoundError) handled, reporting success to the caller",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("_scan_commits: (subprocess.CalledProcessError, FileNotFoundError) handled, reporting success to the caller", extra={"error": str(exc)[:200]})
             return 0
         event = {
             "event_type": "commit_observed",
@@ -133,10 +127,7 @@ class GitWatcher:
         try:
             state = self._gh_pr_view(wt)
         except Exception as exc:
-            _log.warning(
-                "_scan_pr_state: Exception handled, reporting success to the caller",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("_scan_pr_state: Exception handled, reporting success to the caller", extra={"error": str(exc)[:200]})
             return 0
         if state is None:
             return 0

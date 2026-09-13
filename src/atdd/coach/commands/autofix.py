@@ -71,19 +71,13 @@ def _rewrite_file(path: Path) -> Tuple[int, Optional[str]]:
     try:
         source = path.read_text(encoding="utf-8")
     except OSError as exc:
-        _log.warning(
-            "_rewrite_file: OSError handled, returning an empty result",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_rewrite_file: OSError handled, returning an empty result", extra={"error": str(exc)[:200]})
         return (0, f"skip {path}: {exc}")
 
     try:
         tree = ast.parse(source, filename=str(path))
     except SyntaxError as exc:
-        _log.warning(
-            "_rewrite_file: SyntaxError handled, returning an empty result",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_rewrite_file: SyntaxError handled, returning an empty result", extra={"error": str(exc)[:200]})
         return (0, f"skip {path}: parse error ({exc})")
 
     offenders = _find_offending_classes(tree)

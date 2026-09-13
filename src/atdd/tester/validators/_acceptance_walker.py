@@ -268,10 +268,7 @@ def _relpath(path: Path, repo_root: Path) -> str:
         # Falling back to the absolute string is the documented behavior
         # — the caller uses the result purely for Violation.location, not
         # for reading the file again.
-        _logger.debug(
-            "_relpath: ValueError handled, continuing past the failure",
-            extra={"error": str(exc)[:200]},
-        )
+        _logger.debug("_relpath: ValueError handled, continuing past the failure", extra={"error": str(exc)[:200]})
         return str(path)
 
 
@@ -402,10 +399,7 @@ def _linear_phase_order() -> List[str]:
     except (OSError, yaml.YAMLError) as exc:
         # Phase order is a toolkit constant; an unreadable convention falls back
         # to the documented linear order rather than masking the comparison.
-        _logger.warning(
-            "_linear_phase_order: (OSError, yaml.YAMLError) handled, continuing past the failure",
-            extra={"error": str(exc)[:200]},
-        )
+        _logger.warning("_linear_phase_order: (OSError, yaml.YAMLError) handled, continuing past the failure", extra={"error": str(exc)[:200]})
         return list(_LINEAR_PHASE_FALLBACK)
     phases = data.get("phases") if isinstance(data, dict) else None
     if not isinstance(phases, dict) or "INIT" not in phases:
@@ -473,10 +467,7 @@ def _store_work_items(repo_root: Path) -> List[dict]:
     except Exception as exc:
         # An unreadable/uninitialisable store must not crash the validator; the
         # fail-closed caller then requires the test (status-quo behavior).
-        _logger.warning(
-            "_store_work_items: Exception handled, returning an empty result",
-            extra={"error": str(exc)[:200]},
-        )
+        _logger.warning("_store_work_items: Exception handled, returning an empty result", extra={"error": str(exc)[:200]})
         return []
 
 

@@ -123,10 +123,7 @@ class PRWatcher:
             data = json.loads(r.stdout)
             return data["resources"]["graphql"]["remaining"]
         except Exception as exc:
-            _log.warning(
-                "_check_budget: Exception handled, returning None",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("_check_budget: Exception handled, returning None", extra={"error": str(exc)[:200]})
             return None
 
     def _run_pr_list(self, prs: list[int]) -> Optional[dict[int, str]]:

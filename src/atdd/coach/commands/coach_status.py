@@ -148,10 +148,7 @@ def run_status(
                     return rc
                 time.sleep(2)
         except KeyboardInterrupt as exc:
-            _log.warning(
-                "run_status: KeyboardInterrupt handled, reporting success to the caller",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("run_status: KeyboardInterrupt handled, reporting success to the caller", extra={"error": str(exc)[:200]})
             return 0
 
     rc, output = _render_once()

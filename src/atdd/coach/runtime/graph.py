@@ -87,10 +87,7 @@ def _store_issue_wagon_map(root: Path) -> dict[int, str]:
         with WorkItemReader(control_root=root) as reader:
             return reader.issue_wagon_map()
     except Exception as exc:
-        _log.warning(
-            "_store_issue_wagon_map: Exception handled, returning an empty result",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_store_issue_wagon_map: Exception handled, returning an empty result", extra={"error": str(exc)[:200]})
         return {}
 
 

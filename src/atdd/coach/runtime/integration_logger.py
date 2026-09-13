@@ -188,10 +188,7 @@ def _default_runtime_dir() -> Path:
     try:
         return find_repo_root() / ".atdd" / "runtime"
     except Exception as exc:
-        _log.warning(
-            "_default_runtime_dir: Exception handled, continuing past the failure",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_default_runtime_dir: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
         print("[integration_logger] could not find repo root; using cwd", file=sys.stderr)
         return Path(".atdd") / "runtime"
 

@@ -113,10 +113,7 @@ def _git_common_dir(root: Path) -> Optional[Path]:
             cwd=root, capture_output=True, text=True, timeout=10,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        _log.warning(
-            "_git_common_dir: (OSError, subprocess.SubprocessError) handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_git_common_dir: (OSError, subprocess.SubprocessError) handled, returning None", extra={"error": str(exc)[:200]})
         return None
     if result.returncode != 0:
         return None
@@ -171,10 +168,7 @@ def _read_core_bare(root: Path) -> Optional[str]:
             cwd=root, capture_output=True, text=True, timeout=10,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        _log.warning(
-            "_read_core_bare: (OSError, subprocess.SubprocessError) handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_read_core_bare: (OSError, subprocess.SubprocessError) handled, returning None", extra={"error": str(exc)[:200]})
         return None
     if result.returncode != 0:
         return None
@@ -213,10 +207,7 @@ def ensure_repo_not_falsely_bare(root: Optional[Path] = None) -> bool:
     try:
         root = (root or Path.cwd()).resolve()
     except OSError as exc:
-        _log.warning(
-            "ensure_repo_not_falsely_bare: OSError handled, reporting false",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("ensure_repo_not_falsely_bare: OSError handled, reporting false", extra={"error": str(exc)[:200]})
         return False
 
     git_path = root / ".git"
@@ -238,10 +229,7 @@ def ensure_repo_not_falsely_bare(root: Optional[Path] = None) -> bool:
             cwd=root, capture_output=True, text=True, timeout=10,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        _log.warning(
-            "ensure_repo_not_falsely_bare: (OSError, subprocess.SubprocessError) handled, reporting false",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("ensure_repo_not_falsely_bare: (OSError, subprocess.SubprocessError) handled, reporting false", extra={"error": str(exc)[:200]})
         return False
     if result.returncode != 0:
         return False
@@ -368,10 +356,7 @@ def find_existing_worktree_for_branch(branch: str, repo_root: Path) -> Optional[
             timeout=15,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        _log.warning(
-            "find_existing_worktree_for_branch: (OSError, subprocess.SubprocessError) handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("find_existing_worktree_for_branch: (OSError, subprocess.SubprocessError) handled, returning None", extra={"error": str(exc)[:200]})
         return None
     if result.returncode != 0:
         return None
@@ -431,10 +416,7 @@ def is_atdd_source_repo() -> bool:
 
         pkg_dir = Path(atdd.__file__).resolve().parent
     except (ImportError, AttributeError, TypeError) as exc:
-        _log.debug(
-            "is_atdd_source_repo: (ImportError, AttributeError, TypeError) handled, reporting false",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.debug("is_atdd_source_repo: (ImportError, AttributeError, TypeError) handled, reporting false", extra={"error": str(exc)[:200]})
         return False
 
     if any(part in _VENDORED_PATH_MARKERS for part in pkg_dir.parts):
@@ -443,19 +425,13 @@ def is_atdd_source_repo() -> bool:
     try:
         repo_root = find_repo_root().resolve()
     except RuntimeError as exc:
-        _log.warning(
-            "is_atdd_source_repo: RuntimeError handled, reporting false",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("is_atdd_source_repo: RuntimeError handled, reporting false", extra={"error": str(exc)[:200]})
         return False
 
     try:
         pkg_dir.relative_to(repo_root)
     except ValueError as exc:
-        _log.debug(
-            "is_atdd_source_repo: ValueError handled, reporting false",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.debug("is_atdd_source_repo: ValueError handled, reporting false", extra={"error": str(exc)[:200]})
         return False
 
     # Source repo always has a top-level pyproject.toml whose [project].name
@@ -467,9 +443,6 @@ def is_atdd_source_repo() -> bool:
     try:
         text = pyproject.read_text(encoding="utf-8")
     except OSError as exc:
-        _log.warning(
-            "is_atdd_source_repo: OSError handled, reporting false",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("is_atdd_source_repo: OSError handled, reporting false", extra={"error": str(exc)[:200]})
         return False
     return 'name = "atdd"' in text

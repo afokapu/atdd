@@ -135,10 +135,7 @@ class ProjectInitializer:
                 return False
             return common.stdout.strip() != git_dir.stdout.strip()
         except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
-            logger.warning(
-                "_is_linked_worktree: (FileNotFoundError, subprocess.TimeoutExpired) handled, reporting false",
-                extra={"error": str(exc)[:200]},
-            )
+            logger.warning("_is_linked_worktree: (FileNotFoundError, subprocess.TimeoutExpired) handled, reporting false", extra={"error": str(exc)[:200]})
             return False
 
     def _ensure_worktree_config_extension(self) -> None:
@@ -177,10 +174,7 @@ class ProjectInitializer:
             if result.returncode != 0:
                 return []
         except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
-            logger.warning(
-                "_has_linked_worktrees: (FileNotFoundError, subprocess.TimeoutExpired) handled, returning an empty result",
-                extra={"error": str(exc)[:200]},
-            )
+            logger.warning("_has_linked_worktrees: (FileNotFoundError, subprocess.TimeoutExpired) handled, returning an empty result", extra={"error": str(exc)[:200]})
             return []
 
         # Porcelain format: blocks separated by blank lines, first block is main checkout
@@ -287,17 +281,11 @@ class ProjectInitializer:
                 try:
                     shutil.move(str(dest), str(original))
                 except Exception as exc:
-                    logger.warning(
-                        "_migrate_to_worktree_layout: Exception handled, continuing past the failure",
-                        extra={"error": str(exc)[:200]},
-                    )
+                    logger.warning("_migrate_to_worktree_layout: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
             try:
                 main_dir.rmdir()
             except Exception as exc:
-                logger.warning(
-                    "_migrate_to_worktree_layout: Exception handled, continuing past the failure",
-                    extra={"error": str(exc)[:200]},
-                )
+                logger.warning("_migrate_to_worktree_layout: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
             raise RuntimeError(f"Migration failed (rolled back): {e}") from e
 
         return main_dir
@@ -342,10 +330,7 @@ class ProjectInitializer:
             print(f"Migrated to worktree layout: {new_root}")
             print(f"\n  ** After init completes, run: cd main **\n")
         except RuntimeError as e:
-            logger.warning(
-                "_apply_worktree_layout: RuntimeError handled, reporting failure to the caller (exit 1)",
-                extra={"error": str(e)[:200]},
-            )
+            logger.warning("_apply_worktree_layout: RuntimeError handled, reporting failure to the caller (exit 1)", extra={"error": str(e)[:200]})
             print(f"Error: {e}")
             return 1
 
@@ -363,10 +348,7 @@ class ProjectInitializer:
                 print(f"Run from: {repo_root}")
                 return False
         except RuntimeError as exc:
-            logger.warning(
-                "_worktree_migration_safe: RuntimeError handled, continuing past the failure",
-                extra={"error": str(exc)[:200]},
-            )
+            logger.warning("_worktree_migration_safe: RuntimeError handled, continuing past the failure", extra={"error": str(exc)[:200]})
 
         # Safety: no linked worktrees (their .git files would break)
         linked = self._has_linked_worktrees()
@@ -502,17 +484,11 @@ class ProjectInitializer:
             return 0
 
         except PermissionError as e:
-            logger.warning(
-                "init: PermissionError handled, reporting failure to the caller (exit 1)",
-                extra={"error": str(e)[:200]},
-            )
+            logger.warning("init: PermissionError handled, reporting failure to the caller (exit 1)", extra={"error": str(e)[:200]})
             print(f"Error: Permission denied - {e}")
             return 1
         except OSError as e:
-            logger.warning(
-                "init: OSError handled, reporting failure to the caller (exit 1)",
-                extra={"error": str(e)[:200]},
-            )
+            logger.warning("init: OSError handled, reporting failure to the caller (exit 1)", extra={"error": str(e)[:200]})
             print(f"Error: {e}")
             return 1
 
@@ -1171,10 +1147,7 @@ class ProjectInitializer:
             )
             return result.returncode == 0
         except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
-            logger.warning(
-                "_gh_available: (FileNotFoundError, subprocess.TimeoutExpired) handled, reporting false",
-                extra={"error": str(exc)[:200]},
-            )
+            logger.warning("_gh_available: (FileNotFoundError, subprocess.TimeoutExpired) handled, reporting false", extra={"error": str(exc)[:200]})
             return False
 
     def _detect_repo(self) -> Optional[str]:
@@ -1188,10 +1161,7 @@ class ProjectInitializer:
             if result.returncode == 0 and result.stdout.strip():
                 return result.stdout.strip()
         except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
-            logger.warning(
-                "_detect_repo: (FileNotFoundError, subprocess.TimeoutExpired) handled, continuing past the failure",
-                extra={"error": str(exc)[:200]},
-            )
+            logger.warning("_detect_repo: (FileNotFoundError, subprocess.TimeoutExpired) handled, continuing past the failure", extra={"error": str(exc)[:200]})
         return None
 
     def _bootstrap_github(self, force: bool = False) -> Optional[str]:
@@ -1239,10 +1209,7 @@ class ProjectInitializer:
                 cfg = yaml.safe_load(self.config_file.read_text()) or {}
                 skip_workflows = cfg.get("init", {}).get("skip_workflows", False)
             except (yaml.YAMLError, OSError) as exc:
-                logger.warning(
-                    "_bootstrap_github: (yaml.YAMLError, OSError) handled, continuing past the failure",
-                    extra={"error": str(exc)[:200]},
-                )
+                logger.warning("_bootstrap_github: (yaml.YAMLError, OSError) handled, continuing past the failure", extra={"error": str(exc)[:200]})
 
         if skip_workflows:
             print("Workflows: skipped (init.skip_workflows=true in config)")
@@ -1362,10 +1329,7 @@ class ProjectInitializer:
                 if "path_filters" in cfg:
                     filters.update(cfg["path_filters"])
             except Exception as exc:
-                logger.warning(
-                    "_write_workflow: Exception handled, continuing past the failure",
-                    extra={"error": str(exc)[:200]},
-                )
+                logger.warning("_write_workflow: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
 
         # Build dorny/paths-filter filter config (plain YAML, no f-string interpolation)
         filter_lines = []
@@ -1763,10 +1727,7 @@ jobs:
                 print("  Auto-merge: SKIPPED (may require admin access)")
                 return False
         except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
-            logger.warning(
-                "_enable_auto_merge: (subprocess.TimeoutExpired, FileNotFoundError) handled, reporting false",
-                extra={"error": str(exc)[:200]},
-            )
+            logger.warning("_enable_auto_merge: (subprocess.TimeoutExpired, FileNotFoundError) handled, reporting false", extra={"error": str(exc)[:200]})
             return False
 
     def _set_branch_protection(self, repo: str) -> bool:

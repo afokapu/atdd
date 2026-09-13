@@ -33,10 +33,7 @@ def _load_yaml(path: Path) -> dict:
 
         return yaml.safe_load(path.read_text()) or {}
     except Exception as exc:
-        _log.warning(
-            "_load_yaml: Exception handled, returning an empty result",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_load_yaml: Exception handled, returning an empty result", extra={"error": str(exc)[:200]})
         return {}
 
 
@@ -48,10 +45,7 @@ def _store_wagon(issue_number: int, repo_root: Path) -> Optional[str]:
         with WorkItemReader(control_root=repo_root) as reader:
             return reader.wagon(issue_number)
     except Exception as exc:
-        _log.warning(
-            "_store_wagon: Exception handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_store_wagon: Exception handled, returning None", extra={"error": str(exc)[:200]})
         return None
 
 
@@ -63,10 +57,7 @@ def _store_train(issue_number: int, repo_root: Path) -> Optional[str]:
         with WorkItemReader(control_root=repo_root) as reader:
             return reader.train(issue_number)
     except Exception as exc:
-        _log.warning(
-            "_store_train: Exception handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_store_train: Exception handled, returning None", extra={"error": str(exc)[:200]})
         return None
 
 

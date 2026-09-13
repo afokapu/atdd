@@ -111,10 +111,7 @@ def _gh_json(argv: List[str], *, on_error: str) -> Optional[list]:
     try:
         result = subprocess.run(argv, capture_output=True, text=True, timeout=_GH_TIMEOUT)
     except (OSError, subprocess.SubprocessError) as exc:
-        _log.warning(
-            "_gh_json: (OSError, subprocess.SubprocessError) handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_gh_json: (OSError, subprocess.SubprocessError) handled, returning None", extra={"error": str(exc)[:200]})
         print(f"  Warning: `{' '.join(argv[:3])}` could not run ({exc}); {on_error}.")
         return None
 
@@ -125,9 +122,6 @@ def _gh_json(argv: List[str], *, on_error: str) -> Optional[list]:
     try:
         return json.loads(result.stdout) or []
     except (json.JSONDecodeError, ValueError) as exc:
-        _log.debug(
-            "_gh_json: (json.JSONDecodeError, ValueError) handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.debug("_gh_json: (json.JSONDecodeError, ValueError) handled, returning None", extra={"error": str(exc)[:200]})
         print(f"  Warning: could not parse `{' '.join(argv[:3])}` output ({exc}); {on_error}.")
         return None

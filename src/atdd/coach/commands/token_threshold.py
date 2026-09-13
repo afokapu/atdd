@@ -51,10 +51,7 @@ def load_token_alert_threshold(*, repo_root: Optional[Path] = None) -> int:
     try:
         config = load_atdd_config(base)
     except Exception as exc:    # # best-effort: malformed config → default
-        _log.warning(
-            "load_token_alert_threshold: Exception handled, continuing past the failure",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("load_token_alert_threshold: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
         return DEFAULT_TOKEN_ALERT_THRESHOLD
     if not isinstance(config, dict):
         return DEFAULT_TOKEN_ALERT_THRESHOLD
@@ -97,10 +94,7 @@ def read_token_count(
             timeout=timeout,
         )
     except (FileNotFoundError, subprocess.SubprocessError) as exc:    # # best-effort: missing binary or call error → None
-        _log.warning(
-            "read_token_count: (FileNotFoundError, subprocess.SubprocessError) handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("read_token_count: (FileNotFoundError, subprocess.SubprocessError) handled, returning None", extra={"error": str(exc)[:200]})
         return None
     if getattr(result, "returncode", 1) != 0:
         return None
@@ -108,10 +102,7 @@ def read_token_count(
     try:
         payload = json.loads(stdout)
     except (json.JSONDecodeError, TypeError) as exc:    # # best-effort: unrecognized stdout shape → None
-        _log.debug(
-            "read_token_count: (json.JSONDecodeError, TypeError) handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.debug("read_token_count: (json.JSONDecodeError, TypeError) handled, returning None", extra={"error": str(exc)[:200]})
         return None
     if not isinstance(payload, dict):
         return None

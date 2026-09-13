@@ -466,8 +466,5 @@ def placement_drift_notice(cwd: Optional[Path] = None) -> Optional[str]:
             f"   Move it with: atdd worktree relocate --apply"
         )
     except Exception as exc:
-        _log.warning(
-            "placement_drift_notice: Exception handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("placement_drift_notice: Exception handled, returning None", extra={"error": str(exc)[:200]})
         return None

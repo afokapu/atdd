@@ -101,10 +101,7 @@ def contract_needs_migration(contract_path: Path) -> bool:
         return False
 
     except Exception as e:
-        _log.warning(
-            "contract_needs_migration: Exception handled, reporting true",
-            extra={"error": str(e)[:200]},
-        )
+        _log.warning("contract_needs_migration: Exception handled, reporting true", extra={"error": str(e)[:200]})
         print(f"Warning: Could not parse {contract_path}: {e}")
         return True  # Conservative: assume needs migration
 

@@ -589,10 +589,7 @@ class ManifestParser:
             with open(manifest_path, 'r', encoding='utf-8') as f:
                 return yaml.safe_load(f)
         except Exception as exc:
-            _log.warning(
-                "parse_manifest: Exception handled, returning None",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("parse_manifest: Exception handled, returning None", extra={"error": str(exc)[:200]})
             return None
 
     def parse_produce_items(self, manifest_data: Dict) -> List[ProduceItem]:
@@ -671,10 +668,7 @@ class AcceptanceParser:
             with open(acceptance_file, 'r', encoding='utf-8') as f:
                 data = yaml.safe_load(f)
         except Exception as exc:
-            _log.warning(
-                "parse_acceptance_file: Exception handled, continuing past the failure",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("parse_acceptance_file: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
             return signals
 
         wagon = data.get('metadata', {}).get('wagon', 'unknown')
@@ -852,10 +846,7 @@ class FeatureFinder:
             with open(feature_path, 'r', encoding='utf-8') as f:
                 data = yaml.safe_load(f)
         except Exception as exc:
-            _log.warning(
-                "parse_feature_file: Exception handled, returning None",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("parse_feature_file: Exception handled, returning None", extra={"error": str(exc)[:200]})
             return None
 
         if not isinstance(data, dict):
@@ -1079,10 +1070,7 @@ class PythonDTOFinder:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
         except Exception as exc:
-            _log.warning(
-                "_parse_dto_file: Exception handled, returning None",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("_parse_dto_file: Exception handled, returning None", extra={"error": str(exc)[:200]})
             return None
 
         # Try primary pattern: # urn: contract:...
@@ -1217,10 +1205,7 @@ class TypeScriptDTOFinder:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
         except Exception as exc:
-            _log.warning(
-                "_parse_ts_file: Exception handled, continuing past the failure",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("_parse_ts_file: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
             return implementations
 
         # Find all exported interfaces/types
@@ -3336,10 +3321,7 @@ class YAMLUpdater:
             return True
 
         except Exception as exc:
-            _log.warning(
-                "update_yaml_field: Exception handled, reporting false",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("update_yaml_field: Exception handled, reporting false", extra={"error": str(exc)[:200]})
             return False
 
 
@@ -3781,10 +3763,7 @@ class WMBTAcceptanceParser:
                 wagon_wmbts[wagon_name] = sorted(set(wmbts))
 
         except Exception as exc:
-            _log.warning(
-                "extract_wmbt_codes_from_wagons_yaml: Exception handled, continuing past the failure",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("extract_wmbt_codes_from_wagons_yaml: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
 
         return wagon_wmbts
 
@@ -3828,10 +3807,7 @@ class WMBTAcceptanceParser:
                                     wmbts.append(key)
 
             except Exception as exc:
-                _log.warning(
-                    "extract_wmbt_codes_from_wagon_dir: Exception handled, continuing past the failure",
-                    extra={"error": str(exc)[:200]},
-                )
+                _log.warning("extract_wmbt_codes_from_wagon_dir: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
 
         return sorted(set(wmbts))
 

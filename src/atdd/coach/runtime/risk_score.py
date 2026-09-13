@@ -91,10 +91,7 @@ def _resolve_disposition(rule_id: str) -> Optional[str]:
         meta = bind_rule(rule_id)
         return meta.disposition
     except Exception as exc:
-        _log.warning(
-            "_resolve_disposition: Exception handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_resolve_disposition: Exception handled, returning None", extra={"error": str(exc)[:200]})
         return None
 
 
@@ -158,10 +155,7 @@ def _validate_against_schema(data: dict) -> list[str]:
     try:
         import jsonschema as _js
     except ImportError as exc:
-        _log.debug(
-            "_validate_against_schema: ImportError handled, returning an empty result",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.debug("_validate_against_schema: ImportError handled, returning an empty result", extra={"error": str(exc)[:200]})
         print("[risk_score] jsonschema not installed — skipping validation", file=sys.stderr)
         return []
 
@@ -212,10 +206,7 @@ def write_risk_score(
         try:
             tmp.unlink()
         except OSError as exc:
-            _log.warning(
-                "write_risk_score: OSError handled, continuing past the failure",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("write_risk_score: OSError handled, continuing past the failure", extra={"error": str(exc)[:200]})
         raise
 
     return target

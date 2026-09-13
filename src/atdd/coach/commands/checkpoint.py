@@ -41,10 +41,7 @@ def _detect_last_commit() -> Optional[str]:
         return result.stdout.strip() or None
     except (FileNotFoundError, subprocess.CalledProcessError) as exc:
         # Best-effort detection: git missing or not a repo → caller fills in None.
-        _log.warning(
-            "_detect_last_commit: (FileNotFoundError, subprocess.CalledProcessError) handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_detect_last_commit: (FileNotFoundError, subprocess.CalledProcessError) handled, returning None", extra={"error": str(exc)[:200]})
         return None
 
 
@@ -57,10 +54,7 @@ def _detect_branch() -> Optional[str]:
         return result.stdout.strip() or None
     except (FileNotFoundError, subprocess.CalledProcessError) as exc:
         # Best-effort detection: git missing or not a repo → caller fills in None.
-        _log.warning(
-            "_detect_branch: (FileNotFoundError, subprocess.CalledProcessError) handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_detect_branch: (FileNotFoundError, subprocess.CalledProcessError) handled, returning None", extra={"error": str(exc)[:200]})
         return None
 
 
@@ -122,10 +116,7 @@ def read_worker_checkpoint(
     except (OSError, json.JSONDecodeError) as exc:
         # Corrupt or unreadable checkpoint → treat as "no checkpoint";
         # caller falls back to the plain renderer.
-        _log.warning(
-            "read_worker_checkpoint: (OSError, json.JSONDecodeError) handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("read_worker_checkpoint: (OSError, json.JSONDecodeError) handled, returning None", extra={"error": str(exc)[:200]})
         return None
 
 
@@ -153,10 +144,7 @@ def run(
     except ValueError as exc:
         # User-facing CLI error: surfaced to stderr/stdout via print, return
         # non-zero so the shell sees the failure.
-        _log.debug(
-            "run: ValueError handled, reporting failure to the caller (exit 2)",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.debug("run: ValueError handled, reporting failure to the caller (exit 2)", extra={"error": str(exc)[:200]})
         print(f"❌ {exc}")
         return 2
     print(f"✓ checkpoint written: {path}")

@@ -119,10 +119,7 @@ def _remove_worktree(worktree_path: Path) -> None:
             text=True,
         )
     except Exception as exc:
-        _log.warning(
-            "_remove_worktree: Exception handled, continuing past the failure",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_remove_worktree: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
 
 
 def build_plan(issue_numbers: list[int]) -> dict[int, PlannedIssue]:

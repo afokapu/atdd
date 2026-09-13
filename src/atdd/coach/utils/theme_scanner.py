@@ -111,10 +111,7 @@ def _load_yaml_safely(path: Path) -> Optional[dict]:
         with open(path) as f:
             doc = yaml.safe_load(f)
     except Exception as exc:
-        _log.warning(
-            "_load_yaml_safely: Exception handled, returning None",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_load_yaml_safely: Exception handled, returning None", extra={"error": str(exc)[:200]})
         return None
     return doc if isinstance(doc, dict) else None
 
@@ -204,10 +201,7 @@ def _collect_pyproject_keywords(repo_root: Path) -> List[str]:
     try:
         text = path.read_text()
     except OSError as exc:
-        _log.warning(
-            "_collect_pyproject_keywords: OSError handled, returning an empty result",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_collect_pyproject_keywords: OSError handled, returning an empty result", extra={"error": str(exc)[:200]})
         return []
 
     # Minimal keyword extraction: parse the `keywords = [...]` array.
@@ -233,10 +227,7 @@ def _collect_package_json_keywords(repo_root: Path) -> List[str]:
 
         data = json.loads(path.read_text())
     except Exception as exc:
-        _log.warning(
-            "_collect_package_json_keywords: Exception handled, returning an empty result",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.warning("_collect_package_json_keywords: Exception handled, returning an empty result", extra={"error": str(exc)[:200]})
         return []
     keywords = data.get("keywords") if isinstance(data, dict) else None
     if not isinstance(keywords, list):

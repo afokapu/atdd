@@ -23,28 +23,19 @@ def _extract_json(text: str) -> Any:
     try:
         return json.loads(text)
     except json.JSONDecodeError as exc:
-        _log.debug(
-            "_extract_json: json.JSONDecodeError handled, continuing past the failure",
-            extra={"error": str(exc)[:200]},
-        )
+        _log.debug("_extract_json: json.JSONDecodeError handled, continuing past the failure", extra={"error": str(exc)[:200]})
     m = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", text, re.DOTALL)
     if m:
         try:
             return json.loads(m.group(1).strip())
         except json.JSONDecodeError as exc:
-            _log.debug(
-                "_extract_json: json.JSONDecodeError handled, continuing past the failure",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.debug("_extract_json: json.JSONDecodeError handled, continuing past the failure", extra={"error": str(exc)[:200]})
     m = re.search(r"(\{.*\}|\[.*\])", text, re.DOTALL)
     if m:
         try:
             return json.loads(m.group(1))
         except json.JSONDecodeError as exc:
-            _log.debug(
-                "_extract_json: json.JSONDecodeError handled, continuing past the failure",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.debug("_extract_json: json.JSONDecodeError handled, continuing past the failure", extra={"error": str(exc)[:200]})
     raise LLMUnavailable(f"no JSON found in response (first 200 chars): {text[:200]!r}")
 
 

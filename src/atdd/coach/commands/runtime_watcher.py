@@ -96,10 +96,7 @@ class RuntimeWatcher:
             try:
                 self.scan_once()
             except Exception as exc:    # # never crash the daemon
-                _log.warning(
-                    "_loop: Exception handled, continuing past the failure",
-                    extra={"error": str(exc)[:200]},
-                )
+                _log.warning("_loop: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
             self._stop.wait(self.poll_interval)
 
     # --- one polling pass -------------------------------------------------
@@ -203,10 +200,7 @@ class RuntimeWatcher:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
-            _log.warning(
-                "_emit_heartbeat: (OSError, json.JSONDecodeError) handled, reporting success to the caller",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("_emit_heartbeat: (OSError, json.JSONDecodeError) handled, reporting success to the caller", extra={"error": str(exc)[:200]})
             return 0
         event = {
             "event_type": "heartbeat",
@@ -276,10 +270,7 @@ class RuntimeWatcher:
                 blob = fh.read()
                 self._jsonl_offsets[path] = fh.tell()
         except OSError as exc:
-            _log.warning(
-                "_read_new_lines: OSError handled, returning an empty result",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("_read_new_lines: OSError handled, returning an empty result", extra={"error": str(exc)[:200]})
             return []
         records: list[dict] = []
         for line in blob.splitlines():
@@ -328,10 +319,7 @@ class RuntimeWatcher:
                 self._jsonl_offsets[events_path] = stat.st_size
                 self._snapshots[events_path] = _FileSnapshot(stat.st_mtime_ns, stat.st_size)
             except OSError as exc:
-                _log.warning(
-                    "replay_from_disk: OSError handled, continuing past the failure",
-                    extra={"error": str(exc)[:200]},
-                )
+                _log.warning("replay_from_disk: OSError handled, continuing past the failure", extra={"error": str(exc)[:200]})
         return emitted
 
     def mark_handled(self, event: dict) -> None:
@@ -350,10 +338,7 @@ class RuntimeWatcher:
         try:
             data = json.loads(self._checkpoint_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
-            _log.warning(
-                "_load_checkpoint: (OSError, json.JSONDecodeError) handled, returning None",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("_load_checkpoint: (OSError, json.JSONDecodeError) handled, returning None", extra={"error": str(exc)[:200]})
             return
         for key in data.get("handled", []):
             self._handled_keys.add(tuple(key))

@@ -115,10 +115,7 @@ class URNCommand:
             return 0
 
         except Exception as e:
-            _log.warning(
-                "graph: Exception handled, reporting failure to the caller (exit 1)",
-                extra={"error": str(e)[:200]},
-            )
+            _log.warning("graph: Exception handled, reporting failure to the caller (exit 1)", extra={"error": str(e)[:200]})
             print(f"Error generating graph: {e}", file=sys.stderr)
             return 1
 
@@ -146,10 +143,7 @@ class URNCommand:
         try:
             import streamlit  # noqa: F401
         except ImportError as exc:
-            _log.debug(
-                "viz: ImportError handled, reporting failure to the caller (exit 1)",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.debug("viz: ImportError handled, reporting failure to the caller (exit 1)", extra={"error": str(exc)[:200]})
             print(
                 "Error: Streamlit is not installed.\n"
                 "Install the viz extra: pip install atdd[viz]",
@@ -160,10 +154,7 @@ class URNCommand:
         try:
             import st_link_analysis  # noqa: F401
         except ImportError as exc:
-            _log.debug(
-                "viz: ImportError handled, reporting failure to the caller (exit 1)",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.debug("viz: ImportError handled, reporting failure to the caller (exit 1)", extra={"error": str(exc)[:200]})
             print(
                 "Error: st-link-analysis is not installed.\n"
                 "Install the viz extra: pip install atdd[viz]",
@@ -193,10 +184,7 @@ class URNCommand:
         try:
             return subprocess.call(cmd, env=env)
         except KeyboardInterrupt as exc:
-            _log.warning(
-                "viz: KeyboardInterrupt handled, reporting success to the caller",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("viz: KeyboardInterrupt handled, reporting success to the caller", extra={"error": str(exc)[:200]})
             return 0
 
     def orphans(
@@ -234,10 +222,7 @@ class URNCommand:
             return 1 if issues else 0
 
         except Exception as e:
-            _log.warning(
-                "orphans: Exception handled, reporting failure to the caller (exit 1)",
-                extra={"error": str(e)[:200]},
-            )
+            _log.warning("orphans: Exception handled, reporting failure to the caller (exit 1)", extra={"error": str(e)[:200]})
             print(f"Error finding orphans: {e}", file=sys.stderr)
             return 1
 
@@ -276,10 +261,7 @@ class URNCommand:
             return 1 if issues else 0
 
         except Exception as e:
-            _log.warning(
-                "broken: Exception handled, reporting failure to the caller (exit 1)",
-                extra={"error": str(e)[:200]},
-            )
+            _log.warning("broken: Exception handled, reporting failure to the caller (exit 1)", extra={"error": str(e)[:200]})
             print(f"Error finding broken refs: {e}", file=sys.stderr)
             return 1
 
@@ -339,10 +321,7 @@ class URNCommand:
             return 1 if (urn_rc or substrate_rc) else 0
 
         except Exception as e:
-            _log.warning(
-                "validate: Exception handled, reporting failure to the caller (exit 1)",
-                extra={"error": str(e)[:200]},
-            )
+            _log.warning("validate: Exception handled, reporting failure to the caller (exit 1)", extra={"error": str(e)[:200]})
             print(f"Error running validation: {e}", file=sys.stderr)
             return 1
 
@@ -386,10 +365,7 @@ class URNCommand:
             # "log, re-raise, or otherwise observably react" rule. The
             # suppress marker is here because the validator's AST scan
             # only sees the bare ``return``.
-            _log.warning(
-                "_run_substrate_conformance: (OSError, FileNotFoundError) handled, reporting failure to the caller (exit 1)",
-                extra={"error": str(exc)[:200]},
-            )
+            _log.warning("_run_substrate_conformance: (OSError, FileNotFoundError) handled, reporting failure to the caller (exit 1)", extra={"error": str(exc)[:200]})
             if format != "json":
                 print(
                     f"\n[substrate] could not invoke conformance suite: {exc}",
@@ -504,10 +480,7 @@ class URNCommand:
             return 0 if resolution.is_resolved else 1
 
         except Exception as e:
-            _log.warning(
-                "resolve: Exception handled, reporting failure to the caller (exit 1)",
-                extra={"error": str(e)[:200]},
-            )
+            _log.warning("resolve: Exception handled, reporting failure to the caller (exit 1)", extra={"error": str(e)[:200]})
             print(f"Error resolving URN: {e}", file=sys.stderr)
             return 1
 
@@ -570,10 +543,7 @@ class URNCommand:
             return 0
 
         except Exception as e:
-            _log.warning(
-                "declarations: Exception handled, reporting failure to the caller (exit 1)",
-                extra={"error": str(e)[:200]},
-            )
+            _log.warning("declarations: Exception handled, reporting failure to the caller (exit 1)", extra={"error": str(e)[:200]})
             print(f"Error listing declarations: {e}", file=sys.stderr)
             return 1
 
