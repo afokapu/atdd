@@ -42,8 +42,14 @@ from atdd.enforce.registry import (  # noqa: E402
     iter_extension_nodes,
 )
 
-# A why-not row names its rule in a leading backtick-quoted cell.
-_WHY_NOT_ROW = re.compile(r"^\|\s*`((?:coder|tester)\.[a-z0-9.\-]+)`\s*\|")
+# A why-not row names its rule in a leading backtick-quoted cell and carries a
+# recognised why-not verdict in the next one. The verdict token is what makes the
+# row a verdict: a leading rule-shaped cell alone also matches the family-assignment
+# and incoherence tables, which record work still to do, not obligations discharged.
+_WHY_NOT_VERDICTS = ("ATDD-INTERNAL", "SUBSTRATE-SPEC")
+_WHY_NOT_ROW = re.compile(
+    r"^\|\s*`((?:coder|tester)\.[a-z0-9.\-]+)`\s*\|\s*(" + "|".join(_WHY_NOT_VERDICTS) + r")\s*\|"
+)
 
 
 def core_coder_tester_rules(root: Path) -> dict[str, dict]:
@@ -75,7 +81,7 @@ def twins_by_core_rule(root: Path) -> dict[str, list[str]]:
 
 
 def classified_rules(path: Path) -> set[str]:
-    """Rule_ids carrying a why-not row in the classification record."""
+    """Rule_ids carrying a why-not VERDICT row in the classification record."""
     if not path.is_file():
         return set()
     return {
