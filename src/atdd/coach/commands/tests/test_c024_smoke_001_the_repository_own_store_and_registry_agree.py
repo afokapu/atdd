@@ -23,9 +23,6 @@ from atdd.coach.commands.issue import IssueManager
 from atdd.coach.utils.repo import find_repo_root, is_atdd_source_repo
 from atdd.coach.utils.train_identity import normalize_train_id, normalize_train_ids
 
-_LEGACY_NUMBERED = "0007-enforce-extension-conventions"
-
-
 def _recorded_trains(repo_root: Path) -> dict[str, str]:
     """`{slug: train}` for every work item that records one."""
     from atdd.state.work_item_reader import WorkItemReader
@@ -116,13 +113,20 @@ def test_no_work_item_is_wedged_by_a_spelling():
 
 @pytest.mark.coder
 @pytest.mark.platform
-def test_the_legacy_numbered_trains_resolve_in_the_shape_the_graph_mints():
-    """The seven this WMBT exists for, named explicitly.
+def test_the_legacy_numbered_family_is_retired():
+    """Formerly: the seven legacy trains resolve in the shape the graph mints.
 
-    `graph_builder` mints `train:<stem>` for a train file sitting loose under
-    `plan/_trains/`; the registry reader returns the bare `<stem>`. Asserting the
-    minted shape specifically stops a future change from "fixing" this by
-    quietly dropping the legacy family from the registry instead.
+    That assertion invited its own retirement -- "if it was deliberately retired,
+    retire this assertion with it" -- and #1986 retired the family it named. All
+    seven now carry typed `train:extension-conventions:<slug>` identities and live
+    in a subject directory, so no train file sits loose under `plan/_trains/` and
+    the `train:<stem>` shape `graph_builder` minted for one cannot arise.
+
+    Its sibling docstring guarded against "fixing" C024 by quietly dropping the
+    legacy family from the registry. That is worth keeping, so the guard is kept
+    and inverted: the family must be GONE, and gone by migration rather than by
+    deletion -- every one of the seven still resolves, under its typed id, with a
+    registry row and a document. A silent drop fails this just as loudly.
     """
     if not is_atdd_source_repo():
         pytest.skip("toolkit-self check — reads this repository's own registry")
@@ -131,14 +135,34 @@ def test_the_legacy_numbered_trains_resolve_in_the_shape_the_graph_mints():
     mgr = IssueManager(target_dir=repo_root)
     registered = IssueManager._registered_train_ids(repo_root / "plan")
 
-    assert _LEGACY_NUMBERED in registered, (
-        f"{_LEGACY_NUMBERED} is expected in this repository's registry; if it was "
-        "deliberately retired, retire this assertion with it"
+    loose = sorted(
+        p.stem for p in (repo_root / "plan" / "_trains").glob("*.yaml")
+        if not p.name.startswith("_")
+    )
+    assert not loose, (
+        f"a train file sits loose under plan/_trains/, reviving the ambiguity "
+        f"C024 is about: {loose}"
     )
 
-    valid, messages = mgr._validate_train_against_trains_yaml(f"train:{_LEGACY_NUMBERED}")
+    from atdd.planner.migration.train_urn_migration import LEGACY_TRAIN_ALIASES
 
-    assert valid, (
-        "the graph mints `train:<stem>` for this train and the store records that "
-        f"value, so the gate must resolve it: {messages}"
+    retyped = {
+        legacy: f"train:{subject}:{slug}"
+        for legacy, (subject, slug) in LEGACY_TRAIN_ALIASES.items()
+        if subject == "extension-conventions"
+    }
+    assert len(retyped) == 7, f"expected the seven, found {len(retyped)}"
+
+    missing = sorted(t for t in retyped.values() if t not in registered)
+    assert not missing, (
+        "the legacy family must be retired BY MIGRATION, not by deletion — these "
+        f"typed trains are absent from the registry: {missing}"
     )
+
+    unresolved = [
+        (typed, messages)
+        for typed in sorted(retyped.values())
+        for ok, messages in [mgr._validate_train_against_trains_yaml(typed)]
+        if not ok
+    ]
+    assert not unresolved, f"the gate must resolve every retyped train: {unresolved}"

@@ -1,6 +1,6 @@
 urn: feature:guard-succession:guard-succession
 wagon: wagon:guard-succession
-description: The guard-succession lane of train 0007-enforce-extension-conventions.
+description: The guard-succession lane of train:extension-conventions:enforce-extension-conventions.
 sizing:
   wmbts: 1
   footprint_score: 2

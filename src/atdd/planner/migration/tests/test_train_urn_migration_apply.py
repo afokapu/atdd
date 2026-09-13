@@ -45,6 +45,29 @@ _EXPECTED_FORWARD = {
     "0003-author-substrate": ("substrate", "author-artifacts"),
     "0004-admit-substrate": ("substrate", "admit-packages"),
     "0005-bind-substrate": ("substrate", "bind-runtime"),
+    # #1986 — the extension-conventions journey: 0007 nominal + six alternates.
+    "0007-enforce-extension-conventions": (
+        "extension-conventions",
+        "enforce-extension-conventions",
+    ),
+    "0201-enforce-strict-failure": ("extension-conventions", "enforce-strict-failure"),
+    "0202-report-advisory-violation": (
+        "extension-conventions",
+        "report-advisory-violation",
+    ),
+    "0203-detect-unbound-declaration": (
+        "extension-conventions",
+        "detect-unbound-declaration",
+    ),
+    "0204-detect-succession-loss": ("extension-conventions", "detect-succession-loss"),
+    "0205-detect-unrealized-obligation": (
+        "extension-conventions",
+        "detect-unrealized-obligation",
+    ),
+    "0206-decommission-orphan-detector": (
+        "extension-conventions",
+        "decommission-orphan-detector",
+    ),
 }
 
 
@@ -103,7 +126,9 @@ def test_migrated_files_are_typed_and_carry_category_field(repo: Path) -> None:
     for legacy_id, (subject, slug) in _EXPECTED_FORWARD.items():
         doc = _load(trains_dir / subject / f"{slug}.yaml")
         assert doc["train_id"] == f"train:{subject}:{slug}"
-        assert doc.get("category") == "nominal"
+        # category is the legacy identity's second digit, projected to a FIELD --
+        # nominal for 00xx, alternate for 02xx (#1986 brought alternates in).
+        assert doc.get("category") == mig.category_for_legacy(legacy_id)
         assert "category_digit" not in doc, "identity digit must be retired"
 
 
@@ -124,10 +149,16 @@ def test_registry_entries_point_at_real_files_and_preserve_wagons(repo: Path) ->
     mig.apply(repo)
 
     after = mig._flatten_registry(_load(repo / "plan" / "_trains.yaml").get("trains", {}))
-    assert set(after) == {mig.forward(k) for k in _EXPECTED_FORWARD}
-    for typed, entry in after.items():
+    migrated = {mig.forward(k) for k in _EXPECTED_FORWARD}
+    # Superset, not equality: rows this migration does not own are preserved
+    # rather than evicted (#1986). Equality here is what encoded the eviction.
+    assert migrated <= set(after)
+    assert _unowned_ids(set(before)) <= set(after), "unowned rows must survive apply"
+    for legacy_id in _EXPECTED_FORWARD:
+        typed = mig.forward(legacy_id)
+        entry = after[typed]
         assert entry["train_id"] == typed
-        assert entry.get("category") == "nominal"
+        assert entry.get("category") == mig.category_for_legacy(legacy_id)
         path = repo / entry["path"]
         assert path.exists(), f"registry path does not exist: {path}"
         assert _load(path)["train_id"] == typed
@@ -173,9 +204,13 @@ def test_revert_is_a_true_inverse(repo: Path) -> None:
         assert "category" not in _load(flat)
         assert not (trains_dir / subject / f"{slug}.yaml").exists()
 
-    # registry back to a legacy-shaped, reader-valid state
+    # registry back to a legacy-shaped, reader-valid state -- and, like apply,
+    # carrying through every row the alias map does not own (#1986).
     restored = mig._flatten_registry(_load(repo / "plan" / "_trains.yaml").get("trains", {}))
-    assert set(restored) == set(_EXPECTED_FORWARD)
+    assert set(_EXPECTED_FORWARD) <= set(restored)
+    assert not (set(restored) & {mig.forward(k) for k in _EXPECTED_FORWARD}), (
+        "no migrated train may remain under its typed id after a revert"
+    )
 
 
 # ---------------------------------------------------------------------------
