@@ -1494,6 +1494,13 @@ wagons:
       that is not the toolkit, by having every validator that reads the toolkit's
       own source tree declare itself toolkit-self and decline to run elsewhere, so
       a consumer's validate run reports on the consumer's code and nothing else
+    C027: minimize quantity of convention-prose-declaring-the-autonomy-key-unread-while-a-gate-check-waives-a-live-transition-on-it
+      when a reader judges the blast radius of an autonomy declaration, by correcting
+      the node to state which runtime reads the key and that a permissive declaration
+      lifts an operator stop, and by binding a guard that fails when the node's claim
+      about its own consumption and the gate's actual consumption disagree in either
+      direction, so the next divergence is a test failure rather than a sentence nobody
+      rereads
     D001: minimize issues created without orchestrate-ready template body
     D002: minimize parent issues without GitHub WMBT sub-issues when plan artifacts
       exist
