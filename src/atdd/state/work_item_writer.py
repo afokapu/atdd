@@ -199,6 +199,21 @@ def update_work_item(
     is a *lookup*. A uid the store does not hold raises :class:`KeyError`, which
     is the honest error for a typo and is also correct for every future uid form.
 
+    The lookup therefore goes through :func:`resolve_work_item`, not
+    ``objects.get`` (#1622). Once minting moved identity to ``wi_<ULID>`` and put
+    the slug in ``data.slug``, a bare ``get`` answered only for callers who
+    already held the minted uid — and every caller addressing by slug, which is
+    what Y002 guarantees keeps working, got ``work item not found`` on a work item
+    the store plainly holds. Writing back under ``existing.uid`` rather than the
+    caller's key is the other half: upserting at the slug would mint a SECOND
+    object for a work item that already exists.
+
+    The raw ``objects.get`` is kept as a fallback, and is not redundant:
+    :func:`resolve_work_item` filters to ``WORK_ITEM_KIND``, so resolving alone
+    would make a foreign-kind object simply *absent* and turn the kind refusal
+    below into a bare ``KeyError`` — losing the guard Y002-UNIT-002 pins, which
+    requires the refusal to name the offending kind.
+
     The kind check is what the shape gate was incidentally providing: this
     function upserts with ``WORK_ITEM_KIND``, so addressing an ``agent_session``,
     ``release`` or ``hub_adapter`` object would have silently rewritten its kind
@@ -206,17 +221,17 @@ def update_work_item(
     :func:`revise_work_item_issue` already carries.
     """
     store = StateStore(conn)
-    existing = store.objects.get(uid)
+    existing = resolve_work_item(store, uid) or store.objects.get(uid)
     if existing is None:
         raise KeyError(f"work item not found: {uid}")
     if existing.kind != WORK_ITEM_KIND:
         raise ValueError(
             f"object {existing.uid!r} is kind {existing.kind!r}, not {WORK_ITEM_KIND!r}"
         )
-    assert_uid_immutable(uid, fields.get("uid"))
+    assert_uid_immutable(existing.uid, fields.get("uid"))
     merged = {**existing.data, **{k: v for k, v in fields.items() if k != "uid"}}
     phase = merged.pop("phase", existing.state)
-    return store.objects.upsert(uid, WORK_ITEM_KIND, state=phase, data=merged)
+    return store.objects.upsert(existing.uid, WORK_ITEM_KIND, state=phase, data=merged)
 
 
 def rename_work_item(
@@ -252,7 +267,7 @@ def rename_work_item(
         fields["slug"] = slug
     if title is not None:
         fields["title"] = title
-        existing = StateStore(conn).objects.get(uid)
+        existing = resolve_work_item(StateStore(conn), uid)
         body = (existing.data.get("body") if existing is not None else None)
         if has_h1(body):
             fields["body"] = retitle_h1(body, title)
