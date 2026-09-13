@@ -131,15 +131,15 @@ Verdict confirmed, not assumed: every statement names ATDD's own substrate modul
 artifacts, so none states an obligation on consumer code. #1714 declares this family Out
 of Scope on a provisional ATDD-INTERNAL verdict; this is the evidence that settles it.
 
-| rule_id | disposition | Quoted evidence from its own `statement` |
-|---|---|---|
-| `coder.state-store.core-imports-no-providers` | strict | "The State Store (`atdd.state`) is a foundational layer and must not import the upper layers `atdd.coach`, `atdd.train`, `atdd.integrations`, or `atdd.runtime`." |
-| `coder.state-store.no-raw-sql-at-call-sites` | strict | "Outside the State Store package (`atdd.state`), no module may import `sqlite3` directly." |
-| `coder.state-store.one-external-ref-per-issue` | strict | "the `external_refs` schema enforces this structurally with `UNIQUE (provider, ref_kind, ref_value)` … the import-collision rule that manifest import relies on" |
-| `coder.state-store.operational-vs-definition-sot` | strict | "OPERATIONAL / instance state (work-items, version, runs, sessions) is owned by the State Store (`atdd.state`) as SoT" |
-| `coder.state-store.single-store-per-control-root` | strict | "no child git worktree may carry its own `.atdd/state/state.sqlite` … The `check_layout` guard implements this rule and must be wired into the state CLI" |
-| `coder.state-store.sync-engine-provider-agnostic` | strict | "The State Store sync engine (`src/atdd/state/sync_engine.py`) must name no concrete provider" |
-| `coder.state-store.work-item-provenance` | advisory | "Every `work_item` in the State Store has a sanctioned authoring event as its first event." |
+| rule_id | verdict | disposition | Quoted evidence from its own `statement` |
+|---|---|---|---|
+| `coder.state-store.core-imports-no-providers` | ATDD-INTERNAL | strict | "The State Store (`atdd.state`) is a foundational layer and must not import the upper layers `atdd.coach`, `atdd.train`, `atdd.integrations`, or `atdd.runtime`." |
+| `coder.state-store.no-raw-sql-at-call-sites` | ATDD-INTERNAL | strict | "Outside the State Store package (`atdd.state`), no module may import `sqlite3` directly." |
+| `coder.state-store.one-external-ref-per-issue` | ATDD-INTERNAL | strict | "the `external_refs` schema enforces this structurally with `UNIQUE (provider, ref_kind, ref_value)` … the import-collision rule that manifest import relies on" |
+| `coder.state-store.operational-vs-definition-sot` | ATDD-INTERNAL | strict | "OPERATIONAL / instance state (work-items, version, runs, sessions) is owned by the State Store (`atdd.state`) as SoT" |
+| `coder.state-store.single-store-per-control-root` | ATDD-INTERNAL | strict | "no child git worktree may carry its own `.atdd/state/state.sqlite` … The `check_layout` guard implements this rule and must be wired into the state CLI" |
+| `coder.state-store.sync-engine-provider-agnostic` | ATDD-INTERNAL | strict | "The State Store sync engine (`src/atdd/state/sync_engine.py`) must name no concrete provider" |
+| `coder.state-store.work-item-provenance` | ATDD-INTERNAL | advisory | "Every `work_item` in the State Store has a sanctioned authoring event as its first event." |
 
 **No mirror is built for these 7.** They are covered by this record, not by a node — which
 is exactly the disjunction the no-silent-drop guard tests.
