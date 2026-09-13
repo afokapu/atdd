@@ -86,8 +86,15 @@ def _auto_advanceable_candidate(root, prs):
         if _issue_phase(root, issue_number) not in _NEXT_PHASE:
             continue
         result = ap.resolve_pr_to_transition(pr["number"], target_dir=root)
-        if result.action == "unreadable":
-            continue
+        # NOT `continue`. Discarding an unreadable candidate here turns a failed
+        # observation into "no eligible candidate exists", and the caller then
+        # SKIPS — a green live acceptance that never reached the merge path. That
+        # is the same fail-open this acceptance exists to close, one layer up.
+        assert result.action != "unreadable", (
+            f"PR #{pr['number']} could not be read, so this candidate was not "
+            f"assessed and the live merge premise was not exercised: "
+            f"{result.reason!r}"
+        )
         return pr, result
     return None, None
 
@@ -136,9 +143,17 @@ def test_merged_at_and_state_agree_across_the_live_corpus():
         pytest.skip("toolkit-self acceptance; this repository's PRs are the subject")
     root = find_repo_root()
 
-    prs = _gh_json(root, "pr", "list", "--state", "all", "--limit", "400",
+    # --limit 2000 so the query covers the whole corpus the premise is stated
+    # over. At --limit 400 the docstring claimed 853 pull requests while the
+    # check looked at the newest 400: a disagreement anywhere in the older half
+    # would have stayed green under a sentence asserting it could not.
+    prs = _gh_json(root, "pr", "list", "--state", "all", "--limit", "2000",
                    "--json", "number,state,mergedAt")
     assert prs, "the pull-request query returned nothing; nothing was observed"
+    assert len(prs) >= 800, (
+        f"only {len(prs)} pull requests came back; the invariant below is stated "
+        "over the whole corpus and a truncated fetch cannot establish it"
+    )
 
     disagreements = [
         p for p in prs
