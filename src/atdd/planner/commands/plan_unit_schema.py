@@ -217,25 +217,37 @@ def _check_via_writer(kind: str, spec: dict, *, config: dict | None = None) -> t
     time — less complete than a schema pass, and still the whole difference
     between "reported before ratify" and "discovered at author".
     """
+    name, default_tier = SPEC_CHECKERS[kind]
+    return tier_for(kind, config, default=default_tier), _writer_findings(name, kind, spec)
+
+
+def _writer_findings(name: str, kind: str, spec: dict) -> list[str]:
+    """What the writer validator ``name`` would refuse about ``spec``.
+
+    Resolved lazily and by NAME: ``author`` imports heavily and this module is
+    imported by ``plan_session``, so a module-level import would risk a cycle
+    for no gain.
+    """
     from atdd.planner.commands import author as _author
 
-    name, default_tier = SPEC_CHECKERS[kind]
-    validate = getattr(_author, name)
     try:
-        validate(spec)
+        getattr(_author, name)(spec)
     except _author.AuthorInputError as exc:
         # Not a swallow: the refusal IS the finding, and is returned. Logged at
         # debug because the reaction is observable in the return value, and a
-        # warning here would fire on every ordinary rejection.
-        logger.debug("%s refused the %s spec", name, kind,
-                     extra={"kind": kind, "field": exc.field, "error": str(exc)})
-        return tier_for(kind, config, default=default_tier), [f"{exc.field}: {exc}"]
-    except Exception as exc:  # a writer that cannot judge must say so, not pass
-        logger.warning("spec checker for %s could not judge the spec", kind,
-                       extra={"kind": kind, "error": str(exc)})
-        return tier_for(kind, config, default=default_tier), [
-            f"<checker>: {name} could not judge this spec: {exc}"]
-    return tier_for(kind, config, default=default_tier), []
+        # warning would fire on every ordinary rejection.
+        logger.debug(
+            "%s refused the %s spec", name, kind,
+            extra={"kind": kind, "field": exc.field, "error": str(exc)},
+        )
+        return [f"{exc.field}: {exc}"]
+    except Exception as exc:  # a checker that cannot judge must say so, not pass
+        logger.warning(
+            "spec checker for %s could not judge the spec", kind,
+            extra={"kind": kind, "error": str(exc)},
+        )
+        return [f"<checker>: {name} could not judge this spec: {exc}"]
+    return []
 
 
 def tier_for(kind: str, config: dict | None = None, *, default: str | None = None) -> str:
