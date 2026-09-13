@@ -338,52 +338,69 @@ def node_files(repo_root: Path) -> List[Path]:
     return sorted(root.glob("*/conventions/nodes/*.convention.yaml"))
 
 
+def _retired_verb_findings(
+    node_id: str, path: Path, keypath: Sequence[str], text: str
+) -> List[Finding]:
+    """Retired verbs instructed by one string.
+
+    Split out of ``scan_node`` because the ratchet was right to fire on it: two
+    nested loops, each with its own guards, in one function. The seam is not
+    arbitrary — the two halves are the two ``KIND``s, they share no state, and
+    each is now readable on its own.
+    """
+    return [
+        Finding(
+            node_id=node_id,
+            node_path=path,
+            keypath=".".join(keypath),
+            token=verb,
+            kind=KIND_RETIRED_VERB,
+            detail=f"{retired.reason}. Use {retired.replacement}",
+        )
+        for verb, retired in RETIRED_VERBS.items()
+        if verb in text and not verb_documented_as_retired(text, verb)
+    ]
+
+
+def _absent_path_findings(
+    node_id: str, path: Path, keypath: Sequence[str], text: str, repo_root: Path
+) -> List[Finding]:
+    """Absent repo paths named by one operative string."""
+    return [
+        Finding(
+            node_id=node_id,
+            node_path=path,
+            keypath=".".join(keypath),
+            token=token,
+            kind=KIND_ABSENT_PATH,
+            detail=(
+                f"the prose names {token!r}, which is not in the repo; "
+                f"correct the path or drop the pointer"
+            ),
+        )
+        for token in path_tokens(text)
+        if not (Path(repo_root) / token).exists()
+        and classify(keypath, text, token, repo_root) is None
+    ]
+
+
 def scan_node(path: Path, data: dict, repo_root: Path) -> List[Finding]:
     """Every unfollowable remedy in one parsed convention node."""
     node_id = str(data.get("rule_id") or path.stem)
     findings: List[Finding] = []
     for keypath, text in _walk_strings(data):
-        is_provenance = any("legacy_path" in part for part in keypath)
-        is_illustrative = any(part in _ILLUSTRATIVE_KEYS for part in keypath)
-        operative = bool(keypath) and keypath[-1] in OPERATIVE_KEYS
-
-        # A retired verb is unfollowable wherever a reader is told to run it.
-        if not (is_provenance or is_illustrative):
-            for verb, retired in RETIRED_VERBS.items():
-                if verb in text and not verb_documented_as_retired(text, verb):
-                    findings.append(
-                        Finding(
-                            node_id=node_id,
-                            node_path=path,
-                            keypath=".".join(keypath),
-                            token=verb,
-                            kind=KIND_RETIRED_VERB,
-                            detail=(
-                                f"{retired.reason}. Use {retired.replacement}"
-                            ),
-                        )
-                    )
-
-        if not operative:
-            continue
-        for token in path_tokens(text):
-            if (Path(repo_root) / token).exists():
-                continue
-            excuse = classify(keypath, text, token, repo_root)
-            if excuse is not None:
-                continue
-            findings.append(
-                Finding(
-                    node_id=node_id,
-                    node_path=path,
-                    keypath=".".join(keypath),
-                    token=token,
-                    kind=KIND_ABSENT_PATH,
-                    detail=(
-                        f"the prose names {token!r}, which is not in the repo; "
-                        f"correct the path or drop the pointer"
-                    ),
-                )
+        recorded = any("legacy_path" in part for part in keypath) or any(
+            part in _ILLUSTRATIVE_KEYS for part in keypath
+        )
+        # A retired verb is unfollowable wherever a reader is told to run it —
+        # any string except provenance and illustration, which instruct nobody.
+        if not recorded:
+            findings.extend(
+                _retired_verb_findings(node_id, path, keypath, text)
+            )
+        if bool(keypath) and keypath[-1] in OPERATIVE_KEYS:
+            findings.extend(
+                _absent_path_findings(node_id, path, keypath, text, repo_root)
             )
     return findings
 
