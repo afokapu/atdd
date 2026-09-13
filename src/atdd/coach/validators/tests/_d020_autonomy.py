@@ -47,20 +47,28 @@ PINNED: Dict[str, Any] = {
     "COMPLETE": None,
     "BLOCKED": "operator",
     "OBSOLETE": None,
+    # #1967. Terminal, so null like COMPLETE and OBSOLETE: the axis is about the
+    # FORWARD edge, and a terminal has none. Entering it is an operator decision,
+    # enforced by the evidence policy rather than by this key.
+    "RESOLVED": None,
 }
 
-#: The nine phases, sorted — the shape both the in-repo and consumer probes expect.
+#: The declared phases, sorted — the shape both the in-repo and consumer probes
+#: expect. Grew to ten with RESOLVED (#1967); it is a count of PINNED, not a
+#: literal, so the next phase does not have to re-edit a number in prose.
 EXPECTED_PHASES = sorted(PINNED)
 
-#: The conventions snapshot hash measured on 2026-07-26, BEFORE the autonomy axis
-#: was authored, via load_conventions(repo_root).snapshot_hash.
+#: The conventions snapshot hash. Measured 2026-07-26 BEFORE the autonomy axis was
+#: authored, re-measured 2026-09-13 when #1967 added the RESOLVED phase.
 #:
-#: PhaseSpec does not read `autonomy` and _normalized_snapshot derives the hash
-#: from PhaseSpec, so declaring the axis cannot move it. Projecting the axis onto
-#: PhaseSpec — which a mechanical submitter check will need — WILL move it, and
-#: the assertions guarding this constant are the tripwire for that.
+#: What it guards is unchanged: PhaseSpec does not read `autonomy`, and
+#: _normalized_snapshot derives the hash from PhaseSpec, so DECLARING the axis
+#: cannot move it. Projecting the axis ONTO PhaseSpec would, and that is still the
+#: tripwire. Adding a PHASE also moves it — legitimately, because the PhaseSpec set
+#: itself grew — so the value was re-baselined rather than the assertion relaxed.
+#: A move with no phase added and no axis projected is still the alarm it always was.
 PRE_CHANGE_SNAPSHOT_HASH = (
-    "88af3062dfd486ee0d206946e82bebe408a3718873673f11bc0960f14e4e0913"
+    "b79c3d11b8350dfd89098a769afb268c8ac7f85d104ba9f89136731f5e5ad71a"
 )
 
 

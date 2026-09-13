@@ -26,24 +26,13 @@ import yaml
 from atdd.coach.utils.repo import find_repo_root
 
 from ._d020_autonomy import NODE_REL, node_prose, phases as _phases
+#: The one definition, bound to this module's private name. It had six copies
+#: before #1967, and that issue adds a member to it.
+from atdd.state.evidence import ESCAPES as _ESCAPES
 
 pytestmark = [pytest.mark.coach, pytest.mark.platform]
 
 
-#: The escape set, NAMED rather than derived — the same constant, for the same
-#: reason, as src/atdd/state/tests/test_phase_ladder_matches_projection_phases.py.
-#: BLOCKED cannot be derived from the topology: an escape is reachable from every
-#: spine rung, but BLOCKED does not appear in its OWN transitions_to, so any
-#: "reachable from all" derivation silently drops it. The machine names its
-#: escapes; so does this test. See the RED report on #1626 — the acceptance's
-#: "expressed against the escape SET" clause is not well-founded as a derivation,
-#: and `test_escape_set_agrees_with_the_ladder_walk` is the achievable version:
-#: it ties this constant to the repo's existing one so the two cannot drift apart.
-#: The one definition (``atdd.state.evidence``), bound to this module's private
-#: name. The set had FIVE copies before #1967 — two in production, three in tests
-#: — and that issue adds a member to it. Restating it is exactly how the phase
-#: vocabulary forked in #1946, one layer down.
-from atdd.state.evidence import ESCAPES as _ESCAPES
 
 
 def _spine(phases: dict) -> list:

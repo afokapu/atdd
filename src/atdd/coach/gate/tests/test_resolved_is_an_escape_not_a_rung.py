@@ -61,8 +61,10 @@ def test_resolved_is_declared_terminal_by_the_convention():
     machine = phase_machine()
     assert "RESOLVED" in machine, "the convention must declare RESOLVED"
     assert machine["RESOLVED"] == (), "RESOLVED is terminal: no transitions out"
-    assert declared_autonomy("RESOLVED") == "operator", (
-        "entering an escape is never autonomous"
+    assert declared_autonomy("RESOLVED") is None, (
+        "autonomy governs the FORWARD edge and a terminal has none, so it declares "
+        "null like COMPLETE and OBSOLETE. That entering RESOLVED is an operator "
+        "decision is enforced by the evidence policy, not by this key."
     )
 
 

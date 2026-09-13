@@ -122,7 +122,13 @@ phases:
     #
     # Terminal and NOT resumable, unlike BLOCKED: a resolved question is not
     # reopened, it is asked again as a new work item.
-    autonomy: operator
+    #
+    # `autonomy: null` like every other terminal. The axis governs who may SUBMIT
+    # the FORWARD transition out of a phase, and a terminal has none — so null is
+    # a statement of shape, not of permission. That entering RESOLVED is an
+    # operator decision is true and enforced, but it is enforced where entering is
+    # judged: the evidence policy demands `operator_token_digest`.
+    autonomy: null
   BLOCKED:
     agent: null
     transitions_to: [INIT, PLANNED, RED, GREEN, SMOKE, REFACTOR, OBSOLETE]

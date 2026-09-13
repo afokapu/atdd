@@ -28,7 +28,9 @@ def _run(monkeypatch, status, archived):
     class _FakeManager:
         def __init__(self, *a, **kw): pass
         def update(self, issue_id, status, force=False): return 0
-        def archive(self, issue_id): archived.append(issue_id); return 0
+        def archive(self, issue_id):
+            archived.append(issue_id)
+            return 0
 
     class _FakeLifecycle:
         target_dir = "."

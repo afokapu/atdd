@@ -41,15 +41,12 @@ from typing import Dict, Tuple
 import pytest
 
 from atdd.coach.gate.phase_edges import phase_machine
+#: The one definition. It had six copies before #1967, and that issue adds a
+#: member to the set — restating it is how the phase vocabulary forked in #1946.
+from atdd.state.evidence import ESCAPES
 
 pytestmark = [pytest.mark.coach]
 
-#: Off-spine phases: reachable from any rung, ordered against none. The same set
-#: ``state/tests/test_phase_ladder_matches_projection_phases.py`` encodes.
-#: The one definition (atdd.state.evidence). It had four copies before #1967,
-#: and that issue ADDS a member to the set — restating it here is how the
-#: phase vocabulary forked in #1946.
-from atdd.state.evidence import ESCAPES  # noqa: F401
 
 
 @pytest.fixture(scope="module")
