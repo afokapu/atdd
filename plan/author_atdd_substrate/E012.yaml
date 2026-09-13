@@ -1,0 +1,105 @@
+urn: wmbt:author-atdd-substrate:E012
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: drift-guard-constants-restating-the-schema-by-hand
+context_clarifier: "when a new required section is added to any of the three surfaces\
+  \ the C011 guard watches, because #1901 gave the section contract ONE source and\
+  \ converted issue_template.py's two hand-maintained constants into derivations \u2014\
+  \ recording that \"they were not policy, they were the drift, written down\" \u2014\
+  \ while the same two constants still exist, typed out, in the tester helper that\
+  \ IS the guard's instrument; measured, adding one section failed C011 twice for\
+  \ two different hardcoded reasons and neither was drift, and deriving both made\
+  \ the suite pass untouched"
+lens: functional.sustainability
+statement: minimize likelihood of drift-guard-constants-restating-the-schema-by-hand
+  by deriving the helper's optional-section and required-subsection sets from issue.schema.json,
+  the way the production reader already does
+acceptances:
+- identity:
+    urn: acc:author-atdd-substrate:E012-UNIT-001-helper-derives-both-constants
+    id: AC-UNIT-001
+    purpose: the drift-guard helper derives OPTIONAL_SECTIONS and REQUIRED_SUBSECTIONS
+      from the schema, typing out no section heading, and stays off atdd.coach
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - issue.schema.json as the single declared source of required section headings
+    - PARENT-ISSUE-TEMPLATE.md as the human scaffold
+  when:
+    abstract: the helper's optional-section and required-subsection sets are resolved
+    action: invoke
+  then:
+    abstract:
+    - the required-subsection set equals the schema's required `### ` headings
+    - the optional-section set equals the template H2s the schema does not require,
+      mirroring issue_template._optional_sections()
+    - no section heading appears as a literal anywhere in the helper
+    - the helper imports nothing from atdd.coach, holding the commons-coach boundary
+      it reconstructs the gate's view to respect
+    assertions:
+    - type: equals
+  signal: {}
+  metadata:
+    wagon: author-atdd-substrate
+    author: atdd:self-compliance
+    created: '2026-09-13'
+- identity:
+    urn: acc:author-atdd-substrate:E012-UNIT-002-a-new-section-no-longer-reads-as-drift
+    id: AC-UNIT-002
+    purpose: adding a required H2 to the template, or a required H3 to the schema,
+      no longer fails the drift guard on its own
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a schema and template pair with one new section added to one surface only
+  when:
+    abstract: the C011 drift guard is run against that pair
+    action: invoke
+  then:
+    abstract:
+    - a new template H2 the schema does not require is treated as optional, and the
+      guard passes
+    - a new schema-required H3 the generator emits is surfaced by the guard, not by
+      a stale literal
+    - the guard's failure message, when it does fail, names the surface that actually
+      moved
+    assertions:
+    - type: equals
+  signal: {}
+  metadata:
+    wagon: author-atdd-substrate
+    author: atdd:self-compliance
+    created: '2026-09-13'
+- identity:
+    urn: acc:author-atdd-substrate:E012-REFACTOR-001-guard-name-matches-what-it-compares
+    id: AC-REFACTOR-001
+    purpose: the guard's name and docstring enumerate only the comparisons it performs,
+      so the name stops asserting a check that is not made
+    phase: REFACTOR
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - the C011 guard module and the set of comparisons it actually asserts
+  when:
+    abstract: the guard's name and docstring are read against that set
+    action: invoke
+  then:
+    abstract:
+    - every surface the name or docstring claims is a surface the guard compares
+    - the schema-H3-versus-template comparison is named, now that it exists
+    assertions:
+    - type: equals
+  signal: {}
+  metadata:
+    wagon: author-atdd-substrate
+    author: atdd:self-compliance
+    created: '2026-09-13'

@@ -1,50 +1,101 @@
-urn: "wmbt:author-atdd-substrate:C011"
-step: "confirm"
-direction: "minimize"
-dimension: "likelihood"
-object_of_control: "schema-generator-gate-drift"
-context_clarifier: "the keystone drift-guard: the issue.schema.json required-section set, the create_issue_body generator's emitted fields, and the coach E019 gate's required sections must all be the same set — so adding or removing a required section in one surface, without the others, fails the guard"
-lens: "functional.sustainability"
-statement: "minimize likelihood of schema-generator-gate-drift by asserting issue.schema.json properties == create_issue_body emitted fields == E019 required sections (load_required_sections() + REQUIRED_SUBSECTIONS), mechanically cross-checked"
+urn: wmbt:author-atdd-substrate:C011
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: schema-generator-gate-drift
+context_clarifier: "the keystone drift-guard: the issue.schema.json required-section\
+  \ set, the create_issue_body generator's emitted fields, and the coach E019 gate's\
+  \ required sections must all be the same set \u2014 so adding or removing a required\
+  \ section in one surface, without the others, fails the guard"
+lens: functional.sustainability
+statement: minimize likelihood of schema-generator-gate-drift by asserting issue.schema.json
+  properties == create_issue_body emitted fields == E019 required sections (load_required_sections()
+  + REQUIRED_SUBSECTIONS), mechanically cross-checked
 acceptances:
-  - identity:
-      urn: "acc:author-atdd-substrate:C011-UNIT-001-tri-directional-drift-guard"
-      id: "AC-UNIT-001"
-      purpose: "a drift-guard test asserts schema required-sections == generator fields == E019 required sections, so the three surfaces cannot drift"
-      phase: "GREEN"
-    harness:
-      type: "unit"
-      category: "backend"
-    given:
-      abstract:
-        - "issue.schema.json, create_issue_body, and the coach gate (load_required_sections() + REQUIRED_SUBSECTIONS) as loaded"
-    when:
-      abstract: "the drift-guard test compares the three required-section sets"
-    then:
-      abstract:
-        - "issue.schema.json's required top-level sections == load_required_sections() + REQUIRED_SUBSECTIONS"
-        - "create_issue_body's emitted fields == issue.schema.json properties"
-        - "Removing a required section from any one surface fails the guard"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-06-29"
-  - identity:
-      urn: "acc:author-atdd-substrate:C011-SMOKE-001-live-drift-guard-over-real-artifacts"
-      id: "AC-SMOKE-001"
-      purpose: "Verify the drift-guard runs over the live issue.schema.json, the real create_issue_body, and the real coach gate (no mocks) and confirms the three required-section sets are identical"
-      phase: "SMOKE"
-    harness:
-      type: "integration"
-      category: "backend"
-    given:
-      abstract:
-        - "A real checkout with the shipped issue.schema.json, create_issue_body, and coach gate (load_required_sections() + REQUIRED_SUBSECTIONS)"
-    when:
-      abstract: "the drift-guard is run over the real artifacts in the checkout"
-    then:
-      abstract:
-        - "issue.schema.json required-sections == create_issue_body fields == E019 required sections across the real artifacts"
-        - "The guard passes only when all three are byte-for-byte consistent"
-    metadata:
-      author: "atdd:self-compliance"
-      created: "2026-06-29"
+- identity:
+    urn: acc:author-atdd-substrate:C011-UNIT-001-tri-directional-drift-guard
+    id: AC-UNIT-001
+    purpose: a drift-guard test asserts schema required-sections == generator fields
+      == E019 required sections, so the three surfaces cannot drift
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - issue.schema.json, create_issue_body, and the coach gate (load_required_sections()
+      + REQUIRED_SUBSECTIONS) as loaded
+  when:
+    abstract: the drift-guard test compares the three required-section sets
+  then:
+    abstract:
+    - issue.schema.json's required top-level sections == load_required_sections()
+      + REQUIRED_SUBSECTIONS
+    - create_issue_body's emitted fields == issue.schema.json properties
+    - Removing a required section from any one surface fails the guard
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-06-29'
+- identity:
+    urn: acc:author-atdd-substrate:C011-SMOKE-001-live-drift-guard-over-real-artifacts
+    id: AC-SMOKE-001
+    purpose: Verify the drift-guard runs over the live issue.schema.json, the real
+      create_issue_body, and the real coach gate (no mocks) and confirms the three
+      required-section sets are identical
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real checkout with the shipped issue.schema.json, create_issue_body, and coach
+      gate (load_required_sections() + REQUIRED_SUBSECTIONS)
+  when:
+    abstract: the drift-guard is run over the real artifacts in the checkout
+  then:
+    abstract:
+    - issue.schema.json required-sections == create_issue_body fields == E019 required
+      sections across the real artifacts
+    - The guard passes only when all three are byte-for-byte consistent
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-06-29'
+- identity:
+    urn: acc:author-atdd-substrate:C011-UNIT-002-schema-required-h3s-appear-in-the-template
+    id: AC-UNIT-002
+    purpose: "the guard compares its third surface for SUBSECTIONS too: every schema-required\
+      \ `### ` heading must appear in PARENT-ISSUE-TEMPLATE.md. Measured (#1978):\
+      \ a mandatory H3 declared by the schema, emitted by the generator, and absent\
+      \ from the template is reported as no drift at all \u2014 both C011 tests pass\
+      \ in 0.15s \u2014 because all three template scans exclude `### ` headings by\
+      \ construction. So the guard named tri-directional has only ever had two independent\
+      \ surfaces for subsections, and an author working from the template can be held\
+      \ to a section the template never shows."
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - issue.schema.json's required `### ` headings
+    - PARENT-ISSUE-TEMPLATE.md, including its H3 headings
+  when:
+    abstract: the drift guard compares the schema's required subsections against the
+      template's
+    action: invoke
+  then:
+    abstract:
+    - every schema-required `### ` heading is present in PARENT-ISSUE-TEMPLATE.md
+    - a schema-required H3 absent from the template FAILS the guard, even when the
+      generator emits it
+    - today's two required H3s both resolve, so the assertion passes on landing with
+      no backlog to clear
+    - the template scan that feeds this comparison reads H3 headings rather than excluding
+      them
+    assertions:
+    - type: equals
+  signal: {}
+  metadata:
+    wagon: author-atdd-substrate
+    author: atdd:self-compliance
+    created: '2026-09-13'
