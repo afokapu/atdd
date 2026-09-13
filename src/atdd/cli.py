@@ -46,6 +46,7 @@ import os
 import sys
 import warnings
 from pathlib import Path
+import logging
 
 ATDD_DIR = Path(__file__).parent
 
@@ -66,6 +67,8 @@ from atdd.coach.commands.upgrader import Upgrader
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.escalation_channel import validate_escalation_channel_arg
 from atdd.version_check import print_update_notice, print_upgrade_sync_notice
+
+_log = logging.getLogger(__name__)
 
 
 def _print_sync_labels_delta(
@@ -271,7 +274,11 @@ def _get_pr_changed_files(repo_root) -> list:
             cwd=cwd,
         )
         return [line.strip() for line in diff.stdout.splitlines() if line.strip()]
-    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-31
+    except Exception as exc:
+        _log.warning(
+            "_get_pr_changed_files: Exception handled, returning an empty result",
+            extra={"error": str(exc)[:200]},
+        )
         warnings.warn(f"[GT-002] could not determine PR changed files: {exc}", stacklevel=2)
         return []
 
@@ -2842,8 +2849,11 @@ def cli() -> int:
     try:
         from atdd.coach.utils.repo import ensure_repo_not_falsely_bare
         ensure_repo_not_falsely_bare()
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-16
-        pass
+    except Exception as exc:
+        _log.warning(
+            "cli: Exception handled, continuing past the failure",
+            extra={"error": str(exc)[:200]},
+        )
 
     # Check if repo needs sync after ATDD upgrade (at startup)
     # Skip if running 'atdd upgrade' — it handles its own messaging — or
