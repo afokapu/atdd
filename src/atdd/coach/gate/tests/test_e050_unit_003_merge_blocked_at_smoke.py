@@ -1,4 +1,4 @@
-# Acceptance: acc:drive-state-machine:D001-UNIT-002-merge-waits-for-refactor
+# Acceptance: acc:govern-lifecycle:E050-UNIT-003-the-merge-waits-for-the-signed-phase
 """GT-003 — a PR that auto-closes an issue must not merge before REFACTOR (#1999).
 
 `_BLOCKED_PHASES` is the set of phases a merge may NOT land in. It stops at GREEN, so a PR

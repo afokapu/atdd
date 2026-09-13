@@ -1,4 +1,4 @@
-# Acceptance: acc:drive-state-machine:D001-UNIT-003-refactor-complete-stays-ungated
+# Acceptance: acc:govern-lifecycle:E050-UNIT-004-the-derived-terminal-edge-stays-ungated
 """GT-005 — `REFACTOR->COMPLETE` must stay OUT of `gate.transitions` (#1999 Decision 31).
 
 This test guards an ABSENCE, which is unusual enough to be worth stating plainly: the fix

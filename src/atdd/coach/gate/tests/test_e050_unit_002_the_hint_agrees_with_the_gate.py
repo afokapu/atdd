@@ -1,4 +1,4 @@
-# Acceptance: acc:drive-state-machine:D001-UNIT-001-hint-agrees-with-enforcement
+# Acceptance: acc:govern-lifecycle:E050-UNIT-002-the-hint-agrees-with-the-gate
 """GT-001 — `approval_required_for` must agree with `ApprovalTokenGateCheck` (#1999).
 
 `approval_required_for` is the ONLY thing that tells an operator to approve an edge, and
