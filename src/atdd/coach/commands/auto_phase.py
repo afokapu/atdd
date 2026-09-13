@@ -131,7 +131,14 @@ def resolve_pr_to_transition(
             current_phase=None,
             next_phase=None,
             action="noop",
-            reason="no linked issue",
+            # #2004: SAY WHAT WAS OBSERVED, not what is assumed. This line read
+            # `reason="no linked issue"` and overwrote whatever `read_linked_issue`
+            # had carefully worded, so a pull request refused for NOT HAVING MERGED
+            # was reported as declaring no closing reference — a false statement
+            # about a body that reads `Closes #N`. Measured: the merge check alone
+            # stops the advance 2 of 2 and still prints "no-op - no linked issue",
+            # which satisfies every criterion except the one that matters.
+            reason=reading.reason or "no linked issue",
         )
 
     issue_number = resolution.get("issue_number")

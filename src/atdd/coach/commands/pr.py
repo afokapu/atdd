@@ -323,6 +323,24 @@ class PRManager:
 
         UNREADABLE carries the reason: a refusal an operator cannot act on is
         only marginally better than the vacuous pass it replaces.
+
+        THE MERGE IS CHECKED HERE (#2004). ``_read_pr`` already requests ``state``
+        and ``mergedAt`` and this method consulted neither, so an open or a
+        closed-unmerged pull request produced a reading byte-identical to a merged
+        one. Measured 2026-09-13 across three PR states and seven phases: the
+        resolver returned the same action every time, and 8 of 12 transitions came
+        out of a pull request that never merged.
+
+        ``mergedAt`` IS THE AUTHORITY; ``state`` IS THE REASON. Across all 853
+        pull requests in this repository ``mergedAt`` is present if and only if
+        ``state == MERGED`` — 802 MERGED with it, 28 CLOSED without, 23 OPEN
+        without, zero counterexamples. They are not two facts to refuse on: one
+        decides, the other names which kind of unmerged it was, because waiting
+        for a merge and re-opening a declined pull request are different actions.
+
+        A not-yet-merged pull request is NO_OBLIGATION rather than UNREADABLE:
+        the observation succeeded and the advance is simply not owed. That keeps
+        it distinct from "I could not look", which still fails the run (#1640).
         """
         from atdd.coach.validators._observation import Reading
 
@@ -331,6 +349,14 @@ class PRManager:
             return Reading.unreadable(
                 f"could not read PR #{pr_number}: {cause or 'no cause reported'}; "
                 "the link was never inspected, so nothing is known about it",
+                subject=pr_number,
+            )
+
+        if not pr_data.get("mergedAt"):
+            state = str(pr_data.get("state") or "UNKNOWN").upper()
+            return Reading.no_obligation(
+                f"PR #{pr_number} has not merged (state={state}); the advance is "
+                f"authorised by the merge and no merge has happened",
                 subject=pr_number,
             )
 

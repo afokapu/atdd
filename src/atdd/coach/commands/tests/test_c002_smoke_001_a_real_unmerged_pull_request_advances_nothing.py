@@ -54,6 +54,25 @@ def _gh_json(root, *args):
     return json.loads(proc.stdout or "[]")
 
 
+def _issue_phase(root, issue_number):
+    """The issue's atdd phase, read from its LABELS — never through the resolver.
+
+    THIS MUST NOT USE `resolve_pr_to_transition`, and the first version did.
+    Selecting candidates by the resolver's own `current_phase` works against the
+    defect and then silently stops working against the FIX: once the merge is
+    consulted, the resolver refuses before it ever computes a phase, so
+    `current_phase` is None for every open PR and no candidate qualifies. The
+    test then skips — forever, and green — without exercising the live path once.
+    A selector may never depend on the behaviour under test.
+    """
+    labels = _gh_json(root, "api", f"repos/:owner/:repo/issues/{issue_number}",
+                      "--jq", "[.labels[].name]")
+    for name in labels:
+        if isinstance(name, str) and name.startswith("atdd:"):
+            return name.split(":", 1)[1].upper()
+    return None
+
+
 def _auto_advanceable_candidate(root, prs):
     """The first open PR whose linked issue sits at a phase that DOES advance.
 
@@ -63,11 +82,13 @@ def _auto_advanceable_candidate(root, prs):
     resolver report UNREADABLE, and the test fail without reaching the merge path.
     """
     for pr in prs:
+        issue_number = pr["closingIssuesReferences"][0]["number"]
+        if _issue_phase(root, issue_number) not in _NEXT_PHASE:
+            continue
         result = ap.resolve_pr_to_transition(pr["number"], target_dir=root)
         if result.action == "unreadable":
             continue
-        if (result.current_phase or "").upper() in _NEXT_PHASE:
-            return pr, result
+        return pr, result
     return None, None
 
 
