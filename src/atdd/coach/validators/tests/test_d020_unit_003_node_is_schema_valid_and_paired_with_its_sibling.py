@@ -69,8 +69,19 @@ def test_rule_id_matches_the_grammar_and_the_lifecycle_family() -> None:
 
 
 @pytest.mark.platform
-def test_node_carries_the_declarative_first_posture() -> None:
-    """Declared, not yet mechanically enforced — the same posture as the sibling."""
+def test_node_carries_a_posture_matching_its_reach() -> None:
+    """Declared AND read — the posture moved when #1798 gave the key a consumer.
+
+    #1626 pinned `documentation-only` here because nothing read `autonomy`. #1798
+    made `ApprovalTokenGateCheck` waive the operator token on a phase declaring
+    `autonomy: agent`, and #1981/C027 corrected the node to say so. A node whose
+    key reaches a gate verdict must not declare that it binds no behaviour, so
+    this assertion now pins the OPPOSITE of what it pinned before — deliberately,
+    and named so the change is legible rather than looking like a relaxed test.
+
+    `kind` and `severity` are unchanged: the node is still a principle, still
+    severity 3, still the twin of coach.execution.freedom-with-a-leash.
+    """
     node = _node()
     assert node.get("kind") == "principle", (
         f"kind must be 'principle'; got {node.get('kind')!r}"
@@ -79,9 +90,10 @@ def test_node_carries_the_declarative_first_posture() -> None:
     assert metadata.get("severity") == 3, (
         f"severity must be 3, matching the sibling; got {metadata.get('severity')!r}"
     )
-    assert metadata.get("disposition") == "documentation-only", (
-        "disposition must be 'documentation-only' — the declarative-first "
-        f"decision on #1626; got {metadata.get('disposition')!r}"
+    assert metadata.get("disposition") != "documentation-only", (
+        "disposition is still 'documentation-only', which declares that this node "
+        "binds no behaviour. ApprovalTokenGateCheck has read `autonomy` since "
+        f"#1798; got {metadata.get('disposition')!r}. See C027 (#1981)."
     )
 
 
