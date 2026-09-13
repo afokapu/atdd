@@ -60,7 +60,9 @@ def _derive_escape_targets(phases: dict) -> set:
         for spec in phases.values()
         for target in (spec or {}).get("transitions_to") or []
     }
-    return _ESCAPES & reachable
+    # set(), because _ESCAPES is now a frozenset (the one definition) and the
+    # intersection inherits that type while this helper promises a set.
+    return set(_ESCAPES & reachable)
 
 
 @pytest.mark.platform

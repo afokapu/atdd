@@ -108,7 +108,9 @@ def test_the_delivery_ladder_is_untouched(live):
 def test_resolved_is_a_declared_terminal_escape(live):
     assert "RESOLVED" in live["escapes"]
     assert live["resolved_terminal"] is True
-    assert live["resolved_autonomy"] == "operator"
+    # null like every terminal: the axis governs the FORWARD edge, which a
+    # terminal has none of. Entering it is gated by the evidence policy.
+    assert live["resolved_autonomy"] is None
 
 
 def test_every_phase_vocabulary_agrees(live):
