@@ -39,9 +39,12 @@ guarantee without this repo having to reconcile its corpus first.
 from __future__ import annotations
 
 import json
+import logging
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 _SCHEMAS = Path(__file__).resolve().parent.parent / "schemas"
 
@@ -60,6 +63,17 @@ SPEC_SCHEMAS: dict[str, tuple[str, str | None, str]] = {
     ),
     "feature": ("feature.schema.json", None, "advise"),
     "wmbt": ("wmbt.schema.json", None, "advise"),
+}
+
+#: Kinds governed by their own WRITER's validator rather than by a schema.
+#: A contract IS a JSON schema, so it has no meta-schema to validate against —
+#: modelling that as "no entry" made `check_unit_spec` report nothing for all
+#: three rules `validate_contract` enforces (#2013). The writer already holds
+#: those rules; this runs them at Compose/Ratify instead of first at author.
+#: Kept as a NAME, not an imported callable: `author` imports heavily and this
+#: module is imported by `plan_session`, so the resolution stays lazy.
+SPEC_CHECKERS: dict[str, tuple[str, str]] = {
+    "contract": ("validate_contract", "enforce"),
 }
 
 #: Kinds that name a reasoning move in the dialogue, not an artifact to author.
@@ -196,10 +210,39 @@ def project_for_schema(kind: str, spec: dict) -> dict:
     return project(spec) if project else dict(spec)
 
 
-def tier_for(kind: str, config: dict | None = None) -> str:
+def _check_via_writer(kind: str, spec: dict, *, config: dict | None = None) -> tuple[str, list[str]]:
+    """Run the kind's own writer validator and report what it would refuse.
+
+    The writer raises on the FIRST violation, so this reports one finding at a
+    time — less complete than a schema pass, and still the whole difference
+    between "reported before ratify" and "discovered at author".
+    """
+    from atdd.planner.commands import author as _author
+
+    name, default_tier = SPEC_CHECKERS[kind]
+    validate = getattr(_author, name)
+    try:
+        validate(spec)
+    except _author.AuthorInputError as exc:
+        # Not a swallow: the refusal IS the finding, and is returned. Logged at
+        # debug because the reaction is observable in the return value, and a
+        # warning here would fire on every ordinary rejection.
+        logger.debug("%s refused the %s spec", name, kind,
+                     extra={"kind": kind, "field": exc.field, "error": str(exc)})
+        return tier_for(kind, config, default=default_tier), [f"{exc.field}: {exc}"]
+    except Exception as exc:  # a writer that cannot judge must say so, not pass
+        logger.warning("spec checker for %s could not judge the spec", kind,
+                       extra={"kind": kind, "error": str(exc)})
+        return tier_for(kind, config, default=default_tier), [
+            f"<checker>: {name} could not judge this spec: {exc}"]
+    return tier_for(kind, config, default=default_tier), []
+
+
+def tier_for(kind: str, config: dict | None = None, *, default: str | None = None) -> str:
     """The tier in force for ``kind`` — the repo's ``.atdd/config.yaml`` may
     promote an advisory kind to ``enforce`` (or demote an enforced one)."""
-    default = SPEC_SCHEMAS[kind][2]
+    if default is None:
+        default = SPEC_SCHEMAS[kind][2]
     block = ((config or {}).get("plan") or {}).get("spec_validation") or {}
     if kind in (block.get("enforce") or []):
         return "enforce"
@@ -223,6 +266,8 @@ def check_unit_spec(
     schema. ``stage`` is ``compose`` (well-formedness) or ``ratify`` (+
     completeness) — see the module docstring.
     """
+    if kind in SPEC_CHECKERS:
+        return _check_via_writer(kind, spec, config=config)
     if kind not in SPEC_SCHEMAS:
         return "skip", []
     name, ref, _ = SPEC_SCHEMAS[kind]
