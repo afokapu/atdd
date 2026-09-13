@@ -31,7 +31,16 @@ import pytest
 pytestmark = [pytest.mark.platform]
 
 _KEY = "operator-secret-key"
-_ISSUE, _FROM, _TO = 2005, "SMOKE", "REFACTOR"
+# PLANNED->RED, NOT SMOKE->REFACTOR, and the difference decides whether this
+# test observes anything at all. `ApprovalTokenGateCheck._autonomy_waiver` (#1798)
+# returns NOT_APPLICABLE for any edge whose FROM phase declares `autonomy: agent`,
+# before the token is ever read. SMOKE, RED and GREEN all declare `agent`; only
+# PLANNED and REFACTOR declare `operator`. The first draft of this test used
+# SMOKE->REFACTOR and the gate answered `passed=True, verdict=NOT_APPLICABLE,
+# "no operator approval token is owed"` — a green that had not looked at the
+# token, the branch or the commit. PLANNED->RED is also the edge this repository
+# actually gates (`.atdd/config.yaml`) and holds 145 of the 311 corpus tokens.
+_ISSUE, _FROM, _TO = 2005, "PLANNED", "RED"
 _BRANCH = "feat/c003-smoke"
 _NOW = "2026-09-13T12:00:00+00:00"
 _EXPIRES = "2026-09-14T12:00:00+00:00"
@@ -47,11 +56,20 @@ def repo_with_token(tmp_path, monkeypatch):
     """A real repo on a real branch with a real token file. Returns (repo, sha_a)."""
     from atdd.coach.gate.mint_head import _branch_head
 
+    # A REAL REMOTE, because the reviewed head is the remote-tracking one. Without
+    # an origin the gate cannot observe what the operator looked at, and the first
+    # draft of this lab had none: the check switched its comparison off and the
+    # gate passed after the push. That green said only that the lab was wrong.
+    bare = tmp_path / "origin.git"
+    bare.mkdir()
+    _git(bare, "init", "-q", "--bare")
+
     repo = tmp_path / "work"
     repo.mkdir()
     _git(repo, "init", "-q", "-b", "main")
     _git(repo, "config", "user.email", "lab@example.invalid")
     _git(repo, "config", "user.name", "Lab")
+    _git(repo, "remote", "add", "origin", str(bare))
     (repo / "f.txt").write_text("seed\n")
     _git(repo, "add", "-A")
     _git(repo, "commit", "-qm", "seed")
@@ -59,6 +77,7 @@ def repo_with_token(tmp_path, monkeypatch):
     (repo / "f.txt").write_text("reviewed\n")
     _git(repo, "add", "-A")
     _git(repo, "commit", "-qm", "the commit the operator reviewed")
+    _git(repo, "push", "-q", "-u", "origin", _BRANCH)
     sha_a = _branch_head(repo, _BRANCH)
 
     # The gate resolves the branch through the State Store; the store is not the
@@ -127,6 +146,7 @@ def test_the_gate_refuses_after_a_real_commit_lands(repo_with_token):
     (repo / "f.txt").write_text("content the operator never saw\n")
     _git(repo, "add", "-A")
     _git(repo, "commit", "-qm", "pushed after the approval")
+    _git(repo, "push", "-q", "origin", _BRANCH)
     sha_b = _git(repo, "rev-parse", "HEAD")
     assert sha_b != sha_a
 

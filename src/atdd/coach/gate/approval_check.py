@@ -49,9 +49,11 @@ from atdd.coach.gate.approval import (
     approval_relpath,
     describe_attribution,
     resolve_signing_key,
+    token_head,
     verify_token,
 )
 from atdd.coach.gate.approval_binding import resolve_issue_branch
+from atdd.coach.gate.mint_head import resolve_reviewed_head
 from atdd.coach.gate.approval_paths import locate_approval_token
 from atdd.coach.gate.decision import GateCheckResult, GateContext
 from atdd.coach.gate.phase_edges import declared_autonomy
@@ -249,9 +251,32 @@ class ApprovalTokenGateCheck:
             )
 
         now = self.now if self.now is not None else datetime.now(timezone.utc).isoformat()
+        # #2005: the commit the approval was granted for. Resolved here so the
+        # comparison happens at the CHECK — signing it at the mint only makes the
+        # recorded value tamper-evident, and a message recomputed from the token's
+        # own body reads the same before and after a push.
+        #
+        # A token that NAMES a commit and a head that cannot be observed is a
+        # COULD_NOT_CHECK, not a pass — the same verdict, for the same reason,
+        # that an unobservable branch binding gets above (#1719/C013). Leaving the
+        # comparison switched off here would be "I could not look at whether this
+        # approval still covers the content" reported as "it does", which is
+        # #1670's condition 3 and the defect this whole module exists to refuse.
+        # A HEADLESS token is unaffected: it asserts no commit, so there is
+        # nothing to observe and it keeps the regime it was minted in.
+        reviewed = resolve_reviewed_head(ctx.worktree, binding.branch)
+        if token_head(token_data) and reviewed.sha is None:
+            return GateCheckResult.could_not_check(
+                self.gate_id, self.rule_id,
+                f"approval token at {_rel(ctx)} was granted for commit "
+                f"{token_head(token_data)[:9]}, but the commit currently on "
+                f"{binding.branch} could not be observed, so whether the approved "
+                f"content still stands could not be checked: {reviewed.reason}",
+            )
+        head = reviewed.sha
         if verify_token(
             token_data, ctx.issue_number, ctx.from_phase, ctx.to_phase, key,
-            branch=binding.branch, now=now,
+            branch=binding.branch, now=now, head=head,
         ):
             # Report WHAT the token says produced it, not merely that one exists
             # (#1718). A version stamp nobody surfaces is a stamp nobody reads, and
@@ -266,11 +291,12 @@ class ApprovalTokenGateCheck:
         return GateCheckResult(
             self.gate_id, self.rule_id, False,
             f"approval token at {_rel(ctx)} "
-            f"{self._diagnose(token_data, ctx, key, binding.branch, now)}; "
+            f"{self._diagnose(token_data, ctx, key, binding.branch, now, head)}; "
             f"{_produce(ctx)}",
         )
 
-    def _diagnose(self, token_data, ctx: GateContext, key, branch: str, now: str) -> str:
+    def _diagnose(self, token_data, ctx: GateContext, key, branch: str, now: str,
+                  head: Optional[str] = None) -> str:
         """WHY a bound token failed, recovered by re-asking the same pure verifier.
 
         ``verify_token`` returns a bool, so the cause has to be reconstructed from
@@ -286,8 +312,24 @@ class ApprovalTokenGateCheck:
         """
         args = (token_data, ctx.issue_number, ctx.from_phase, ctx.to_phase, key)
 
+        # #2005: the content moved. Asked before expiry because it is the other
+        # cause that leaves the signature wholly intact — the token still verifies
+        # against the commit it names, and only the comparison to the CURRENT head
+        # refused. Re-reviewing this diff is a different action from re-approving
+        # an aged token, so the two may not share a sentence.
+        bound_head = token_head(token_data)
+        if bound_head and head and bound_head != head and verify_token(
+            *args, branch=branch, now=now, head=bound_head
+        ):
+            return (
+                f"was approved for commit {bound_head[:9]} and the branch is now "
+                f"at {head[:9]} — THE CONTENT MOVED under the approval. The token "
+                f"is intact and the operator reviewed a different diff; review the "
+                f"change and re-approve at the current head"
+            )
+
         # Signature and scope are fine on this branch; only the clock refused.
-        if verify_token(*args, branch=branch):
+        if verify_token(*args, branch=branch, head=head):
             return (
                 f"EXPIRED: it was valid until {token_data.get('expires_at')!r} and it "
                 f"is now {now}. An approval is granted for a bounded time (#1721); "

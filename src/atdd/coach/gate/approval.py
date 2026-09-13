@@ -102,6 +102,27 @@ def token_actor(token_data) -> Optional[str]:
     return canonical_actor(token_data.get("approved_by"), token_data.get("agent_session"))
 
 
+def token_head(token_data) -> Optional[str]:
+    """The commit a token's OWN body binds, or None for a headless token (#2005).
+
+    THE `token_actor` PATTERN, DELIBERATELY, NOT THE `branch` ONE — and the two
+    sit in the same function, which is what makes this worth saying. ``branch`` is
+    passed IN from the resolver, so a branchless token fails a branch-scoped
+    check. If the head were passed in the same way, every one of the 311 tokens
+    measured on 2026-09-13 — 0 of which carry a head — would stop verifying on the
+    first commit. Recomputing from the token's own body instead means a missing
+    head is not a mismatch, and editing or stripping the recorded head still
+    breaks the signature.
+
+    What this does NOT do is check that the head is still current; that is
+    ``verify_token``'s explicit comparison. See :func:`canonical_scope`.
+    """
+    if not isinstance(token_data, Mapping):
+        return None
+    value = token_data.get("head")
+    return str(value) if value else None
+
+
 def canonical_scope(
     issue_number: int,
     from_phase: str,
@@ -110,9 +131,10 @@ def canonical_scope(
     expires_at: Optional[str] = None,
     *,
     actor: Optional[str] = None,
+    head: Optional[str] = None,
 ) -> str:
     """The signed string identifying one transition of one issue, on one branch,
-    until one moment, approved by one actor.
+    until one moment, approved by one actor, for one commit.
 
     Backward compatible: with no ``branch``, no ``expires_at`` and no ``actor``
     this reduces to the legacy ``issue:FROM:TO`` string, so tokens signed before
@@ -123,6 +145,19 @@ def canonical_scope(
     than extending its life. ``actor`` (#1718) is folded in last so the recorded
     attribution is tamper-evident the same way: relabelling who approved breaks
     the signature instead of silently rewriting the audit trail.
+
+    ``head`` (#2005) is the commit the approval was granted for. Folded in only
+    when present, so a token carrying no head produces the byte-identical message
+    it does today — the property all 311 tokens measured on 2026-09-13 depend on,
+    0 of which carry one.
+
+    SIGNING THE HEAD IS NOT BINDING IT. This makes the recorded commit
+    tamper-evident; it cannot notice that the branch moved, because
+    :func:`verify_token` recomputes this message from the token's OWN body and so
+    produces the same string before and after a push. The refusal comes from
+    ``verify_token``'s explicit comparison against the currently-resolved head —
+    the shape the expiry already uses through ``now``. Measured: the signed scope
+    alone verified True at the approved commit AND True after the branch advanced.
     """
     scope = f"{int(issue_number)}:{from_phase.upper()}:{to_phase.upper()}"
     if branch:
@@ -131,6 +166,8 @@ def canonical_scope(
         scope += f":expires={expires_at}"
     if actor:
         scope += f":actor={actor}"
+    if head:
+        scope += f":head={head}"
     return scope
 
 
@@ -143,11 +180,13 @@ def sign_approval(
     branch: Optional[str] = None,
     expires_at: Optional[str] = None,
     actor: Optional[str] = None,
+    head: Optional[str] = None,
 ) -> str:
     """HMAC-SHA256 over the canonical scope — deterministic and scope-sensitive."""
     secret = (key or DEFAULT_SIGNING_KEY).encode("utf-8")
     msg = canonical_scope(
-        issue_number, from_phase, to_phase, branch, expires_at, actor=actor
+        issue_number, from_phase, to_phase, branch, expires_at,
+        actor=actor, head=head,
     ).encode("utf-8")
     return hmac.new(secret, msg, hashlib.sha256).hexdigest()
 
@@ -235,6 +274,7 @@ def build_token(
     agent_session: Optional[Mapping[str, str]] = None,
     branch: Optional[str] = None,
     expires_at: Optional[str] = None,
+    head: Optional[str] = None,
     key: Optional[str] = None,
 ) -> dict:
     """Build the signed token dict for one exact transition, stamped v2.
@@ -269,6 +309,7 @@ def build_token(
             issue_number, from_phase, to_phase, key,
             branch=branch, expires_at=expires_at,
             actor=canonical_actor(approved_by, session),
+            head=head,
         ),
     }
     if session:
@@ -277,6 +318,8 @@ def build_token(
         token["branch"] = branch
     if expires_at:
         token["expires_at"] = expires_at
+    if head:
+        token["head"] = head
     return token
 
 
@@ -289,6 +332,7 @@ def verify_token(
     *,
     branch: Optional[str] = None,
     now: Optional[str] = None,
+    head: Optional[str] = None,
 ) -> bool:
     """True iff ``token_data`` is a correctly-signed token for THIS exact transition
     — same issue, same from/to, same ``branch``, and (when ``now`` is supplied)
@@ -342,9 +386,29 @@ def verify_token(
         # different digest. A v1 token has no actor, so the message reduces to the
         # legacy string and every pre-#1718 token verifies unchanged.
         actor=token_actor(token_data),
+        # Read OFF THE TOKEN, never the ``head`` argument — see ``token_head``.
+        # Folding in the caller's resolved head here would refuse all 311 headless
+        # tokens at once, which is the whole of #2005 Decision 5.
+        head=token_head(token_data),
     )
     if not hmac.compare_digest(str(token_data.get("signature", "")), expected):
         return False
+
+    # CONTENT BINDING (#2005), and this is a SEPARATE step from signing on
+    # purpose. The message above is recomputed from the token's own body, so it
+    # is byte-identical before and after a push — measured True at the approved
+    # commit AND True after the branch advanced. Signing makes the recorded
+    # commit tamper-evident; only this comparison makes it binding, exactly as
+    # ``now`` does for the expiry.
+    #
+    # Enforced only when the caller supplies a head, and only when the token
+    # carries one: a headless token is read under the regime it was minted in,
+    # the same boundary #1718 drew for ``schema_version`` and #1376 for
+    # worktree-local paths. It needs no migration and no cutoff date.
+    if head is not None:
+        bound_head = token_head(token_data)
+        if bound_head and bound_head != head:
+            return False
     # Expiry is enforced only when the caller supplies a clock. Without ``now``
     # the check is time-agnostic (backward compatible); with it, an undated,
     # malformed, or past-due token fails closed.
