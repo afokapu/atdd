@@ -48,3 +48,22 @@ acceptances:
     - every non-conforming name is reported with the reason it failed
     - every conforming name is absent from the report
     - the report distinguishes a noun-led name from an and-connective name
+- identity:
+    urn: acc:define-plans:E002-UNIT-002-every-authorable-kind-is-governed
+    id: AC-UNIT-002
+    purpose: No authorable kind is silently ungoverned by the pre-ratify spec gate
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - the set of kinds that resolve to an atdd author writer
+  when:
+    abstract: the pre-ratify spec gate is asked to check each one
+  then:
+    abstract:
+    - no authorable kind returns the skip tier
+    - a contract whose identity is malformed is reported before author
+    - a contract missing its title is reported before author
+    - a well-formed contract is not reported
