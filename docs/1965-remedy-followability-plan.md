@@ -100,6 +100,20 @@ classes.
 | 5 | `planner.plan.confirm-binds-an-issue` | `atdd issue open` | `atdd coach issues open` |
 | 6 | `planner.interface.tests-subdirectory` | `tests/platform_validation/` + 2 absent test names | the node's own `implementation.ref` validator |
 
+> **Superseded during the work — repair #1 is no longer ours.** #1971 (PR #1974)
+> landed on `main` while this branch was at GREEN and fixed the same defect,
+> replacing the dangling path with `planner.criteria.metric-mapping`. That is a
+> better target than the `conventions:criteria:metrics` address this branch had
+> used, because it names the node #1958 actually bound rather than the catalog
+> address. The rebase resolved the conflict by taking `main`'s version outright
+> and dropping our competing edit. Five repairs are ours; the sixth
+> (`tests/platform_validation/`) is the one this issue's lab did not adjudicate.
+>
+> The strict gate is unaffected: their wording carries no path token at all, so
+> the scanner sees nothing to resolve. Two rules independently converging on the
+> same defect is the measurement holding up — it was a real dangling pointer,
+> and someone else reading a different issue reached the same verdict.
+
 Both replacement verbs are confirmed live by their own `--help`: `atdd coach
 issues` says "the coach-archetype replacement for `atdd issue open` / `atdd
 issue <N>`", and `atdd coach transition` says "…replacement for `atdd issue <N>
