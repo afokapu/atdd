@@ -78,7 +78,7 @@ def _phase_for_dispatch(rule: RuleMetadata) -> Optional[str]:
         return rule.phase
     try:
         bound_meta = bind_rule(bound)
-    except RuleNotInRegistryError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except RuleNotInRegistryError as exc:
         # Per spec §7.3 the substrate enforcement rule
         # ``security-rule-must-have-acceptance-ref-resolved`` surfaces an
         # unresolvable ``bound_acceptance_urn`` at PLANNED phase. The

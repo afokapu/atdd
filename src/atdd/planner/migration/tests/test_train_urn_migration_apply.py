@@ -33,6 +33,7 @@ import yaml
 from atdd.coach.utils.graph.resolver import TrainResolver
 from atdd.coach.utils.graph.urn import URNGrammar
 from atdd.planner.migration import train_urn_migration as mig
+from atdd.planner.migration import registry_projection as regproj
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _REAL_TRAINS_DIR = _REPO_ROOT / "plan" / "_trains"
@@ -45,6 +46,29 @@ _EXPECTED_FORWARD = {
     "0003-author-substrate": ("substrate", "author-artifacts"),
     "0004-admit-substrate": ("substrate", "admit-packages"),
     "0005-bind-substrate": ("substrate", "bind-runtime"),
+    # #1986 — the extension-conventions journey: 0007 nominal + six alternates.
+    "0007-enforce-extension-conventions": (
+        "extension-conventions",
+        "enforce-extension-conventions",
+    ),
+    "0201-enforce-strict-failure": ("extension-conventions", "enforce-strict-failure"),
+    "0202-report-advisory-violation": (
+        "extension-conventions",
+        "report-advisory-violation",
+    ),
+    "0203-detect-unbound-declaration": (
+        "extension-conventions",
+        "detect-unbound-declaration",
+    ),
+    "0204-detect-succession-loss": ("extension-conventions", "detect-succession-loss"),
+    "0205-detect-unrealized-obligation": (
+        "extension-conventions",
+        "detect-unrealized-obligation",
+    ),
+    "0206-decommission-orphan-detector": (
+        "extension-conventions",
+        "decommission-orphan-detector",
+    ),
 }
 
 
@@ -103,7 +127,9 @@ def test_migrated_files_are_typed_and_carry_category_field(repo: Path) -> None:
     for legacy_id, (subject, slug) in _EXPECTED_FORWARD.items():
         doc = _load(trains_dir / subject / f"{slug}.yaml")
         assert doc["train_id"] == f"train:{subject}:{slug}"
-        assert doc.get("category") == "nominal"
+        # category is the legacy identity's second digit, projected to a FIELD --
+        # nominal for 00xx, alternate for 02xx (#1986 brought alternates in).
+        assert doc.get("category") == mig.category_for_legacy(legacy_id)
         assert "category_digit" not in doc, "identity digit must be retired"
 
 
@@ -115,7 +141,7 @@ def test_migrated_files_validate_against_typed_schema(repo: Path) -> None:
 
 
 def test_registry_entries_point_at_real_files_and_preserve_wagons(repo: Path) -> None:
-    before = mig._flatten_registry(_load(repo / "plan" / "_trains.yaml").get("trains", {}))
+    before = regproj._flatten_registry(_load(repo / "plan" / "_trains.yaml").get("trains", {}))
     wagons_before = {
         mig.forward(legacy): before[legacy].get("wagons", [])
         for legacy in _EXPECTED_FORWARD
@@ -123,11 +149,17 @@ def test_registry_entries_point_at_real_files_and_preserve_wagons(repo: Path) ->
 
     mig.apply(repo)
 
-    after = mig._flatten_registry(_load(repo / "plan" / "_trains.yaml").get("trains", {}))
-    assert set(after) == {mig.forward(k) for k in _EXPECTED_FORWARD}
-    for typed, entry in after.items():
+    after = regproj._flatten_registry(_load(repo / "plan" / "_trains.yaml").get("trains", {}))
+    migrated = {mig.forward(k) for k in _EXPECTED_FORWARD}
+    # Superset, not equality: rows this migration does not own are preserved
+    # rather than evicted (#1986). Equality here is what encoded the eviction.
+    assert migrated <= set(after)
+    assert _unowned_ids(set(before)) <= set(after), "unowned rows must survive apply"
+    for legacy_id in _EXPECTED_FORWARD:
+        typed = mig.forward(legacy_id)
+        entry = after[typed]
         assert entry["train_id"] == typed
-        assert entry.get("category") == "nominal"
+        assert entry.get("category") == mig.category_for_legacy(legacy_id)
         path = repo / entry["path"]
         assert path.exists(), f"registry path does not exist: {path}"
         assert _load(path)["train_id"] == typed
@@ -173,6 +205,83 @@ def test_revert_is_a_true_inverse(repo: Path) -> None:
         assert "category" not in _load(flat)
         assert not (trains_dir / subject / f"{slug}.yaml").exists()
 
-    # registry back to a legacy-shaped, reader-valid state
-    restored = mig._flatten_registry(_load(repo / "plan" / "_trains.yaml").get("trains", {}))
-    assert set(restored) == set(_EXPECTED_FORWARD)
+    # registry back to a legacy-shaped, reader-valid state -- and, like apply,
+    # carrying through every row the alias map does not own (#1986).
+    restored = regproj._flatten_registry(_load(repo / "plan" / "_trains.yaml").get("trains", {}))
+    assert set(_EXPECTED_FORWARD) <= set(restored)
+    assert not (set(restored) & {mig.forward(k) for k in _EXPECTED_FORWARD}), (
+        "no migrated train may remain under its typed id after a revert"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Registry preservation (#1986)
+#
+# ``apply`` re-projects plan/_trains.yaml from LEGACY_TRAIN_ALIASES. That was
+# lossless while the registry held ONLY aliased trains, which is the state the
+# ``repo`` fixture manufactures by reverting first. The live repo has since
+# grown typed trains from other issues that no alias names, and re-projecting
+# from the alias map alone evicts every one of them -- leaving their documents
+# on disk with no row naming them, the exact half-applied state
+# ``planner.train.registry-coherence`` (#1942) exists to catch.
+# ---------------------------------------------------------------------------
+@pytest.fixture()
+def live_repo(tmp_path: Path) -> Path:
+    """A hermetic copy of the LIVE train tree, deliberately NOT normalized.
+
+    The ``repo`` fixture calls ``revert`` to force a flat baseline, but ``revert``
+    also re-projects the registry from the alias map -- so it discards unaliased
+    rows before a test can observe them. This fixture keeps the tree exactly as
+    the repo has it: not-yet-aliased legacy trains sitting alongside typed trains
+    that other issues landed.
+    """
+    shutil.copytree(_REAL_TRAINS_DIR, tmp_path / "plan" / "_trains")
+    shutil.copy2(_REAL_REGISTRY, tmp_path / "plan" / "_trains.yaml")
+    return tmp_path
+
+
+def _registry_ids(root: Path) -> set:
+    return set(regproj._flatten_registry(_load(root / "plan" / "_trains.yaml").get("trains", {})))
+
+
+def _unowned_ids(before: set) -> set:
+    """Registry ids ``apply`` does not own: neither a legacy id it migrates nor
+    the typed URN of one it has already migrated."""
+    owned = set(mig.LEGACY_TRAIN_ALIASES) | set(mig.build_alias_map().values())
+    return before - owned
+
+
+def test_apply_preserves_registry_rows_for_trains_it_does_not_own(live_repo: Path) -> None:
+    before = _registry_ids(live_repo)
+    unowned = _unowned_ids(before)
+    assert unowned, (
+        "fixture is not exercising the property: the live registry holds no train "
+        "outside the alias map, so eviction could not be observed"
+    )
+
+    mig.apply(live_repo)
+
+    evicted = sorted(unowned - _registry_ids(live_repo))
+    assert not evicted, (
+        f"apply() evicted {len(evicted)} registry row(s) it does not own: {evicted}. "
+        "The registry projection must carry through every entry the alias map does "
+        "not account for."
+    )
+
+
+def test_apply_leaves_no_train_document_without_a_registry_row(live_repo: Path) -> None:
+    mig.apply(live_repo)
+
+    registered = _registry_ids(live_repo)
+    orphaned = []
+    for path in sorted((live_repo / "plan" / "_trains").rglob("*.yaml")):
+        if path.name.startswith("_") or "_interlockings" in path.parts:
+            continue
+        train_id = _load(path).get("train_id")
+        if train_id and train_id not in registered:
+            orphaned.append(f"{train_id} ({path.relative_to(live_repo)})")
+
+    assert not orphaned, (
+        f"{len(orphaned)} train document(s) survive with no registry row naming "
+        f"them -- the half-applied state registry-coherence rejects: {orphaned}"
+    )

@@ -78,7 +78,7 @@ class ATDDGate:
                 "atdd gate self-healed a poisoned worktree (core.bare scoped back to false)",
                 extra={"target_dir": str(self.target_dir)},
             )
-        except (FileNotFoundError, subprocess.TimeoutExpired) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) Self-heal is best-effort; failure must not block the gate
+        except (FileNotFoundError, subprocess.TimeoutExpired) as exc:  # Self-heal is best-effort; failure must not block the gate
             _log.warning(
                 "atdd gate core.bare self-heal skipped",
                 extra={"error": str(exc), "error_type": type(exc).__name__, "target_dir": str(self.target_dir)},
@@ -96,7 +96,8 @@ class ATDDGate:
         try:
             data = yaml.safe_load(rules_path.read_text(encoding="utf-8"))
             return data.get("rules") if isinstance(data, dict) else None
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+        except Exception as exc:
+            _log.warning("_load_agent_rules: Exception handled, returning None", extra={"error": str(exc)[:200]})
             return None
 
     def _load_issue_convention(self) -> Optional[str]:

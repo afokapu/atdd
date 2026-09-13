@@ -369,7 +369,7 @@ def _merge_repo_rules(
     else:
         try:
             from atdd.coach.utils.repo import find_repo_root
-        except ImportError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        except ImportError as exc:
             # Toolkit packaging shipped without repo-detection — extremely
             # unusual, but the registry must still load convention rules so
             # toolkit-only validators continue to work. Log + skip.
@@ -381,7 +381,7 @@ def _merge_repo_rules(
             return
         try:
             target = find_repo_root()
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        except Exception as exc:
             _logger.debug(
                 "rule_id_registry: find_repo_root failed, skipping repo walk: %s",
                 exc,
@@ -396,7 +396,7 @@ def _merge_repo_rules(
             find_repo_rules,
             find_repo_security_rules,
         )
-    except ImportError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except ImportError as exc:
         _logger.debug(
             "rule_id_registry: rule_binding module unavailable, skipping repo walk: %s",
             exc,
@@ -406,7 +406,7 @@ def _merge_repo_rules(
 
     try:
         repo_rules = find_repo_rules(target)
-    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except Exception as exc:
         _logger.debug(
             "rule_id_registry: skipping repo-rule walk under %s: %s",
             target, exc,
@@ -441,7 +441,7 @@ def _merge_repo_rules(
     # surfaces description/fix_hint per §6 sample output.
     try:
         sec_rules = find_repo_security_rules(target)
-    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except Exception as exc:
         _logger.debug(
             "rule_id_registry: skipping security-rule walk under %s: %s",
             target, exc,

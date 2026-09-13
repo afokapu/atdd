@@ -128,7 +128,7 @@ def _check_rule_id_severity(
             continue
         try:
             registry_meta = bind_rule(rule_id)
-        except (RuleNotInRegistryError, Exception):  # atdd:suppress(coder.logging.coach-silent-swallow)
+        except (RuleNotInRegistryError, Exception):
             # Unknown rule_id — not a severity mismatch (could be a future rule).
             # The schema allows null rule_id; unknown non-null rule_ids are
             # outside the scope of this hard rule (handled by consumers).

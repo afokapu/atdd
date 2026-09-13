@@ -241,9 +241,9 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     if _STATE.failed > 0 or _STATE.errors > 0:
         try:
             _print_summary(artifact_path)
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        except Exception as exc:
             # Never let summary failure mask the test outcome.
-            pass
+            logger.warning("pytest_sessionfinish: Exception handled, continuing past the failure", extra={"error": str(exc)[:200]})
 
 
 # ---------------------------------------------------------------------------

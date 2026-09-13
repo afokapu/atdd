@@ -33,6 +33,9 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
+import logging
+
+_log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -257,7 +260,8 @@ def scan_text(code: str, filename: str = "<string>") -> List[PollutionViolation]
     """
     try:
         tree = ast.parse(code, filename=filename)
-    except SyntaxError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+    except SyntaxError as exc:
+        _log.warning("scan_text: SyntaxError handled, returning an empty result", extra={"error": str(exc)[:200]})
         print(f"meta-validator: parse error in {filename}: {exc}", file=sys.stderr)
         return []
 

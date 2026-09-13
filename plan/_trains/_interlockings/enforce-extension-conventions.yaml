@@ -5,13 +5,13 @@ theme: commons
 status: draft
 source:
   path: plan/_trains/_interlockings/enforce-extension-conventions.yaml
-  content_digest: 22c1d63a35aa06728e5386f87c732cee45cffe98caf63f7f9b7827e1cdf68d7a
+  content_digest: bb3384de6da32833f1ff5e6bb1306c9b9cc91414890d29d648a89d74d793d311
 entrypoint:
   exposed: false
   actions: []
   reason: planned-not-exposed
   surfaces:
-    - backend
+  - backend
 route_resolution:
   strategy: first_priority
 lifelines:
@@ -206,8 +206,8 @@ routes:
   category: nominal
   priority: 10
   guard_ref: guard:clean-gate
-  train_id: 0007-enforce-extension-conventions
-  train_path: plan/_trains/0007-enforce-extension-conventions.yaml
+  train_id: train:extension-conventions:enforce-extension-conventions
+  train_path: plan/_trains/extension-conventions/enforce-extension-conventions.yaml
   projection:
     expected_sequence_digest: af58d0c4dadcdc5b3bbe388d9a382823433ba32aff4907eccbb450ede02af565
     fields:
@@ -220,8 +220,8 @@ routes:
   category: alternate
   priority: 20
   guard_ref: guard:strict-violation
-  train_id: 0201-enforce-strict-failure
-  train_path: plan/_trains/0201-enforce-strict-failure.yaml
+  train_id: train:extension-conventions:enforce-strict-failure
+  train_path: plan/_trains/extension-conventions/enforce-strict-failure.yaml
   projection:
     expected_sequence_digest: 0666b04d1ce681d40b07551861056516a94a449ff1f34f68ce15bcbb0fc18908
     fields:
@@ -234,8 +234,8 @@ routes:
   category: alternate
   priority: 30
   guard_ref: guard:advisory-violation
-  train_id: 0202-report-advisory-violation
-  train_path: plan/_trains/0202-report-advisory-violation.yaml
+  train_id: train:extension-conventions:report-advisory-violation
+  train_path: plan/_trains/extension-conventions/report-advisory-violation.yaml
   projection:
     expected_sequence_digest: a6227753c88a399f85ad3982b25fae63357cff56e9753666588340daeb304e38
     fields:
@@ -248,8 +248,8 @@ routes:
   category: alternate
   priority: 40
   guard_ref: guard:unbound-declaration
-  train_id: 0203-detect-unbound-declaration
-  train_path: plan/_trains/0203-detect-unbound-declaration.yaml
+  train_id: train:extension-conventions:detect-unbound-declaration
+  train_path: plan/_trains/extension-conventions/detect-unbound-declaration.yaml
   projection:
     expected_sequence_digest: 580a6ebc6c35b01ae15b34329bb09a6bd4412e15747b45d915b1677c2d21eb55
     fields:
@@ -262,8 +262,8 @@ routes:
   category: alternate
   priority: 50
   guard_ref: guard:succession-loss
-  train_id: 0204-detect-succession-loss
-  train_path: plan/_trains/0204-detect-succession-loss.yaml
+  train_id: train:extension-conventions:detect-succession-loss
+  train_path: plan/_trains/extension-conventions/detect-succession-loss.yaml
   projection:
     expected_sequence_digest: 8fa061f4e6bd88f664f9bda669b759dc422d9efd03dcab98d9c123d4499ea61e
     fields:
@@ -276,8 +276,8 @@ routes:
   category: alternate
   priority: 60
   guard_ref: guard:unrealized-obligation
-  train_id: 0205-detect-unrealized-obligation
-  train_path: plan/_trains/0205-detect-unrealized-obligation.yaml
+  train_id: train:extension-conventions:detect-unrealized-obligation
+  train_path: plan/_trains/extension-conventions/detect-unrealized-obligation.yaml
   projection:
     expected_sequence_digest: 1cddbd41a741724e55a3a68a0dbeec093f37fed7b450b6ade9cfb00a52a16555
     fields:
@@ -290,8 +290,8 @@ routes:
   category: alternate
   priority: 70
   guard_ref: guard:orphan-detector
-  train_id: 0206-decommission-orphan-detector
-  train_path: plan/_trains/0206-decommission-orphan-detector.yaml
+  train_id: train:extension-conventions:decommission-orphan-detector
+  train_path: plan/_trains/extension-conventions/decommission-orphan-detector.yaml
   projection:
     expected_sequence_digest: 81f224922d69e426809368d1b988badf0f910312abc06be892ca808c123039ae
     fields:

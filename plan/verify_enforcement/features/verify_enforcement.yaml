@@ -1,6 +1,6 @@
 urn: feature:verify-enforcement:verify-enforcement
 wagon: wagon:verify-enforcement
-description: The verify-enforcement lane of train 0007-enforce-extension-conventions.
+description: The verify-enforcement lane of train:extension-conventions:enforce-extension-conventions.
 sizing:
   wmbts: 2
   footprint_score: 6

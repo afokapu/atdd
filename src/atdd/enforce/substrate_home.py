@@ -15,6 +15,9 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Optional
+import logging
+
+_log = logging.getLogger(__name__)
 
 __all__ = [
     "resolve_substrate_home",
@@ -44,7 +47,8 @@ def _control_root_or_none(repo_root: Path) -> Optional[Path]:
         from atdd.state.paths import resolve_control_root
 
         return resolve_control_root(Path(repo_root)).control_root
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except Exception as exc:
+        _log.warning("_control_root_or_none: Exception handled, returning None", extra={"error": str(exc)[:200]})
         return None
 
 

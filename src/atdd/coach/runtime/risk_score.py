@@ -23,13 +23,16 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional
+import logging
 
 from atdd.coach.utils.risk_score import compute_risk_breakdown
 from atdd.coach.validators._violation import Violation
 
+_log = logging.getLogger(__name__)
+
 try:
     from atdd.coach.utils.rule_binding import bind_rule
-except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+except Exception:
     print("[risk_score] bind_rule import failed — dispositions will be empty", file=sys.stderr)
     bind_rule = None  # type: ignore[assignment]
 
@@ -87,7 +90,8 @@ def _resolve_disposition(rule_id: str) -> Optional[str]:
     try:
         meta = bind_rule(rule_id)
         return meta.disposition
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+    except Exception as exc:
+        _log.warning("_resolve_disposition: Exception handled, returning None", extra={"error": str(exc)[:200]})
         return None
 
 
@@ -150,7 +154,8 @@ def _validate_against_schema(data: dict) -> list[str]:
     """Validate data against risk-score.schema.json. Returns list of errors."""
     try:
         import jsonschema as _js
-    except ImportError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+    except ImportError as exc:
+        _log.debug("_validate_against_schema: ImportError handled, returning an empty result", extra={"error": str(exc)[:200]})
         print("[risk_score] jsonschema not installed — skipping validation", file=sys.stderr)
         return []
 
@@ -200,8 +205,8 @@ def write_risk_score(
         # Clean up temp file on write failure
         try:
             tmp.unlink()
-        except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
-            pass
+        except OSError as exc:
+            _log.warning("write_risk_score: OSError handled, continuing past the failure", extra={"error": str(exc)[:200]})
         raise
 
     return target

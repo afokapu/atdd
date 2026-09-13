@@ -19,6 +19,9 @@ import subprocess
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
+import logging
+
+_log = logging.getLogger(__name__)
 
 
 @lru_cache(maxsize=1)
@@ -109,7 +112,8 @@ def _git_common_dir(root: Path) -> Optional[Path]:
             ["git", "rev-parse", "--git-common-dir"],
             cwd=root, capture_output=True, text=True, timeout=10,
         )
-    except (OSError, subprocess.SubprocessError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-16
+    except (OSError, subprocess.SubprocessError) as exc:
+        _log.warning("_git_common_dir: (OSError, subprocess.SubprocessError) handled, returning None", extra={"error": str(exc)[:200]})
         return None
     if result.returncode != 0:
         return None
@@ -163,7 +167,8 @@ def _read_core_bare(root: Path) -> Optional[str]:
             ["git", "config", "--get", "core.bare"],
             cwd=root, capture_output=True, text=True, timeout=10,
         )
-    except (OSError, subprocess.SubprocessError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-16
+    except (OSError, subprocess.SubprocessError) as exc:
+        _log.warning("_read_core_bare: (OSError, subprocess.SubprocessError) handled, returning None", extra={"error": str(exc)[:200]})
         return None
     if result.returncode != 0:
         return None
@@ -201,7 +206,8 @@ def ensure_repo_not_falsely_bare(root: Optional[Path] = None) -> bool:
 
     try:
         root = (root or Path.cwd()).resolve()
-    except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-16
+    except OSError as exc:
+        _log.warning("ensure_repo_not_falsely_bare: OSError handled, reporting false", extra={"error": str(exc)[:200]})
         return False
 
     git_path = root / ".git"
@@ -222,7 +228,8 @@ def ensure_repo_not_falsely_bare(root: Optional[Path] = None) -> bool:
             ["git", "config", "core.bare", "false"],
             cwd=root, capture_output=True, text=True, timeout=10,
         )
-    except (OSError, subprocess.SubprocessError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-16
+    except (OSError, subprocess.SubprocessError) as exc:
+        _log.warning("ensure_repo_not_falsely_bare: (OSError, subprocess.SubprocessError) handled, reporting false", extra={"error": str(exc)[:200]})
         return False
     if result.returncode != 0:
         return False
@@ -348,7 +355,8 @@ def find_existing_worktree_for_branch(branch: str, repo_root: Path) -> Optional[
             text=True,
             timeout=15,
         )
-    except (OSError, subprocess.SubprocessError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-16
+    except (OSError, subprocess.SubprocessError) as exc:
+        _log.warning("find_existing_worktree_for_branch: (OSError, subprocess.SubprocessError) handled, returning None", extra={"error": str(exc)[:200]})
         return None
     if result.returncode != 0:
         return None
@@ -407,7 +415,8 @@ def is_atdd_source_repo() -> bool:
         import atdd  # local import to avoid cycles at module import time
 
         pkg_dir = Path(atdd.__file__).resolve().parent
-    except (ImportError, AttributeError, TypeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except (ImportError, AttributeError, TypeError) as exc:
+        _log.debug("is_atdd_source_repo: (ImportError, AttributeError, TypeError) handled, reporting false", extra={"error": str(exc)[:200]})
         return False
 
     if any(part in _VENDORED_PATH_MARKERS for part in pkg_dir.parts):
@@ -415,12 +424,14 @@ def is_atdd_source_repo() -> bool:
 
     try:
         repo_root = find_repo_root().resolve()
-    except RuntimeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except RuntimeError as exc:
+        _log.warning("is_atdd_source_repo: RuntimeError handled, reporting false", extra={"error": str(exc)[:200]})
         return False
 
     try:
         pkg_dir.relative_to(repo_root)
-    except ValueError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except ValueError as exc:
+        _log.debug("is_atdd_source_repo: ValueError handled, reporting false", extra={"error": str(exc)[:200]})
         return False
 
     # Source repo always has a top-level pyproject.toml whose [project].name
@@ -431,6 +442,7 @@ def is_atdd_source_repo() -> bool:
         return False
     try:
         text = pyproject.read_text(encoding="utf-8")
-    except OSError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except OSError as exc:
+        _log.warning("is_atdd_source_repo: OSError handled, reporting false", extra={"error": str(exc)[:200]})
         return False
     return 'name = "atdd"' in text

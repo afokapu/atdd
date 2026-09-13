@@ -125,7 +125,7 @@ def _read_atdd_config_test_root(repo_root: Path) -> Optional[Path]:
 
         with open(cfg, encoding="utf-8") as fh:
             data = yaml.safe_load(fh) or {}
-    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except Exception as exc:
         _logger.debug(
             "substrate plugin: skipping malformed %s: %s",
             cfg, exc,
@@ -160,7 +160,7 @@ def _substrate_enabled(repo_root: Path) -> bool:
 
         with open(cfg, encoding="utf-8") as fh:
             data = yaml.safe_load(fh) or {}
-    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except Exception as exc:
         _logger.debug(
             "substrate plugin: skipping malformed %s: %s",
             cfg, exc,
@@ -189,7 +189,7 @@ def _read_pyproject_testpaths(repo_root: Path) -> List[Path]:
             import tomli as tomllib  # type: ignore[import-not-found]
         with open(pp, "rb") as fh:
             data = tomllib.load(fh)
-    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except Exception as exc:
         _logger.debug(
             "substrate plugin: skipping malformed %s: %s",
             pp, exc,
@@ -220,7 +220,7 @@ def _read_header_text(test_file: Path) -> Optional[str]:
     try:
         with open(test_file, "r", encoding="utf-8") as fh:
             return fh.read(_HEADER_SCAN_BYTES)
-    except (OSError, UnicodeDecodeError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except (OSError, UnicodeDecodeError) as exc:
         _logger.debug(
             "substrate plugin: cannot read %s: %s",
             test_file, exc,
@@ -264,7 +264,7 @@ def _bind_for_acceptance(acc_urn: str) -> Optional[Any]:
     """
     try:
         rule_id = derive_repo_rule_id(acc_urn)
-    except RepoYamlValidationError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except RepoYamlValidationError as exc:
         # Malformed acc URN — the URN-grammar validator (#420) surfaces the
         # author defect at validation time. The plugin skips silently so a
         # bad header doesn't double-fail at runtime.
@@ -276,7 +276,7 @@ def _bind_for_acceptance(acc_urn: str) -> Optional[Any]:
         return None
     try:
         return bind_rule(rule_id)
-    except RuleNotInRegistryError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except RuleNotInRegistryError as exc:
         # Walker rejected the upstream acceptance (missing phase, missing
         # measurability, etc.). Per spec §7.2 the test runs as a plain
         # pytest test; the #410 conformance validators surface the defect.
@@ -286,7 +286,7 @@ def _bind_for_acceptance(acc_urn: str) -> Optional[Any]:
             extra={"rule_id": rule_id, "error_type": type(exc).__name__},
         )
         return None
-    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except Exception as exc:
         _logger.debug(
             "substrate plugin: bind_rule(%r) raised: %s",
             rule_id, exc,
@@ -319,7 +319,7 @@ def pytest_configure(config: pytest.Config) -> None:
         return
     try:
         from atdd.tester.substrate.smoke_attestation import SmokeAttestationPlugin
-    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except Exception as exc:
         _logger.warning(
             "substrate plugin: smoke-execution attestation unavailable: %s", exc,
             extra={"error_type": type(exc).__name__},
@@ -456,7 +456,7 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo) -> None:
         # fails (each anchored test runs independently), and the failure
         # block names the per-item validator_id.
         call.excinfo = pytest.ExceptionInfo.from_exception(gate_failure)
-    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except Exception as exc:
         # If the gate machinery itself blows up, don't mask the original
         # AssertionError — surface a debug log and let pytest report the
         # real test failure as-is.
@@ -494,7 +494,7 @@ def _detect_repo_root_for_session(
     for c in candidates:
         try:
             return find_repo_root(c.resolve())
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        except Exception as exc:
             _logger.debug(
                 "substrate plugin: find_repo_root(%s) raised: %s",
                 c, exc,
@@ -514,7 +514,7 @@ def _item_path(item: pytest.Item) -> Optional[Path]:
             return None
         try:
             return Path(str(fspath)).resolve()
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        except Exception as exc:
             _logger.debug(
                 "substrate plugin: cannot resolve item fspath %r: %s",
                 fspath, exc,
@@ -523,7 +523,7 @@ def _item_path(item: pytest.Item) -> Optional[Path]:
             return None
     try:
         return Path(str(raw)).resolve()
-    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except Exception as exc:
         _logger.debug(
             "substrate plugin: cannot resolve item path %r: %s",
             raw, exc,
@@ -591,7 +591,7 @@ def _format_location(
                 # entry.lineno is 0-based on older pytest; +1 to render the
                 # human line number consistent with `path:line` elsewhere.
                 return f"{test_file}:{lineno + 1}"
-    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except Exception as exc:
         _logger.debug(
             "substrate plugin: traceback parse failed, falling back to function name: %s",
             exc,
