@@ -49,13 +49,21 @@ _FEATURE_KEY = "feature"
 _SLUG_KEY = "slug"
 
 
-def _slug_of(obj: Object) -> str:
+def slug_of(obj: Object) -> str:
     """The object's display slug — its ``data`` slug, or its uid if it has none.
 
     The fallback is the pre-migration shape, where the uid *was* the slug. It is not a
     guess: for such an object the uid is the only slug that ever existed.
+
+    Public because every caller that wants to *show* or *send* a slug needs it and must
+    not reach for ``obj.uid``: once #1622 mints ``wi_<ULID>``, the uid stops being a name
+    anyone outside the store should see.
     """
     return str(obj.data.get(_SLUG_KEY) or obj.uid)
+
+
+#: Back-compat alias for this module's own callers.
+_slug_of = slug_of
 
 
 class WorkItemReader:

@@ -193,7 +193,11 @@ def test_the_store_write_stands_either_way(control_root, monkeypatch, register):
 
     conn = connect(init_state_store(start=control_root))
     try:
-        obj = StateStore(conn).objects.get(SLUG)
+        # Addressed by display slug, resolved the way production resolves: a raw
+        # objects.get(SLUG) asserts the slug is still the primary key, which #1622 ends.
+        from atdd.state.work_item_writer import resolve_work_item
+
+        obj = resolve_work_item(StateStore(conn), SLUG)
         pending = StateStore(conn).sync.pending_outbox()
     finally:
         conn.close()

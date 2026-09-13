@@ -185,7 +185,7 @@ def _projection_defects(index: int, obj: Object, slug: str) -> List[MigrationDef
         defects.append(MigrationDefect(
             DEFECT_UNKNOWN_PHASE, index, slug, PHASE_KEY,
             f"phase {obj.state!r} is outside the lifecycle vocabulary "
-            f"{list(PHASES) + [COMPLETE_PHASE]}",
+            f"{[*PHASES, COMPLETE_PHASE]}",
         ))
     defects.extend(
         MigrationDefect(
@@ -298,6 +298,10 @@ def migrate_store(
 
 
 __all__ = [
-    "DEFECT_MISSING_SLUG", "DEFECT_UNPROJECTABLE_FIELD", "StoreMigrationReport",
-    "DROPPED_FROM_STORE", "inspect_store", "migrate_store",
+    "DEFECT_MISSING_SLUG",
+    "DEFECT_UNPROJECTABLE_FIELD",
+    "DROPPED_FROM_STORE",
+    "StoreMigrationReport",
+    "inspect_store",
+    "migrate_store",
 ]

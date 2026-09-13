@@ -171,6 +171,7 @@ def publish_issue(
     from atdd.state import provenance
     from atdd.state.db import connect, init_state_store
     from atdd.state.store import StateStore
+    from atdd.state.work_item_reader import slug_of
     from atdd.state.work_item_writer import create_work_item
     from atdd.planner.commands.feature_binding import plan_is_available
 
@@ -356,6 +357,7 @@ def revise_issue(
 
     from atdd.state.db import connect, init_state_store
     from atdd.state.store import StateStore
+    from atdd.state.work_item_reader import slug_of
     from atdd.state.work_item_writer import revise_work_item_issue
 
     try:
@@ -394,14 +396,14 @@ def revise_issue(
                     _UPDATE_ISSUE_OP,
                     {
                         "issue_number": issue_number,
-                        "slug": obj.uid,
+                        "slug": slug_of(obj),
                         "body": body,
                         "type": issue_type,
                     },
                 )
                 logger.warning(
                     "github issue body update deferred to outbox; store revision stands",
-                    extra={"issue_number": issue_number, "slug": obj.uid, "error": str(exc)},
+                    extra={"issue_number": issue_number, "slug": slug_of(obj), "error": str(exc)},
                 )
 
         # The title is projected separately because GitHub stores it separately:
@@ -421,20 +423,20 @@ def revise_issue(
                     _UPDATE_ISSUE_OP,
                     {
                         "issue_number": issue_number,
-                        "slug": obj.uid,
+                        "slug": slug_of(obj),
                         "title": title,
                     },
                 )
                 logger.warning(
                     "github issue title update deferred to outbox; store revision stands",
-                    extra={"issue_number": issue_number, "slug": obj.uid, "error": str(exc)},
+                    extra={"issue_number": issue_number, "slug": slug_of(obj), "error": str(exc)},
                 )
     finally:
         conn.close()
 
     return RevisionResult(
         issue_number=issue_number,
-        slug=obj.uid,
+        slug=slug_of(obj),
         state=obj.state,
         projection_deferred=projection_deferred,
         deferral_deliverable=deferral_deliverable,
