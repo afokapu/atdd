@@ -78,7 +78,7 @@ class ATDDGate:
                 "atdd gate self-healed a poisoned worktree (core.bare scoped back to false)",
                 extra={"target_dir": str(self.target_dir)},
             )
-        except (FileNotFoundError, subprocess.TimeoutExpired) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) Self-heal is best-effort; failure must not block the gate
+        except (FileNotFoundError, subprocess.TimeoutExpired) as exc:  # Self-heal is best-effort; failure must not block the gate
             _log.warning(
                 "atdd gate core.bare self-heal skipped",
                 extra={"error": str(exc), "error_type": type(exc).__name__, "target_dir": str(self.target_dir)},

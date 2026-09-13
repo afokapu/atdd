@@ -97,7 +97,7 @@ def log_handoff(boundary_class: str, **fields: Any) -> None:
     try:
         with _log_path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(entry, default=str) + "\n")
-    except OSError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+    except OSError as exc:
         print(f"[integration_logger] write failed: {exc}", file=sys.stderr)
 
 

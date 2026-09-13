@@ -697,7 +697,7 @@ def _phase_completion_marker_present(
             continue
         try:
             data = json.loads(done.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-11-01
+        except (OSError, json.JSONDecodeError):
             continue
         if _phase_from_summary(data.get("summary") or "") == phase:
             return True
@@ -831,7 +831,7 @@ def _swap_phase_label(issue_number: int, new_phase: Phase) -> int:
         return IssueManager().update(
             issue_id=str(issue_number), status=new_phase.value
         )
-    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except Exception as exc:
         _logger.warning(
             "_swap_phase_label failed",
             extra={

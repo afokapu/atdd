@@ -29,7 +29,7 @@ from atdd.coach.validators._violation import Violation
 
 try:
     from atdd.coach.utils.rule_binding import bind_rule
-except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+except Exception:
     print("[risk_score] bind_rule import failed — dispositions will be empty", file=sys.stderr)
     bind_rule = None  # type: ignore[assignment]
 

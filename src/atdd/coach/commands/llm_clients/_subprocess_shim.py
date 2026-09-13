@@ -57,9 +57,9 @@ class ClaudeSubprocessClient:
                 text=True,
                 timeout=120,
             )
-        except subprocess.TimeoutExpired as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+        except subprocess.TimeoutExpired as exc:
             raise LLMUnavailable(f"{self._model_id} subprocess timed out") from exc
-        except OSError as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+        except OSError as exc:
             raise LLMUnavailable(f"{self._model_id} subprocess failed to start: {exc}") from exc
 
         if result.returncode != 0:

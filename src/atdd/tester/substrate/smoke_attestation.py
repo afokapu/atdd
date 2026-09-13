@@ -112,7 +112,7 @@ def _git(repo_root: Path, *args: str) -> Optional[str]:
             text=True,
             timeout=_GIT_TIMEOUT_S,
         )
-    except (OSError, subprocess.SubprocessError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except (OSError, subprocess.SubprocessError) as exc:
         _logger.debug(
             "smoke attestation: git %s failed: %s", args, exc,
             extra={"git_args": list(args), "error_type": type(exc).__name__},
@@ -166,7 +166,7 @@ def resolve_work_item_uid(repo_root: Path, store) -> Optional[str]:
     slug = branch.split("/", 1)[-1] if "/" in branch else branch
     try:
         obj = store.objects.get(slug)
-    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except Exception as exc:
         _logger.debug(
             "smoke attestation: store lookup for %r failed: %s", slug, exc,
             extra={"slug": slug, "error_type": type(exc).__name__},
@@ -294,7 +294,7 @@ class SmokeAttestationPlugin:
                 return  # nothing in plan/ claims live smoke — the hook is a no-op
             self.repo_root = repo_root
             self.acceptance_by_file = anchored
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        except Exception as exc:
             # Never break collection. Nothing recorded => the gate blocks.
             # Silence here is strictly stricter, never laxer.
             _logger.warning(
@@ -332,7 +332,7 @@ class SmokeAttestationPlugin:
             return
         try:
             self._flush()
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        except Exception as exc:
             _logger.warning(
                 "smoke attestation: could not record %d run(s); the SMOKE->REFACTOR "
                 "gate will read this as 'smoke did not run': %s",
@@ -387,7 +387,7 @@ def _repo_root_for(config: pytest.Config) -> Optional[Path]:
     for candidate in candidates:
         try:
             return find_repo_root(candidate.resolve())
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        except Exception:
             continue
     return None
 

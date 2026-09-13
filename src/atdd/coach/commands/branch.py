@@ -200,7 +200,7 @@ class BranchManager:
                 )
             finally:
                 conn.close()
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+        except Exception as exc:
             logger.debug(
                 "branch↔worktree binding store write unavailable",
                 extra={"issue": issue_number, "branch": branch_name, "error": str(exc)},
@@ -267,7 +267,7 @@ class BranchManager:
             )
             if ff.returncode == 0:
                 print(f"  Fast-forwarded local `{default_branch}` → origin/{default_branch}")
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+        except Exception as exc:
             logger.debug(
                 "ff-sync of default branch skipped",
                 extra={"default_branch": default_branch, "error": str(exc)},
@@ -591,7 +591,7 @@ class BranchManager:
                         branch_to_issue[br] = obj.uid
             finally:
                 conn.close()
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+        except Exception as exc:
             logger.debug("worktree list store read unavailable", extra={"error": str(exc)})
 
         print("ATDD worktrees:")

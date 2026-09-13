@@ -93,7 +93,7 @@ def _config(repo_root: Path) -> dict:
     for candidate in _config_candidates(Path(repo_root)):
         try:
             config = load_atdd_config(candidate) or {}
-        except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow)
+        except Exception:
             # An unreadable config yields the default placement, which is
             # today's behaviour. Raising here would break `worktree create` on
             # repos that never opted into configuring placement at all.

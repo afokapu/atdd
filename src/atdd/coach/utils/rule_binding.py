@@ -1021,7 +1021,7 @@ def _walk_security_declarations(
     """
     try:
         from atdd.coach.utils.graph.resolver import SecurityResolver
-    except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except Exception as exc:
         # Graph package unavailable — registry build continues without
         # security rules. Toolkit-only deployments hit this path; the
         # absence is benign (no plan/ feature.yaml to walk).

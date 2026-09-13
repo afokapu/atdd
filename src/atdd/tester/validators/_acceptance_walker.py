@@ -119,7 +119,7 @@ def _iter_acceptances_in_file(
     try:
         with open(path, encoding="utf-8") as fh:
             data = yaml.safe_load(fh)
-    except (OSError, yaml.YAMLError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except (OSError, yaml.YAMLError) as exc:
         # Malformed plan/ YAMLs are policed by URN-graph validators; this
         # walker treats them as empty so a single broken file doesn't mask
         # other conformance failures across the rest of plan/.
@@ -170,7 +170,7 @@ def iter_repo_wmbts(repo_root: Path) -> Iterator[Tuple[Path, dict]]:
                 continue
             try:
                 data = yaml.safe_load(wmbt_file.read_text(encoding="utf-8"))
-            except (OSError, yaml.YAMLError) as exc:  # atdd:suppress(coder.logging.coach-silent-swallow)
+            except (OSError, yaml.YAMLError) as exc:
                 # Malformed plan/ YAML is policed by the URN-graph validators.
                 _logger.debug(
                     "_acceptance_walker: skipping unreadable %s: %s",

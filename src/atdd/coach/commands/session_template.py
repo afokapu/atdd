@@ -232,7 +232,7 @@ def build_context(
     # aligned with the cmux tab even if the dispatch-time pass missed.
     try:
         config = load_atdd_config(find_repo_root())
-    except Exception:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-12-06
+    except Exception:
         config = {}
     repo_short = compute_repo_short_name(config)
     slug = branch_to_slug(branch) if branch != "TBD" else f"issue-{issue_number}"

@@ -222,7 +222,7 @@ class WatcherEventLoop:
         if self._decision_writer is not None:
             try:
                 self._decision_writer.append(record)
-            except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+            except Exception as exc:
                 print(f"[watcher] decision write failed: {exc}", file=sys.stderr)
 
         sm.history.append(sm.phase)
@@ -280,5 +280,5 @@ class WatcherEventLoop:
         self.runtime_watcher.stop()
         try:
             self.runtime_watcher.persist_checkpoint()
-        except Exception as exc:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
+        except Exception as exc:
             print(f"[watcher] checkpoint persist failed: {exc}", file=sys.stderr)
