@@ -10,8 +10,11 @@ import json
 import re
 import subprocess
 from typing import Any
+import logging
 
 from atdd.coach.commands.llm_clients.registry import LLMUnavailable
+
+_log = logging.getLogger(__name__)
 
 
 def _extract_json(text: str) -> Any:
@@ -19,20 +22,29 @@ def _extract_json(text: str) -> Any:
     text = text.strip()
     try:
         return json.loads(text)
-    except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
-        pass
+    except json.JSONDecodeError as exc:
+        _log.debug(
+            "_extract_json: json.JSONDecodeError handled, continuing past the failure",
+            extra={"error": str(exc)[:200]},
+        )
     m = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", text, re.DOTALL)
     if m:
         try:
             return json.loads(m.group(1).strip())
-        except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
-            pass
+        except json.JSONDecodeError as exc:
+            _log.debug(
+                "_extract_json: json.JSONDecodeError handled, continuing past the failure",
+                extra={"error": str(exc)[:200]},
+            )
     m = re.search(r"(\{.*\}|\[.*\])", text, re.DOTALL)
     if m:
         try:
             return json.loads(m.group(1))
-        except json.JSONDecodeError:  # atdd:suppress(coder.logging.coach-silent-swallow) UNTIL=2026-10-31
-            pass
+        except json.JSONDecodeError as exc:
+            _log.debug(
+                "_extract_json: json.JSONDecodeError handled, continuing past the failure",
+                extra={"error": str(exc)[:200]},
+            )
     raise LLMUnavailable(f"no JSON found in response (first 200 chars): {text[:200]!r}")
 
 
