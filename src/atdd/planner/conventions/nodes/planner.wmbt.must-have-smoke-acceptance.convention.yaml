@@ -25,7 +25,7 @@ content:
     \ and whose\n     identity.phase is \"SMOKE\".\n  3. If this WMBT is genuinely docs-only / metadata\
     \ (no real infra\n     to verify), add a suppression marker on the urn: line of the\n     WMBT YAML\
     \ — substitute YYYY-MM-DD with today + 90 days:\n       urn: \"wmbt:<wagon>:<wmbt_id>\"  # atdd:suppress(planner.wmbt.must-have-smoke-acceptance)\
-    \ UNTIL=YYYY-MM-DD\n  4. Re-run the validator to confirm clean\n     (pytest src/atdd/planner/validators/test_wmbt_has_smoke_acceptance.py\
+    \ UNTIL=YYYY-MM-DD\n  4. Re-run the validator to confirm clean\n     (pytest src/atdd/validators/conventions/coverage/test_wmbt_has_smoke_acceptance.py\
     \ -v).\n\nSee src/atdd/tester/conventions/smoke.convention.yaml::TESTER-SMOKE-PRES-001\nfor the template\
     \ pattern this rule mirrors, and issue #681 for the\nsubstrate-asymmetry incident this rule closes."
   exceptions:
