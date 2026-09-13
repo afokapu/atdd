@@ -103,10 +103,25 @@ are not equivalent and Phase 1 cannot start until one is chosen:
 | C | Gate the edge only where a human is (local `atdd coach transition`), and have CI's auto-phase skip the gate it structurally cannot satisfy | smallest | a gate with a documented bypass is the thing this issue exists to remove |
 | D | Do not auto-advance `REFACTOR->COMPLETE` at all — make COMPLETE an operator-run local transition, and let auto-phase stop at REFACTOR | small, and arguably what "the merge is the irreversible decision" implies | changes the hands-free property #355 built auto-phase for |
 
-Recommendation: **B**, with the store event as the record and the PR projection as the
-carrier, because it is the only option that keeps the gate un-bypassable, keeps the record
-in the store per Decision 3, and does not block on the projection work landing first. D is
-the honest fallback if the operator would rather not add a CI-verified artifact.
+Discovery's recommendation was **B** on the reasoning that A's dependency was open-ended.
+
+**OPERATOR DECISION, 2026-09-13: A.** The premise of that recommendation is wrong. A's
+blocker is #1622 — *"atdd state project refuses every object: the projection contract has
+diverged from the store object shape"* — which is at **SMOKE** with a live worktree and is
+about to land. `git ls-files .atdd/state/projection` returns 0 *because* `atdd state
+project` refuses on the first object, not because the mechanism is missing; #1622's
+Done-when is exactly "writes one document per projectable work item instead of refusing".
+
+So A is not the large change Discovery costed. It is the option whose dependency is nearly
+merged, and it is the only one of the four where the token the gate reads and the record
+the store keeps are the same artifact — no second carrier to keep correct, nothing to
+re-verify, and no bypass. B's PR projection would have been a second delivery path for the
+same fact, which is the objection Decision 5 already raises against a new channel.
+
+**Consequence for sequencing: #1999 depends on #1622.** Phase 1's config change is gated on
+the committed projection existing. Everything else in Phase 1 — the hint fix, the
+`transition_leash` and `escape_invariant` corrections, the D3 waiver fix — is independent
+of it and can proceed.
 
 ## D3 — Decision 6c is inert from three of OBSOLETE's seven sources.
 
@@ -146,4 +161,6 @@ today asserts the waiver's keying.
    an operator decision before Phase 1 starts.
 2. Phase 1 gains the `_autonomy_waiver` escape-destination correction (D3) and a test for it.
 3. `REFACTOR->COMPLETE: true` in `.atdd/config.yaml` is no longer a one-line change: it is
-   the *last* step of whichever option D2 settles on, not the first.
+   the *last* step of option A, landing after #1622 makes the committed projection real.
+4. **#1999 depends on #1622**, and that dependency is on the config line alone — the rest of
+   Phase 1 does not wait for it.
