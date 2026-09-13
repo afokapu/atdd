@@ -48,6 +48,35 @@ LEGACY_TRAIN_ALIASES: Dict[str, Tuple[str, str]] = {
     "0003-author-substrate": ("substrate", "author-artifacts"),
     "0004-admit-substrate": ("substrate", "admit-packages"),
     "0005-bind-substrate": ("substrate", "bind-runtime"),
+    # #1986: the CI-gate journey — one nominal path (0007) and its six
+    # alternates (0201..0206), all one subject. ``extension-conventions`` is not
+    # a style preference: ``is_durable_noun`` rejects ``enforce-conventions`` as
+    # verb-led, so it is the only legal spelling of this subject. Slugs keep the
+    # legacy wording (minus the digits) so the rename stays greppable; the slug
+    # echoing the subject is accepted — see
+    # ``train:documentation-obligation:prove-documentation-obligation``.
+    "0007-enforce-extension-conventions": (
+        "extension-conventions",
+        "enforce-extension-conventions",
+    ),
+    "0201-enforce-strict-failure": ("extension-conventions", "enforce-strict-failure"),
+    "0202-report-advisory-violation": (
+        "extension-conventions",
+        "report-advisory-violation",
+    ),
+    "0203-detect-unbound-declaration": (
+        "extension-conventions",
+        "detect-unbound-declaration",
+    ),
+    "0204-detect-succession-loss": ("extension-conventions", "detect-succession-loss"),
+    "0205-detect-unrealized-obligation": (
+        "extension-conventions",
+        "detect-unrealized-obligation",
+    ),
+    "0206-decommission-orphan-detector": (
+        "extension-conventions",
+        "decommission-orphan-detector",
+    ),
 }
 
 # #1400's trains (0006/0206/0306) retype under ``object-conflict-resolution`` but
@@ -214,127 +243,17 @@ def plan_relocations(root: Path) -> List[Tuple[Path, Path]]:
 
 
 # ---------------------------------------------------------------------------
-# Registry (plan/_trains.yaml) helpers
+# Registry projection — lives in ``registry_projection`` (#1986).
 #
-# The registry is a two-level bucketed document ``trains: {group: {section:
-# [entries]}}``. Every reader (coach ``_flatten_nested_trains``, the planner
-# ``trains_registry`` fixture, ``issue_graph``, ``inventory``) iterates that
-# nesting generically and keys off each ENTRY's fields (``train_id``, ``path``,
-# ``wagons``), never off the bucket key names — so the migration is free to
-# re-key the buckets by ``subject``/``category`` without breaking a reader.
+# Only the three names ``apply``/``revert`` below actually call are imported.
+# Everything else the split moved stays in that module and is imported from it
+# directly by its callers, so this module re-exports nothing it does not use.
 # ---------------------------------------------------------------------------
-def _collect_train_entries(entries, flat: Dict[str, dict]) -> None:
-    """Key every well-formed entry of a train list into ``flat`` by its train_id.
-    A non-list (malformed section) contributes nothing."""
-    if not isinstance(entries, list):
-        return
-    for entry in entries:
-        if isinstance(entry, dict) and entry.get("train_id"):
-            flat[entry["train_id"]] = entry
-
-
-def _flatten_registry(trains_data) -> Dict[str, dict]:
-    """Flatten a ``trains:`` document into ``{train_id: entry}``.
-
-    Mirrors coach ``registry._flatten_nested_trains``: tolerates the nested
-    ``{group: {section: [entries]}}`` shape and a legacy flat list.
-    """
-    flat: Dict[str, dict] = {}
-    if isinstance(trains_data, dict):
-        for _group, sections in trains_data.items():
-            if not isinstance(sections, dict):
-                continue
-            for _section, entries in sections.items():
-                _collect_train_entries(entries, flat)
-    elif isinstance(trains_data, list):
-        _collect_train_entries(trains_data, flat)
-    return flat
-
-
-def _load_registry(root: Path) -> Dict[str, dict]:
-    """Return ``{train_id: entry}`` for the on-disk ``plan/_trains.yaml``."""
-    registry_path = Path(root) / _REGISTRY_REL
-    if not registry_path.exists():
-        return {}
-    raw = yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
-    return _flatten_registry(raw.get("trains", {}) if isinstance(raw, dict) else {})
-
-
-def _write_registry(root: Path, doc: dict) -> Path:
-    registry_path = Path(root) / _REGISTRY_REL
-    registry_path.parent.mkdir(parents=True, exist_ok=True)
-    registry_path.write_text(
-        yaml.safe_dump(doc, sort_keys=False, default_flow_style=False),
-        encoding="utf-8",
-    )
-    return registry_path
-
-
-def _registry_entry(existing: Dict[str, dict], legacy_id: str) -> dict:
-    """The pre-migration registry entry for ``legacy_id`` — matched by the legacy
-    id or (on an idempotent re-run) by its already-typed id. ``{}`` if absent."""
-    typed = forward(legacy_id)
-    return existing.get(legacy_id) or existing.get(typed) or {}
-
-
-def _rewrite_registry_typed(root: Path, existing: Dict[str, dict]) -> Path:
-    """Project the typed ``plan/_trains.yaml``.
-
-    Buckets are re-keyed ``trains: {<subject>: {<category>: [entries]}}``. Each
-    entry carries the typed ``train_id``, the ``category`` field, the nested
-    ``path``, and the ``wagons``/``description`` preserved from *existing*.
-    """
-    trains: Dict[str, Dict[str, List[dict]]] = {}
-    for legacy_id, (subject, slug) in sorted(LEGACY_TRAIN_ALIASES.items()):
-        typed = forward(legacy_id)
-        category = category_for_legacy(legacy_id)
-        prior = _registry_entry(existing, legacy_id)
-        entry = {
-            "train_id": typed,
-            "category": category,
-            "description": prior.get("description", ""),
-            "path": f"plan/_trains/{subject}/{slug}.yaml",
-            "wagons": list(prior.get("wagons", []) or []),
-        }
-        trains.setdefault(subject, {}).setdefault(category, []).append(entry)
-    for subject in trains:
-        for category in trains[subject]:
-            trains[subject][category].sort(key=lambda e: e["train_id"])
-    return _write_registry(root, {"trains": trains})
-
-
-def _rewrite_registry_legacy(root: Path, existing: Dict[str, dict]) -> Path:
-    """Project the legacy digit-bucketed ``plan/_trains.yaml`` (revert side).
-
-    Rebuilds the ``{digit-theme: {digitdigit-theme-category: [entries]}}`` shape
-    the pre-migration registry used, so the round-tripped file stays valid for
-    every reader. Entries are matched to their legacy ids via the inverse map.
-    """
-    from atdd.coach.utils.theme_map import get_theme_map
-    from atdd.coach.utils.config import load_atdd_config
-
-    theme_map = get_theme_map(load_atdd_config(Path(root)))
-    trains: Dict[str, Dict[str, List[dict]]] = {}
-    for legacy_id in sorted(LEGACY_TRAIN_ALIASES):
-        typed = forward(legacy_id)
-        prior = existing.get(typed) or existing.get(legacy_id) or {}
-        theme_digit = legacy_id[0] if legacy_id[:1].isdigit() else "0"
-        category_digit = legacy_id[1] if len(legacy_id) > 1 and legacy_id[1].isdigit() else "0"
-        theme_name = theme_map.get(theme_digit, "unknown")
-        category_name = _CATEGORY_BY_DIGIT.get(category_digit, "nominal")
-        group = f"{theme_digit}-{theme_name}"
-        section = f"{theme_digit}{category_digit}-{theme_name}-{category_name}"
-        entry = {
-            "train_id": legacy_id,
-            "description": prior.get("description", ""),
-            "path": f"plan/_trains/{legacy_id}.yaml",
-            "wagons": list(prior.get("wagons", []) or []),
-        }
-        trains.setdefault(group, {}).setdefault(section, []).append(entry)
-    for group in trains:
-        for section in trains[group]:
-            trains[group][section].sort(key=lambda e: e["train_id"])
-    return _write_registry(root, {"trains": trains})
+from .registry_projection import (  # noqa: E402  (placed after the data it consumes)
+    _load_registry,
+    _rewrite_registry_legacy,
+    _rewrite_registry_typed,
+)
 
 
 # ---------------------------------------------------------------------------

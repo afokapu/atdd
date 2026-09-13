@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "commons:disposition-policy",
   "title": "Disposition to verdict policy",
-  "description": "Disposition to verdict policy exchanged inside train 0007-enforce-extension-conventions.",
+  "description": "Disposition to verdict policy exchanged inside train:extension-conventions:enforce-extension-conventions.",
   "version": "1.0.0",
   "type": "object",
   "properties": {

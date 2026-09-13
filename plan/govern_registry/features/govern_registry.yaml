@@ -1,6 +1,6 @@
 urn: feature:govern-registry:govern-registry
 wagon: wagon:govern-registry
-description: The govern-registry lane of train 0007-enforce-extension-conventions.
+description: The govern-registry lane of train:extension-conventions:enforce-extension-conventions.
 sizing:
   wmbts: 3
   footprint_score: 5

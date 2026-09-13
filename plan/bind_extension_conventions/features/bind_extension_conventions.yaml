@@ -1,6 +1,6 @@
 urn: feature:bind-extension-conventions:bind-extension-conventions
 wagon: wagon:bind-extension-conventions
-description: The bind-extension-conventions lane of train 0007-enforce-extension-conventions.
+description: The bind-extension-conventions lane of train:extension-conventions:enforce-extension-conventions.
 sizing:
   wmbts: 3
   footprint_score: 6
