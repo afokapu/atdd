@@ -53,3 +53,11 @@ subjects:
     title: "Object Conflict Resolution"
     description: "State-projection object conflict resolution across nominal, alternate, and exception paths (#1400)."
     status: active
+
+  # #1986: the 7 legacy four-digit trains (0007 nominal + 0201..0206 alternates)
+  # retype here. Chosen over `enforce-conventions`, which `is_durable_noun()`
+  # rejects as verb-led; matches the interlocking `enforce-extension-conventions`.
+  - subject: extension-conventions
+    title: "Extension Conventions"
+    description: "The convention extensions a repo declares, binds, and enforces as a CI gate."
+    status: active
