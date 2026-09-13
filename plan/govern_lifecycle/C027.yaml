@@ -1,0 +1,116 @@
+urn: wmbt:govern-lifecycle:C027
+step: confirm
+direction: minimize
+dimension: quantity
+object_of_control: convention-prose-declaring-the-autonomy-key-unread-while-a-gate-check-waives-a-live-transition-on-it
+context_clarifier: "when a reader judges the blast radius of an autonomy declaration,\
+  \ because coach.lifecycle.transition-autonomy states that nothing reads the key\
+  \ yet and that ATDD retains sole authority over the gates in atdd.coach.gate so\
+  \ a permissive declaration can at worst submit a command ATDD then rejects, while\
+  \ ApprovalTokenGateCheck._autonomy_waiver has read declared_autonomy since #1798\
+  \ (ac675ab8, 2026-09-07) and returns NOT_APPLICABLE whenever the FROM phase declares\
+  \ autonomy agent, so a permissive declaration now REMOVES an operator stop rather\
+  \ than submitting a rejected command and the stated blast radius is inverted rather\
+  \ than merely stale; the node is not merely stale by neglect \u2014 2fee03a6 (#1967)\
+  \ edited the very statement field on 2026-09-13, adding RESOLVED two lines above\
+  \ the false sentence and carrying that sentence through untouched, so the prose\
+  \ survives active editing; it still carries metadata.disposition documentation-only,\
+  \ and the guard that exists \u2014 D020-UNIT-004 \u2014 asserts only that the key\
+  \ reaches no PhaseSpec field and moves no conventions snapshot hash, both still\
+  \ true, so it passes while the prose is false; measured 2026-09-12 against the committed\
+  \ machine, SMOKE->REFACTOR returns NOT_APPLICABLE and 87 of the 204 approval tokens\
+  \ on this Control Root sit on that edge, 73 of them minted after the waiver landed"
+lens: functional.effectiveness
+statement: minimize quantity of convention-prose-declaring-the-autonomy-key-unread-while-a-gate-check-waives-a-live-transition-on-it
+  when a reader judges the blast radius of an autonomy declaration, by correcting
+  the node to state which runtime reads the key and that a permissive declaration
+  lifts an operator stop, and by binding a guard that fails when the node's claim
+  about its own consumption and the gate's actual consumption disagree in either direction,
+  so the next divergence is a test failure rather than a sentence nobody rereads
+acceptances:
+- identity:
+    urn: acc:govern-lifecycle:C027-UNIT-001-the-node-states-what-the-runtime-does
+    id: AC-UNIT-001
+    purpose: The convention node no longer claims the autonomy key is read by nothing,
+      names the gate that reads it, and stops justifying its disposition with the claim
+      #1798 falsified
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - The committed coach.lifecycle.transition-autonomy convention node, read from
+      disk
+  when:
+    abstract: Its statement, rationale and metadata are read
+  then:
+    abstract:
+    - No sentence claims that nothing reads the key, so the inertness claim is gone
+      rather than softened
+    - No sentence claims a permissive declaration can at worst submit a command ATDD
+      then rejects, because it can now lift an operator stop
+    - The node names the approval gate as a reader of the key, so a reader learns
+      where the consumption lives
+    - The disposition is no longer justified by the falsified claim, while the VALUE
+      documentation-only stands — it means this node declares no validator back-reference,
+      which is still true, and the repo's reverse rule-coherence check refuses any other
+      value without one. That a runtime reads the KEY is a different fact from this NODE
+      binding a validator
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-13'
+- identity:
+    urn: acc:govern-lifecycle:C027-UNIT-002-the-guard-fails-when-claim-and-consumption-disagree
+    id: AC-UNIT-002
+    purpose: A guard resolves the node's claim about its own consumption against the
+      gate's actual consumption and fails on disagreement in either direction, naming
+      which side moved
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A node that claims the key is read by nothing, paired with a gate check that
+      reads it
+    - A node that claims the key is read, paired with a gate check that does not read
+      it
+    - A node and a gate that agree
+  when:
+    abstract: The guard runs against each pairing
+  then:
+    abstract:
+    - Both disagreeing pairings fail, so the drift is caught whichever side moves
+    - The agreeing pairing passes, so the guard is not an unconditional refusal
+    - Each failure names which side moved, because a reader cannot fix a divergence
+      they were told about as a mismatch
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-13'
+- identity:
+    urn: acc:govern-lifecycle:C027-SMOKE-001-the-real-repo-node-and-gate-agree
+    id: AC-SMOKE-001
+    purpose: In a real checkout the repository's own committed node and committed
+      gate agree about whether the autonomy key is read
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - The repository's committed convention node and committed approval check, read
+      from disk
+  when:
+    abstract: The guard runs against them
+  then:
+    abstract:
+    - The guard passes, so the shipped pair is consistent rather than consistent only
+      in a fixture
+    - 'The committed gate still waives on a phase declaring autonomy agent, so this
+      issue removes no behaviour #1798 shipped'
+    - The committed gate still demands a token on an operator phase, so the one operator
+      judgement gate is untouched
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-13'

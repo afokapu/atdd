@@ -2,11 +2,12 @@ urn: "feature:govern-lifecycle:define-transition-autonomy"
 wagon: "wagon:govern-lifecycle"
 description: "Adds the phase machine's missing axis: who may SUBMIT a transition, beside who drives it, which targets are legal, and what must pass before commit. Declarative only; enforcement is later."
 sizing:
-  wmbts: 1
+  wmbts: 2
   footprint_score: 2
   footprint_size: "XS"
 wmbts:
   - "wmbt:govern-lifecycle:D020"
+  - "wmbt:govern-lifecycle:C027"
 components:
   backend:
     presentation:
