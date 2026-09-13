@@ -270,3 +270,36 @@ acceptances:
     feature: author-train
     author: atdd:self-compliance
     created: '2026-09-10'
+- identity:
+    urn: acc:author-plan-substrate:E004-UNIT-008-document-precedes-registry
+    id: AC-UNIT-008
+    purpose: create_train writes the per-train document before the registry row, so
+      a write that fails between the two can never leave a registry row naming a file
+      that is not on disk
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - A temp plan/ home with an empty _trains.yaml and a typed train:<subject>:<slug>
+      spec
+    - The per-train document's own path made unwritable, so the document write raises
+      from inside the writer
+  when:
+    abstract: create_train is called and the document write fails
+    action: invoke
+  then:
+    abstract:
+    - the call raises rather than returning a path
+    - no registry row in _trains.yaml names the train_id
+    - the residue is at worst an orphan document that no registry row names, never
+      a registry row naming an absent document
+    assertions:
+    - type: equals
+  signal: {}
+  metadata:
+    wagon: author-plan-substrate
+    feature: author-train
+    author: atdd:self-compliance
+    created: '2026-09-12'
