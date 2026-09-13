@@ -5,8 +5,10 @@ status: active
 name: Lifecycle transition autonomy
 statement: 'Each phase declares who may SUBMIT the transition out of it: `autonomy: operator` reserves the
   forward edge for a human sign-off, `autonomy: agent` lets the phase''s own persona submit it unattended,
-  and null marks a phase with no forward transition. Entering an escape (BLOCKED, OBSOLETE) is never autonomous,
-  and leaving BLOCKED is likewise operator-submitted. This is the transition-axis twin of coach.execution.freedom-with-a-leash,
+  and null marks a phase with no forward transition. Entering an escape (BLOCKED, OBSOLETE, RESOLVED) is never autonomous,
+  and leaving BLOCKED is likewise operator-submitted. RESOLVED and OBSOLETE are terminal: they are
+  entered by operator decision and never left, so reopening one is a new work item rather than a
+  phase change. This is the transition-axis twin of coach.execution.freedom-with-a-leash,
   which governs which TOOLS run unattended; together they describe one model on two axes — a curated freedom
   set that proceeds without asking, and a leash of decisions that must surface. ATDD retains sole authority
   over transition LEGALITY (transitions_to) and over the gates in atdd.coach.gate, so a permissive declaration

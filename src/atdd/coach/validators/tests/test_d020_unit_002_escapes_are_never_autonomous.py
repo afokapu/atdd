@@ -26,20 +26,13 @@ import yaml
 from atdd.coach.utils.repo import find_repo_root
 
 from ._d020_autonomy import NODE_REL, node_prose, phases as _phases
+#: The one definition, bound to this module's private name. It had six copies
+#: before #1967, and that issue adds a member to it.
+from atdd.state.evidence import ESCAPES as _ESCAPES
 
 pytestmark = [pytest.mark.coach, pytest.mark.platform]
 
 
-#: The escape set, NAMED rather than derived — the same constant, for the same
-#: reason, as src/atdd/state/tests/test_phase_ladder_matches_projection_phases.py.
-#: BLOCKED cannot be derived from the topology: an escape is reachable from every
-#: spine rung, but BLOCKED does not appear in its OWN transitions_to, so any
-#: "reachable from all" derivation silently drops it. The machine names its
-#: escapes; so does this test. See the RED report on #1626 — the acceptance's
-#: "expressed against the escape SET" clause is not well-founded as a derivation,
-#: and `test_escape_set_agrees_with_the_ladder_walk` is the achievable version:
-#: it ties this constant to the repo's existing one so the two cannot drift apart.
-_ESCAPES = {"BLOCKED", "OBSOLETE"}
 
 
 def _spine(phases: dict) -> list:
@@ -67,7 +60,9 @@ def _derive_escape_targets(phases: dict) -> set:
         for spec in phases.values()
         for target in (spec or {}).get("transitions_to") or []
     }
-    return _ESCAPES & reachable
+    # set(), because _ESCAPES is now a frozenset (the one definition) and the
+    # intersection inherits that type while this helper promises a set.
+    return set(_ESCAPES & reachable)
 
 
 @pytest.mark.platform
