@@ -32,7 +32,8 @@ acceptances:
     urn: acc:govern-lifecycle:C027-UNIT-001-the-node-states-what-the-runtime-does
     id: AC-UNIT-001
     purpose: The convention node no longer claims the autonomy key is read by nothing,
-      names the gate that reads it, and stops declaring itself documentation-only
+      names the gate that reads it, and stops justifying its disposition with the claim
+      #1798 falsified
     phase: GREEN
   harness:
     type: unit
@@ -51,8 +52,11 @@ acceptances:
       then rejects, because it can now lift an operator stop
     - The node names the approval gate as a reader of the key, so a reader learns
       where the consumption lives
-    - metadata.disposition is no longer documentation-only, because the axis now binds
-      behaviour
+    - The disposition is no longer justified by the falsified claim, while the VALUE
+      documentation-only stands — it means this node declares no validator back-reference,
+      which is still true, and the repo's reverse rule-coherence check refuses any other
+      value without one. That a runtime reads the KEY is a different fact from this NODE
+      binding a validator
   metadata:
     author: atdd:self-compliance
     created: '2026-09-13'

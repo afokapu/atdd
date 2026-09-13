@@ -42,12 +42,15 @@ source:
   legacy_rule_id: coach.phase-machine
 metadata:
   severity: 3
-  # advisory (#1981): no longer documentation-only. #1798 made ApprovalTokenGateCheck read
-  # this key, so the axis binds behaviour and a node claiming otherwise misdescribes the
-  # system. Advisory rather than strict/block: C027's guard is a toolkit-self acceptance
-  # that reports the divergence, not a registry-bound rule that refuses a transition, and
-  # mechanical enforcement of who may SUBMIT is still a separate concern (#1626, #1619).
-  disposition: advisory
+  # documentation-only, on the TRUE ground (#1981). #1626 justified this value with
+  # "declarative first — nothing reads the key yet", which #1798 falsified: the approval
+  # gate reads it. The VALUE is still right, because `documentation-only` means this node
+  # declares no `validator:` back-reference and no bind_rule callsite — and it does not.
+  # That a runtime reads the KEY is a different fact from this NODE binding a validator,
+  # and conflating them is what C027 (#1981) first got wrong. Binding one would convert
+  # this principle into a rule with an implementation ref: a real change, deliberately out
+  # of scope here and left with enforcement of who may SUBMIT (#1626, #1619).
+  disposition: documentation-only
   introduced_in: 4.27.0
 parity:
   source_fragments_preserved: true

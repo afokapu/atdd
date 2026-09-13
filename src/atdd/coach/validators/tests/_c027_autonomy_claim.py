@@ -41,7 +41,22 @@ INERTNESS_CLAIMS = (
 )
 
 #: The disposition that declares a node binds no validator.
+#:
+#: NOT an inertness signal, and C027 first treated it as one. `documentation-only`
+#: says this NODE declares no `validator:` back-reference — a fact about the node's
+#: enforcement machinery. Whether a runtime reads the KEY is a separate question,
+#: and the repo's reverse rule-coherence check enforces the distinction: any other
+#: disposition demands a `validator:` field, which would make this principle a rule.
+#: So the guard reads the PROSE, and the disposition is checked only for the false
+#: JUSTIFICATION that #1626 attached to it.
 DOCUMENTATION_ONLY = "documentation-only"
+
+#: The justification #1626 gave for `documentation-only`, which #1798 falsified.
+#: Matched against the file's raw text, because YAML comments do not survive a parse.
+STALE_JUSTIFICATIONS = (
+    "declarative first. the axis is declared and reviewable",
+    "needs no bind_rule callsite",
+)
 
 
 @dataclass(frozen=True)
@@ -72,12 +87,20 @@ def node_prose(node: Dict[str, Any]) -> str:
 
 
 def claims_key_is_unread(node: Dict[str, Any]) -> bool:
-    """True when the node asserts the axis binds no behaviour."""
-    prose = node_prose(node)
-    if any(claim in prose for claim in INERTNESS_CLAIMS):
-        return True
-    disposition = ((node.get("metadata") or {}).get("disposition") or "").strip()
-    return disposition == DOCUMENTATION_ONLY
+    """True when the node's PROSE asserts the axis binds no behaviour.
+
+    Deliberately does not consult `disposition`: see DOCUMENTATION_ONLY. A node may
+    correctly declare it binds no validator while correctly describing a runtime
+    that reads its key, and a guard that conflated the two would demand a change
+    the repo's own coherence rule forbids.
+    """
+    return any(claim in node_prose(node) for claim in INERTNESS_CLAIMS)
+
+
+def stale_justifications_in(raw_text: str) -> list:
+    """Justification comments that rest on the falsified inertness claim."""
+    lowered = raw_text.lower()
+    return [j for j in STALE_JUSTIFICATIONS if j in lowered]
 
 
 def gate_reads_autonomy(check: Optional[Any] = None) -> bool:

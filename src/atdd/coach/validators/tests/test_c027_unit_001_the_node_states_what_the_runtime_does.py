@@ -25,6 +25,7 @@ from ._c027_autonomy_claim import (
     claims_key_is_unread,
     load_node,
     node_prose,
+    stale_justifications_in,
 )
 from ._d020_autonomy import NODE_REL
 
@@ -62,12 +63,28 @@ def test_the_node_names_the_gate_that_reads_the_key() -> None:
 
 
 @pytest.mark.platform
-def test_disposition_is_no_longer_documentation_only() -> None:
-    """The node binds behaviour, so it must not declare that it binds none."""
+def test_the_disposition_is_not_justified_by_the_falsified_claim() -> None:
+    """`documentation-only` is correct; the REASON #1626 gave for it is not.
+
+    An earlier draft of this acceptance asserted the disposition must CHANGE. That
+    was wrong, and the repo's reverse rule-coherence check said so: any disposition
+    other than `documentation-only` demands a `validator:` back-reference, which
+    would convert this principle into a rule — out of scope here. `documentation-only`
+    means the NODE binds no validator, which is still true. That a RUNTIME reads the
+    KEY is a different fact. What must go is the justification comment, which rested
+    on "declarative first — nothing reads the key yet".
+    """
+    raw = (find_repo_root() / NODE_REL).read_text()
+    stale = stale_justifications_in(raw)
+    assert not stale, (
+        f"the disposition is still justified by the claim #1798 falsified: {stale!r}. "
+        f"Keep the value; replace the reason with the true one — this node declares "
+        f"no `validator:` back-reference."
+    )
     disposition = ((_node().get("metadata") or {}).get("disposition") or "").strip()
-    assert disposition != DOCUMENTATION_ONLY, (
-        f"metadata.disposition is still {DOCUMENTATION_ONLY!r}, which declares the "
-        f"node binds no validator. C027 binds one, and the gate already reads the key."
+    assert disposition == DOCUMENTATION_ONLY, (
+        f"disposition moved off {DOCUMENTATION_ONLY!r} to {disposition!r} without a "
+        f"`validator:` field; reverse rule-coherence refuses that pairing."
     )
 
 
