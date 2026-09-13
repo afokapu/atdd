@@ -2134,7 +2134,11 @@ wagons:
     to: internal
   consume: []
   wmbt:
-    total: 3
+    total: 4
+    C001: minimize likelihood of mirror-double-declaration by admitting an extension
+      convention node into the rule registry only when its source.legacy_rule_id names
+      no live core rule, so a node that mirrors a live core rule never becomes a second
+      declaration of its twin
     D001: minimize likelihood of registry-scope-ambiguity by keeping the atdd validate
       rule registry rooted at the core src/atdd tree alone, recording the core-only
       decision with its evidence, and proving that admitting the extension mirror
