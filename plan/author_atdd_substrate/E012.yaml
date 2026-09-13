@@ -103,3 +103,39 @@ acceptances:
     wagon: author-atdd-substrate
     author: atdd:self-compliance
     created: '2026-09-13'
+- identity:
+    urn: acc:author-atdd-substrate:E012-SMOKE-001-the-shipped-guard-sees-a-missing-subsection
+    id: AC-SMOKE-001
+    purpose: "Verify against the real shipped artifacts that the derived constants\
+      \ and the new template arm actually work: the live issue.schema.json, the live\
+      \ PARENT-ISSUE-TEMPLATE.md, and the real C011 guard. Every unit acceptance under\
+      \ this WMBT drives temp schema/template pairs, which proves the MECHANISM and\
+      \ says nothing about the corpus this repo ships \u2014 so without this one the\
+      \ fix could be correct in the abstract and wrong here."
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - the live issue.schema.json and PARENT-ISSUE-TEMPLATE.md from a real checkout
+    - the real C011 drift-guard modules as pytest collects them
+  when:
+    abstract: the guard is run against the shipped pair, and then again against a
+      checkout whose schema requires a subsection the template does not show
+    action: invoke
+  then:
+    abstract:
+    - the shipped pair reports no missing subsection, so the arm lands with nothing
+      to clean up
+    - "a schema-required H3 absent from the shipped template FAILS the real guard\
+      \ \u2014 the defect that passed in 0.15s before this WMBT"
+    - 'no section heading is read from a literal: the derived sets equal what the
+      shipped schema and template declare'
+    assertions:
+    - type: equals
+  signal: {}
+  metadata:
+    wagon: author-atdd-substrate
+    author: atdd:self-compliance
+    created: '2026-09-13'
