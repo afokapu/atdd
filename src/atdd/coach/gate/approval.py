@@ -123,6 +123,28 @@ def token_head(token_data) -> Optional[str]:
     return str(value) if value else None
 
 
+def content_still_stands(token_data, head: Optional[str]) -> bool:
+    """Whether the commit a token was granted for is still the current one (#2005).
+
+    A SEPARATE STEP FROM SIGNING, ON PURPOSE. :func:`verify_token` recomputes its
+    message from the token's OWN body, so that message is byte-identical before
+    and after a push — measured True at the approved commit AND True after the
+    branch advanced. Signing makes the recorded commit tamper-evident; only this
+    comparison makes it binding, exactly as ``now`` does for the expiry.
+
+    True (nothing to refuse) when the caller supplies no head, and when the token
+    names none: a headless token is read under the regime it was minted in, the
+    same boundary #1718 drew for ``schema_version`` and #1376 for worktree-local
+    paths. 0 of the 311 tokens measured on 2026-09-13 carry a head, so this is
+    the clause that keeps every one of them verifying. It needs no migration and
+    no cutoff date.
+    """
+    if head is None:
+        return True
+    bound = token_head(token_data)
+    return not bound or bound == head
+
+
 def canonical_scope(
     issue_number: int,
     from_phase: str,
@@ -394,21 +416,8 @@ def verify_token(
     if not hmac.compare_digest(str(token_data.get("signature", "")), expected):
         return False
 
-    # CONTENT BINDING (#2005), and this is a SEPARATE step from signing on
-    # purpose. The message above is recomputed from the token's own body, so it
-    # is byte-identical before and after a push — measured True at the approved
-    # commit AND True after the branch advanced. Signing makes the recorded
-    # commit tamper-evident; only this comparison makes it binding, exactly as
-    # ``now`` does for the expiry.
-    #
-    # Enforced only when the caller supplies a head, and only when the token
-    # carries one: a headless token is read under the regime it was minted in,
-    # the same boundary #1718 drew for ``schema_version`` and #1376 for
-    # worktree-local paths. It needs no migration and no cutoff date.
-    if head is not None:
-        bound_head = token_head(token_data)
-        if bound_head and bound_head != head:
-            return False
+    if not content_still_stands(token_data, head):
+        return False
     # Expiry is enforced only when the caller supplies a clock. Without ``now``
     # the check is time-agnostic (backward compatible); with it, an undated,
     # malformed, or past-due token fails closed.
