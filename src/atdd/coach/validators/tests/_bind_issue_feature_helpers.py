@@ -154,14 +154,65 @@ def make_two_worktree_repo(
     return sibling, issue_tree
 
 
+#: The stub `gh` program, with ``__ISSUES__`` replaced by the fixture payload.
+#:
+#: A module-level template rather than a wall of concatenated literals inside
+#: :func:`write_stub_gh`: the branching below is the STUB's, not the helper's,
+#: and inlining it put both in one place where only one of them is reviewable.
+#:
+#: #1989 — the reads moved to ``gh api repos/<repo>/issues/<n>``, so an issue
+#: number now arrives inside a path rather than as its own argument. Both forms
+#: are answered, because this stands in for ``gh`` and which transport ``gh`` was
+#: asked for is not what the tests using it are about.
+_STUB_GH = """#!/usr/bin/env python3
+import json, sys
+
+ISSUES = __ISSUES__
+argv = sys.argv[1:]
+
+
+def _number():
+    \"\"\"The issue number this call is about, in either transport's spelling.\"\"\"
+    for a in argv:
+        if a in ISSUES:
+            return a
+        if a.startswith('repos/') and '/issues/' in a:
+            tail = a.split('/issues/', 1)[1].split('?')[0].split('/')
+            if len(tail) == 1 and tail[0] in ISSUES:
+                return tail[0]
+    return None
+
+
+def _is_listing():
+    if 'list' in argv:
+        return True
+    return argv[:1] == ['api'] and any(
+        '/issues?' in a or a.endswith('/issues') for a in argv
+    )
+
+
+if _is_listing():
+    print('[]')            # no atdd-wmbt issues exist — the live truth
+    sys.exit(0)
+
+if 'view' in argv or argv[:1] == ['api']:
+    found = _number()
+    if found is None:
+        sys.exit(1)
+    print(json.dumps(ISSUES[found]))
+    sys.exit(0)
+
+print('{}')
+"""
+
+
 def write_stub_gh(root: Path, issues: Dict[int, Dict[str, Any]]) -> Path:
     """A real `gh` on PATH that answers issue views and returns NO wmbt labels.
 
     The discriminator for the plan-backed lookup. GitHub is reachable and the
     issue fetch succeeds, so `atdd coach enter` gets past its metadata read —
-    but ``gh issue list --label atdd-wmbt`` returns ``[]``, which is the honest
-    live answer (nothing has minted that label since #1477; the newest such
-    issue is #1059).
+    but the atdd-wmbt listing returns ``[]``, which is the honest live answer
+    (nothing has minted that label since #1477; the newest such issue is #1059).
 
     Any WMBT that appears in the output therefore came from ``plan/`` and from
     nowhere else. Making the provider merely *absent* would not prove this: the
@@ -173,38 +224,8 @@ def write_stub_gh(root: Path, issues: Dict[int, Dict[str, Any]]) -> Path:
     bindir = root / "stub-bin"
     bindir.mkdir(parents=True, exist_ok=True)
     script = bindir / "gh"
-    script.write_text(
-        "#!/usr/bin/env python3\n"
-        "import json, sys\n"
-        f"ISSUES = {_json.dumps({str(k): v for k, v in issues.items()})}\n"
-        "argv = sys.argv[1:]\n"
-        "# #1989: the reads moved to `gh api repos/<repo>/issues/<n>`, so the\n"
-        "# issue number arrives inside a path rather than as its own argument.\n"
-        "# Both forms are answered — this stub stands in for `gh`, and which\n"
-        "# transport `gh` is asked for is not what these tests are about.\n"
-        "def _number():\n"
-        "    for a in argv:\n"
-        "        if a in ISSUES:\n"
-        "            return a\n"
-        "        if a.startswith('repos/') and '/issues/' in a:\n"
-        "            tail = a.split('/issues/', 1)[1].split('?')[0].split('/')\n"
-        "            if tail and tail[0] in ISSUES and len(tail) == 1:\n"
-        "                return tail[0]\n"
-        "    return None\n"
-        "if 'list' in argv:\n"
-        "    print('[]')            # no atdd-wmbt issues exist — the live truth\n"
-        "    sys.exit(0)\n"
-        "if argv[:1] == ['api'] and any('/issues?' in a or a.endswith('/issues') for a in argv):\n"
-        "    print('[]')            # the REST listing, same honest empty answer\n"
-        "    sys.exit(0)\n"
-        "if 'view' in argv or argv[:1] == ['api']:\n"
-        "    found = _number()\n"
-        "    if found is not None:\n"
-        "        print(json.dumps(ISSUES[found])); sys.exit(0)\n"
-        "    sys.exit(1)\n"
-        "print('{}')\n",
-        encoding="utf-8",
-    )
+    payload = _json.dumps({str(k): v for k, v in issues.items()})
+    script.write_text(_STUB_GH.replace("__ISSUES__", payload), encoding="utf-8")
     script.chmod(0o755)
 
     config = root / ".atdd" / "config.yaml"
@@ -212,7 +233,6 @@ def write_stub_gh(root: Path, issues: Dict[int, Dict[str, Any]]) -> Path:
         "version: '1.0'\ngithub:\n  repo: atdd-test/atdd-test\n", encoding="utf-8"
     )
     return bindir
-
 
 def stub_issue(number: int, *, body: str = "", status: str = "PLANNED") -> Dict[str, Any]:
     """The shape `IssueLifecycle._fetch_issue` expects back from `gh issue view`."""
