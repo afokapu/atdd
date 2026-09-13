@@ -1,0 +1,126 @@
+urn: wmbt:govern-registry:E004
+step: execute
+direction: minimize
+dimension: likelihood
+object_of_control: sanctioned-core-rule-retirement-reported-as-mirror-drift
+context_clarifier: "when a core rule leaves core on purpose and an extension carries\
+  \ its obligation, because mirror coherence cannot separate three states and reports\
+  \ two legitimate ones as the fault \u2014 a stale mirror whose core rule was RENAMED\
+  \ is genuine drift and must fail, a completed carve-out whose core rule was DELIBERATELY\
+  \ DELETED because the extension node superseded it is the correct end state, and\
+  \ an extension-native node that claims no core ancestor never had one; the first\
+  \ two are indistinguishable from the node alone, since both present a legacy_rule_id\
+  \ naming a core rule that is not there, so the difference is not recoverable by\
+  \ reading harder and must be DECLARED; measured 2026-09-13 on origin/main, all 18\
+  \ coder.base incoherences trace to a single deliberate commit, 47c4d414 (#1518,\
+  \ 2026-07-18), which removed those rule_ids from core and handed them to this extension\
+  \ by name, 18 of 18 matched with 0 unexplained, so today's 35 red findings contain\
+  \ zero drift; the same missing fact is what #1993 needs for evaluate_core_deletion,\
+  \ whose twinless branch cannot tell deliberately retiring a rule from moving it\
+  \ and forgetting to bring it, and #1714 then makes the problem grow rather than\
+  \ shrink, authoring 89 agnostic nodes whose core copies #1993 deletes, manufacturing\
+  \ the carve-out state 89 more times"
+lens: functional.effectiveness
+statement: minimize likelihood of sanctioned-core-rule-retirement-reported-as-mirror-drift
+  when a core rule leaves core on purpose and an extension carries its obligation,
+  by declaring each sanctioned retirement in an evidence-bearing ledger keyed on the
+  retired core rule_id and naming what succeeds it, and by resolving mirror coherence
+  against that ledger, so a completed carve-out reads as the correct end state while
+  a genuine rename still fails loudly and an undeclared deletion is never forgiven
+acceptances:
+- identity:
+    urn: acc:govern-registry:E004-UNIT-001-a-declared-retirement-is-coherent-and-an-undeclared-one-still-fails
+    id: AC-UNIT-001
+    purpose: "the discrimination itself \u2014 a mirror whose dead legacy_rule_id\
+      \ is declared retired is not reported, while an identically-shaped mirror whose\
+      \ dead legacy_rule_id is NOT declared still is; declaring a retirement must\
+      \ not become a way to forgive drift in general"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - "a substrate with two extension nodes indistinguishable in shape \u2014 each\
+      \ declares a source.legacy_rule_id naming a core rule absent from the injected\
+      \ registry \u2014 and a retirement ledger declaring exactly one of those two\
+      \ core rule_ids retired, with the issue that retired it and the extension rule\
+      \ that succeeds it"
+  when:
+    abstract: mirror coherence is resolved over the two nodes against the injected
+      core registry and that ledger
+  then:
+    abstract:
+    - "the node whose legacy_rule_id is declared retired is NOT reported \u2014 the\
+      \ obligation moved, so the missing core rule is the expected end state and not\
+      \ a fault"
+    - the node whose legacy_rule_id is not declared retired IS still reported, naming
+      it, so a genuine rename remains a loud failure
+    - a node whose legacy_rule_id resolves to a live core rule is reported in neither
+      case, so the ledger changes nothing for a mirror that never drifted
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-13'
+- identity:
+    urn: acc:govern-registry:E004-UNIT-002-the-ledger-fails-closed-and-refuses-a-retirement-with-no-evidence
+    id: AC-UNIT-002
+    purpose: "absence is never the licence \u2014 an absent ledger retires nothing\
+      \ rather than forgiving everything, and an entry that names neither the issue\
+      \ that retired the rule nor what succeeds it is refused rather than read as\
+      \ a retirement"
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a substrate with no ledger at all, the same substrate with a ledger whose entry
+      omits its retiring issue, and the same substrate with a ledger whose entry declares
+      explicitly that nothing succeeds the rule
+  when:
+    abstract: the ledger is read in each case and mirror coherence is resolved against
+      what it yields
+  then:
+    abstract:
+    - "no ledger yields no retirements, so every drifted mirror is still reported\
+      \ \u2014 the safe direction, because a missing file read as blanket forgiveness\
+      \ would silently green the one gate that watches this"
+    - an entry with no retiring issue is refused loudly rather than admitted, so a
+      retirement cannot be asserted without the evidence that it was sanctioned
+    - an entry declaring that nothing succeeds the rule is admitted and IS a retirement,
+      because a rule genuinely withdrawn is a real outcome that must be sayable and
+      distinguishable from one whose succession was forgotten
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-13'
+- identity:
+    urn: acc:govern-registry:E004-SMOKE-001-the-real-1518-carve-out-is-declared-and-the-residual-is-named
+    id: AC-SMOKE-001
+    purpose: 'over the toolkit''s real substrate the committed ledger accounts for
+      the whole #1518 carve-out and nothing else, and the findings it does not explain
+      are named rather than absorbed'
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - the toolkit's real vendored extension nodes, its real core registry, and its
+      committed retirement ledger
+  when:
+    abstract: mirror coherence is resolved over the real substrate against the committed
+      ledger, and again with no ledger
+  then:
+    abstract:
+    - with no ledger every real finding is reported, reproducing the pre-existing
+      count, so the ledger is shown to be what changes the verdict
+    - with the committed ledger every finding whose legacy_rule_id it declares retired
+      is gone, and each such declaration names the issue that retired that rule
+    - "the findings that remain are exactly the extension nodes declaring no legacy_rule_id\
+      \ at all, which are a different state this ledger deliberately does not speak\
+      \ to \u2014 they are named in the residual rather than quietly absorbed by it"
+    - every rule_id the committed ledger declares retired is genuinely absent from
+      the live core registry, so the ledger cannot forgive a rule that is still there
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-13'

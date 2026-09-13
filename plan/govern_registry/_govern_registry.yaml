@@ -23,9 +23,9 @@ produce:
   to: internal
 consume: []
 wmbt:
-  total: 4
+  total: 5
   D001: "minimize likelihood of registry-scope-ambiguity by keeping the atdd validate rule registry rooted at the core src/atdd tree alone, recording the core-only decision with its evidence, and proving that admitting the extension mirror nodes would add no new rule and only duplicate ids"
   E001: "minimize likelihood of convention-mirror-drift by resolving every extension node's source.legacy_rule_id against the live core rule registry and failing loudly on any node whose named core rule no longer exists, so a renamed or deleted core rule cannot leave an extension mirror pointing at nothing"
   E002: "maximize likelihood of duplicate-rule-detection by raising DuplicateRuleError on any rule_id declared in both the core registry and the extension mirror set, stating the CORE-precedes-extension precedence, so a cross-registry collision fails loudly instead of silently shadowing the core rule"
-  E003: minimize quantity of core-coder-tester-obligations-carrying-neither-an-extension-twin-nor-a-declared-why-not when a core convention declaration is moved out of core, by measuring twin coverage for every core coder/tester rule_id through the shipped loader on both surfaces and refusing to certify the surface move-ready while any rule is neither mirrored by an extension node nor recorded with a why-not verdict in a classification record, so a carve-out cannot report success while the obligation it moved has silently disappeared
-...
+  E003: "minimize quantity of core-coder-tester-obligations-carrying-neither-an-extension-twin-nor-a-declared-why-not when a core convention declaration is moved out of core, by measuring twin coverage for every core coder/tester rule_id through the shipped loader on both surfaces and refusing to certify the surface move-ready while any rule is neither mirrored by an extension node nor recorded with a why-not verdict in a classification record, so a carve-out cannot report success while the obligation it moved has silently disappeared"
+  E004: "minimize likelihood of sanctioned-core-rule-retirement-reported-as-mirror-drift when a core rule leaves core on purpose and an extension carries its obligation, by declaring each sanctioned retirement in an evidence-bearing ledger keyed on the retired core rule_id and naming what succeeds it, and by resolving mirror coherence against that ledger, so a completed carve-out reads as the correct end state while a genuine rename still fails loudly and an undeclared deletion is never forgiven"

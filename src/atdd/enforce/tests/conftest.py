@@ -320,3 +320,22 @@ def write_binding_lock(project_root: Path, conventions: list[dict]) -> Path:
     dest = atdd / "binding.lock.yaml"
     dest.write_text(yaml.safe_dump(lock, sort_keys=False), encoding="utf-8")
     return dest
+
+
+def write_retirement_ledger(project_root: Path, entries: dict) -> Path:
+    """Write a real ``.atdd/retirements.yaml`` declaring each sanctioned retirement.
+
+    ``entries`` maps a retired CORE rule_id to its entry body, so a test can write a
+    well-formed declaration and an incomplete one (E004 UNIT-002) with the same
+    builder — the reader's refusal must come from the entry, not from this helper.
+    """
+    import yaml
+
+    atdd = project_root / ".atdd"
+    atdd.mkdir(parents=True, exist_ok=True)
+    dest = atdd / "retirements.yaml"
+    dest.write_text(
+        yaml.safe_dump({"version": 1, "retirements": entries}, sort_keys=False),
+        encoding="utf-8",
+    )
+    return dest
