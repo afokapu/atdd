@@ -37,7 +37,12 @@ def _seed_store(root: Path, *, slug: str, issue_number: int, train: str) -> None
     try:
         store = StateStore(conn)
         store.objects.upsert(
-            slug, WORK_ITEM_KIND, state="PLANNED",
+            # #2011: the store is the phase source, so it must agree with the label
+            # this fixture stubs (`atdd:RED`). It said PLANNED while the label said RED —
+            # harmless while `update()` read the label, and a PLANNED->GREEN refusal once
+            # it reads the store, which would stop this test before the train gate it is
+            # actually about ever runs.
+            slug, WORK_ITEM_KIND, state="RED",
             data={"issue_number": issue_number, "train": train},
         )
         store.external_refs.link(slug, GITHUB_PROVIDER, "issue", str(issue_number), data={})

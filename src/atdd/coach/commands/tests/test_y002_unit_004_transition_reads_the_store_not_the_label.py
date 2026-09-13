@@ -1,4 +1,4 @@
-# Acceptance: acc:drive-state-machine:Y002-UNIT-003-transition-reads-the-store-not-the-label
+# Acceptance: acc:drive-state-machine:Y002-UNIT-004-transition-reads-the-store-not-the-label
 """#2011 — `update()` must derive the current phase from the STORE, not the label.
 
 #1452 made `objects.state` authoritative for the lifecycle after a label race silently
