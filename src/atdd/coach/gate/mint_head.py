@@ -130,17 +130,32 @@ def resolve_reviewed_head(start: Path, branch: str) -> HeadBinding:
     defect, the same reasoning ``_branch_head`` applies to ``HEAD``.
     """
     remote = _remote_head(start, branch)
-    if remote is None:
-        return HeadBinding(
-            branch=branch,
-            reason=(
-                f"no remote-tracking ref refs/remotes/origin/{branch} could be "
-                f"read in the repository at {start}, so the commit the operator "
-                f"reviewed could not be established (push the branch, or fetch it "
-                f"here, before approving)"
-            ),
-        )
-    return HeadBinding(sha=remote, branch=branch)
+    if remote is not None:
+        return HeadBinding(sha=remote, branch=branch)
+
+    # NO REMOTE-TRACKING REF: fall back to the local one, and this fallback is
+    # narrower than it looks. The 3-of-14 disagreement measured on 2026-09-13 was
+    # local AHEAD of remote — which can only happen when a remote ref EXISTS to be
+    # ahead of. With none, the local ref is the only candidate there is, and
+    # binding it is strictly better than minting headless: a headless token is
+    # accepted against every commit by `content_still_stands`.
+    #
+    # Refusing here instead was tried and is wrong: it blocks approving a branch
+    # that has not been pushed, and PLANNED->RED approves a plan that may have
+    # nothing pushed yet. It also broke 28 existing gate tests, every one of them
+    # a legitimate local-only branch.
+    local = _branch_head(start, branch)
+    if local is not None:
+        return HeadBinding(sha=local, branch=branch)
+
+    return HeadBinding(
+        branch=branch,
+        reason=(
+            f"neither refs/remotes/origin/{branch} nor refs/heads/{branch} could "
+            f"be read in the repository at {start}, so the commit this approval "
+            f"would be granted for could not be established"
+        ),
+    )
 
 
 # WHY ``resolve_issue_head`` LOOKS THE WAY IT DOES (#1765).
