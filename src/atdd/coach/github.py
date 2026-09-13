@@ -361,12 +361,30 @@ class GitHubClient:
             args += ["-f", f"labels[]={label}"]
         self._run_gh(args)
 
+    #: GitHub's wording for "that label is not on this issue". The ONLY failure a
+    #: removal may treat as success — see :meth:`remove_label`.
+    _LABEL_ABSENT = "label does not exist"
+
     def remove_label(self, issue_number: int, labels: List[str]) -> None:
         """Remove labels from an issue, over REST.
 
-        One DELETE per label — REST has no batch form. A label that is already
-        absent returns 404, which is the desired end state rather than an error,
-        so it is not raised.
+        One DELETE per label — REST has no batch form — and a label that is
+        already absent is the desired end state rather than an error, so that one
+        failure is tolerated.
+
+        Tolerated on the WORDING, never on the status (#1995). GitHub answers an
+        unwritable resource with 404 rather than 403, so these two share a status
+        and differ only in text::
+
+            absent label  ->  "Label does not exist"  (HTTP 404)
+            cannot write  ->  "Not Found"             (HTTP 404)
+
+        Matching the status reported the second as the first, so a transition
+        that could not swap its label said it had, and the store advanced while
+        GitHub did not — the divergence #1666's review found and could not
+        attribute. It is the same distinction :mod:`atdd.coach.utils.gh_failure`
+        draws one layer down, for the same reason: ABSENT is an answer,
+        UNAVAILABLE is not, and only the wording separates them.
         """
         for label in labels:
             try:
@@ -375,7 +393,7 @@ class GitHubClient:
                     f"repos/{self.repo}/issues/{issue_number}/labels/{label}",
                 ])
             except GitHubClientError as exc:
-                if "404" not in str(exc) and "Label does not exist" not in str(exc):
+                if self._LABEL_ABSENT not in str(exc).lower():
                     raise
                 logger.debug(
                     "remove_label: label already absent",
