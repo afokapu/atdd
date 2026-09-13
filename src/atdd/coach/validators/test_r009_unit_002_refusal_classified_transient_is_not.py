@@ -33,6 +33,15 @@ from atdd.coach.github import (
 )
 
 # The exact stderr from run 30199788383 on #1601.
+#
+# #1989 moved label writes off `gh issue edit` onto REST, so this precise line —
+# with its GraphQL mutation name — is no longer the one this repository would
+# produce; the REST equivalent is "HTTP 403: Resource not accessible by personal
+# access token". It is KEPT as the fixture deliberately: it is the captured
+# wording from the run that produced the issue, classification matches on the
+# wording rather than the transport or the status code (see the module
+# docstring), and a sample that still classifies correctly after the transport
+# moved underneath it is the proof that it matches on the right thing.
 _LIVE_REFUSAL = (
     "GraphQL: Resource not accessible by personal access token "
     "(removeLabelsFromLabelable)"
@@ -67,7 +76,10 @@ def test_permission_refusal_is_raised_as_its_own_type(monkeypatch) -> None:
     message = str(refused.value)
     assert "permission" in message.lower(), message
     # It names the failing call and quotes what GitHub actually said.
-    assert "issue" in message and "edit" in message, message
+    # Matched on WHAT the call was about — this issue, its labels — rather than
+    # on the argv words `issue edit`, which named one transport and stopped
+    # being true when #1989 moved the write to REST.
+    assert "1601" in message and "labels" in message, message
     assert "Resource not accessible" in message, message
 
 

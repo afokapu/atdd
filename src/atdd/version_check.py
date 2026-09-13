@@ -235,17 +235,6 @@ def _load_repo_config() -> Tuple[Optional[dict], Optional[Path]]:
         return None, None
 
 
-def _get_last_toolkit_version(config: dict) -> Optional[str]:
-    """Extract toolkit.last_version from config.
-
-    Read-only legacy accessor: the field is the pre-#1641 storage location and
-    is consulted exactly once, by :func:`_adopt_legacy_last_version`, to seed the
-    untracked record. Nothing writes it any more.
-    """
-    toolkit = config.get("toolkit", {})
-    return toolkit.get("last_version")
-
-
 def _sync_record_path(root: Optional[Path] = None) -> Path:
     """Path to this checkout's toolkit-sync record."""
     return (root or Path.cwd()) / ".atdd" / "runtime" / "toolkit-sync.json"
@@ -319,23 +308,6 @@ def record_toolkit_sync(root: Optional[Path] = None, version: Optional[str] = No
         return False
 
 
-def _legacy_last_version(config: dict) -> Optional[str]:
-    """The pre-#1641 ``toolkit.last_version``, read only.
-
-    Deliberately does NOT write the untracked record. ``check_upgrade_sync_needed``
-    runs on every CLI invocation, including ``atdd --help``, and #342 established
-    that the check must not write anything — adopting the legacy value here would
-    re-introduce a write on the read path.
-
-    Migration therefore happens on the next ``atdd sync``, which is the command
-    the banner tells the operator to run and the only writer of the record. Cost
-    of the pure read: an unsynced repo sees one more banner carrying the stale
-    legacy from-version, and it is correct from then on.
-    """
-    last_version = _get_last_toolkit_version(config)
-    return str(last_version) if last_version else None
-
-
 def _upgrade_sync_message(last_version: str) -> Optional[str]:
     """The sync notice for an upgrade away from ``last_version``, with any
     upgrade notes appended. None when the installed version is not newer."""
@@ -364,8 +336,8 @@ def check_upgrade_sync_needed() -> Optional[str]:
     Check whether this checkout needs sync after an ATDD upgrade.
 
     Compares the installed version against the version recorded in
-    ``.atdd/runtime/toolkit-sync.json`` (see :func:`record_toolkit_sync`),
-    falling back once to the legacy ``toolkit.last_version`` field.
+    ``.atdd/runtime/toolkit-sync.json`` (see :func:`record_toolkit_sync`), which
+    is the only source — there is no second one to disagree with it (#1989).
 
     Returns:
         Message to display if sync needed, None otherwise.
@@ -388,12 +360,16 @@ def check_upgrade_sync_needed() -> Optional[str]:
             # No .atdd/config.yaml — not an ATDD repo or not initialized.
             # Stay silent, exactly as before #1641.
             return None
-        recorded = _legacy_last_version(config)
-        if recorded is None:
-            # An ATDD repo that has never recorded a sync (fresh init, or a
-            # config predating the legacy field). Treat as needing sync — but
-            # with no credible from-version, do not invent one.
-            return f"ATDD upgraded to {__version__}. Run: atdd upgrade"
+        # An ATDD repo that has never recorded a sync. It needs one — but there
+        # is no credible from-version, so do not invent one. #1641 invented one
+        # here, by falling back to the git-tracked ``toolkit.last_version``; that
+        # read is gone (#1989). It was kept as a courtesy to repos synced before
+        # the record existed, and it became the common path instead: measured
+        # 2026-09-13, 3 of 102 checkouts carried a record, and the other 99 were
+        # told they had upgraded from 3.106.0 — a value committed on 2026-06-09
+        # that git restores the moment anything moves it. Naming no from-version
+        # is the answer ``atdd upgrade`` has given since #1820.
+        return f"ATDD upgraded to {__version__}. Run: atdd upgrade"
 
     return _upgrade_sync_message(recorded)
 
@@ -427,8 +403,9 @@ def print_upgrade_sync_notice() -> None:
     ``.atdd/config.yaml`` and the agent configs on every CLI invocation —
     including ``atdd --help``. That violated the contract that read-only
     commands leave the working tree clean. The warning is the useful part;
-    the write was the bug. #1641 preserves that invariant: the legacy-field
-    fallback in :func:`_legacy_last_version` reads and never adopts.
+    the write was the bug. The invariant still holds and is now structural:
+    with the legacy fallback gone (#1989) there is nothing left on this path
+    that could be tempted to adopt a value, only the record ``atdd sync`` writes.
     """
     try:
         notice = check_upgrade_sync_needed()

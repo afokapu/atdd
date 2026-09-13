@@ -218,13 +218,25 @@ def _write_gh_stub(bin_dir: Path) -> None:
         "argv = sys.argv[1:]\n"
         # The label write — the operation under test. Refuse it exactly as
         # GitHub did, on stderr, with a non-zero exit.
-        "if argv[:2] == ['issue', 'edit'] and any(\n"
-        "        a in ('--add-label', '--remove-label') for a in argv):\n"
+        # #1989 moved these to REST, so the label write is now a POST/DELETE on
+        # `.../issues/<n>/labels` and the read is `gh api repos/<repo>/issues/<n>`.
+        # Both transports are answered: what is under test is that a REFUSED
+        # label write exits red and says why, not which verb GitHub was asked in.
+        "def _is(*parts):\n"
+        "    return any(all(p in a for p in parts) for a in argv)\n"
+        "LABEL_WRITE = (\n"
+        "    (argv[:2] == ['issue', 'edit']\n"
+        "     and any(a in ('--add-label', '--remove-label') for a in argv))\n"
+        "    or (argv[:1] == ['api'] and _is('/issues/', '/labels'))\n"
+        ")\n"
+        "if LABEL_WRITE:\n"
         "    sys.stderr.write(REFUSAL + '\\n')\n"
         "    sys.exit(1)\n"
-        "if argv[:2] == ['issue', 'view']:\n"
+        "if argv[:2] == ['issue', 'view'] or (\n"
+        "        argv[:1] == ['api'] and _is('/issues/')):\n"
         "    print(json.dumps(ISSUE))\n"
-        "elif argv[:2] == ['issue', 'list']:\n"
+        "elif argv[:2] == ['issue', 'list'] or (\n"
+        "        argv[:1] == ['api'] and _is('/issues')):\n"
         "    print(json.dumps([ISSUE]))\n"
         "elif argv[:2] == ['pr', 'list']:\n"
         "    print(json.dumps([]))\n"
