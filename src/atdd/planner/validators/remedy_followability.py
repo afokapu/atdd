@@ -36,7 +36,7 @@ import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, Iterator, List, Optional, Sequence, Tuple
+from typing import Dict, Iterator, List, Optional, Sequence, Tuple
 
 import yaml
 
@@ -251,10 +251,10 @@ def verb_documented_as_retired(text: str, verb: str) -> bool:
     mentions = list(re.finditer(re.escape(verb), text))
     if not mentions:
         return False
-    for match in mentions:
-        if not _VERB_RETIREMENT.search(_sentence_around(text, match.start())):
-            return False
-    return True
+    return all(
+        _VERB_RETIREMENT.search(_sentence_around(text, match.start()))
+        for match in mentions
+    )
 
 
 def _git_ignored(repo_root: Path, token: str) -> bool:
@@ -274,8 +274,18 @@ def _git_ignored(repo_root: Path, token: str) -> bool:
             capture_output=True,
             check=False,
         )
-    except OSError:
-        return False
+    except OSError as exc:  # pragma: no cover - broken environment
+        # Loud, not absorbed. Returning "not ignored" here would silently
+        # convert `.atdd/runtime/`, `.atdd/state/state.sqlite` and
+        # `.atdd/smoke-evidence/` into three strict violations whose stated
+        # cause ("the prose names a path not in the repo") would be a lie —
+        # the path is there, git just could not be asked.
+        raise RuntimeError(
+            f"cannot run `git check-ignore` in {repo_root}: {exc}. This rule is "
+            f"platform-gated to the ATDD checkout, so git is expected to be "
+            f"available; without it the gitignored-runtime exclusion cannot be "
+            f"evaluated."
+        ) from exc
     return completed.returncode == 0
 
 
@@ -314,10 +324,10 @@ def _walk_strings(node, path: Tuple[str, ...] = ()) -> Iterator[Tuple[Tuple[str,
     """Yield ``(keypath, string)`` for every string in a parsed node."""
     if isinstance(node, dict):
         for key, value in node.items():
-            yield from _walk_strings(value, path + (str(key),))
+            yield from _walk_strings(value, (*path, str(key)))
     elif isinstance(node, list):
         for value in node:
-            yield from _walk_strings(value, path + ("[]",))
+            yield from _walk_strings(value, (*path, "[]"))
     elif isinstance(node, str):
         yield path, node
 
