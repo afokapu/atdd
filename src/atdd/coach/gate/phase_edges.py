@@ -37,6 +37,7 @@ never pays for a gate run.
 """
 from __future__ import annotations
 
+import itertools
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -130,6 +131,67 @@ def phase_machine(path: Optional[Path] = None) -> Dict[str, Tuple[str, ...]]:
             f"the phase machine at {source} declares no `phases` mapping"
         )
     return {str(name).upper(): _declared_targets(spec) for name, spec in phases.items()}
+
+
+#: The escapes: reachable from any rung, ordered against none. This is the ONE
+#: remaining literal in the phase vocabulary and it is deliberate — the convention
+#: gives an escape no structural marker (``OBSOLETE`` and ``COMPLETE`` are both
+#: ``agent: null`` with ``transitions_to: []``), and inbound-degree cannot separate
+#: them either, because ``BLOCKED`` transitions back onto the spine. #1946 collapsed
+#: eight copies of the phase vocabulary into one; this set is what could not be
+#: derived, so it lives here once and D004-UNIT-005 pins it against the convention.
+#: Re-exported, NOT redefined (#1967). This set had three copies and this change
+#: adds a member to it, which is how the phase vocabulary forked in #1946 one
+#: layer down. It lives in ``atdd.state.evidence`` rather than here because coach
+#: may import state and state may never import coach.
+from atdd.state.evidence import ESCAPES  # noqa: E402  (re-export)
+
+
+def _forward_target(declared: Dict[str, Tuple[str, ...]], phase: str) -> Optional[str]:
+    """``phase``'s single non-escape target, or ``None`` when it is terminal.
+
+    Split out of :func:`spine` so the walk reads as "step until terminal" and the
+    per-step validity rule lives in one place (``coder.refactor.complexity-cyclomatic``).
+    """
+    forward = [target for target in declared.get(phase, ()) if target not in ESCAPES]
+    if not forward:
+        return None
+    if len(forward) != 1:
+        raise PhaseMachineUnavailable(
+            f"{phase} declares {len(forward)} non-escape targets {forward}; the "
+            "lifecycle is not a linear spine and has no successor function"
+        )
+    return forward[0]
+
+
+def spine(machine: Optional[Dict[str, Tuple[str, ...]]] = None) -> Tuple[str, ...]:
+    """The lifecycle's linear chain: INIT, then each phase's one non-escape target.
+
+    The single walker. Before #1946 this walk was restated in five successor maps
+    (``_COLD_START_ADVANCE_FROM``, two ``_ADVANCE_FROM``/``_PHASE_TRAILER_MAP``
+    pairs, ``_NEXT_PHASE``), a ``PLANNED_PATH`` literal, and a fixture inside
+    ``test_J3_integration_001``. They agreed only because the spine had not moved.
+
+    Raises :class:`PhaseMachineUnavailable` if the chain forks or cycles — a phase
+    machine that is not linear has no single successor function, and a caller
+    asking "what follows X" must not receive a guess.
+    """
+    declared = machine if machine is not None else phase_machine()
+    if "INIT" not in declared:
+        raise PhaseMachineUnavailable("the phase machine declares no INIT phase")
+    chain = ["INIT"]
+    seen = {"INIT"}
+    while (nxt := _forward_target(declared, chain[-1])) is not None:
+        if nxt in seen:
+            raise PhaseMachineUnavailable(f"the phase machine cycles back to {nxt}")
+        seen.add(nxt)
+        chain.append(nxt)
+    return tuple(chain)
+
+
+def successor(machine: Optional[Dict[str, Tuple[str, ...]]] = None) -> Dict[str, str]:
+    """``{phase: the phase that follows it}`` along the spine. Terminal has no entry."""
+    return dict(itertools.pairwise(spine(machine)))
 
 
 @dataclass(frozen=True)

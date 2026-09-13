@@ -21,11 +21,11 @@ import logging
 import re
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import yaml
 
-from atdd.coach.commands.issue_prefixes import TYPE_TO_PREFIX
+from atdd.coach.commands.issue_prefixes import prefix_for
 from atdd.coach.utils.default_branch import resolve_default_branch
 from atdd.coach.utils.ff_default_branch import fast_forward_default_branch
 from atdd.coach.utils.risk_score import (
@@ -229,8 +229,18 @@ class PRManager:
                 return name.split(":")[1]
         return None
 
-    def _fetch_pr(self, pr_number: int) -> Optional[dict]:
-        """Fetch PR details from GitHub via gh CLI."""
+    def _read_pr(self, pr_number: int) -> Tuple[Optional[dict], Optional[str]]:
+        """Fetch PR details, returning ``(data, cause)`` — ``cause`` set iff data is None.
+
+        The cause is the point (#1963). Every way this call fails — a non-zero ``gh``
+        exit, a timeout, ``gh`` missing, unparseable output — used to collapse into a
+        bare ``None`` with the explanation logged at DEBUG, which in CI is the same as
+        discarding it. A rate limit, a permission fault and a timeout are three
+        different repairs, and the caller could name none of them.
+
+        So the reason is RETURNED, not logged: it has to survive into
+        :meth:`read_linked_issue`'s refusal, which is what an operator actually reads.
+        """
         try:
             result = subprocess.run(
                 ["gh", "pr", "view", str(pr_number),
@@ -240,12 +250,28 @@ class PRManager:
                 cwd=self.target_dir,
             )
             if result.returncode != 0:
-                logger.debug("gh pr view %d failed: %s", pr_number, result.stderr.strip())  # atdd:suppress(coder.logging.structured) UNTIL=2026-12-06
-                return None
-            return json.loads(result.stdout)
+                detail = result.stderr.strip() or result.stdout.strip() or "no output"
+                logger.warning(
+                    "gh pr view failed",
+                    extra={"pr": pr_number, "exit_code": result.returncode, "detail": detail},
+                )
+                return None, f"gh pr view exited {result.returncode}: {detail}"
+            return json.loads(result.stdout), None
         except (subprocess.TimeoutExpired, FileNotFoundError, ValueError) as exc:
-            logger.debug("Failed to fetch PR #%d: %s", pr_number, exc)  # atdd:suppress(coder.logging.structured) UNTIL=2026-12-06
-            return None
+            logger.warning(
+                "gh pr view could not be run to completion",
+                extra={"pr": pr_number, "error": str(exc), "type": type(exc).__name__},
+            )
+            return None, f"{type(exc).__name__}: {exc}"
+
+    def _fetch_pr(self, pr_number: int) -> Optional[dict]:
+        """Fetch PR details from GitHub via gh CLI.
+
+        Kept as the data-only view for callers that cannot act on a cause. Anything
+        that REPORTS a failure should call :meth:`_read_pr` and pass the cause on;
+        dropping it here is the defect #1963 fixed one layer up.
+        """
+        return self._read_pr(pr_number)[0]
 
     def _resolve_via_api(self, pr_data: dict) -> Optional[int]:
         """Strategy 1: GitHub closingIssuesReferences (most authoritative)."""
@@ -298,10 +324,10 @@ class PRManager:
         """
         from atdd.coach.validators._observation import Reading
 
-        pr_data = self._fetch_pr(pr_number)
+        pr_data, cause = self._read_pr(pr_number)
         if not pr_data:
             return Reading.unreadable(
-                f"could not read PR #{pr_number} (see `gh pr view {pr_number}`); "
+                f"could not read PR #{pr_number}: {cause or 'no cause reported'}; "
                 "the link was never inspected, so nothing is known about it",
                 subject=pr_number,
             )
@@ -473,7 +499,7 @@ class PRManager:
             feat(atdd): Pr Auto Close (#182)
             fix(atdd): broken urn validation (#99)
         """
-        prefix = TYPE_TO_PREFIX.get(issue_type, "feat")
+        prefix = prefix_for(issue_type)
 
         # If the issue title already has a conventional prefix, use it as-is
         # Matches both "feat:" and "feat(scope):" patterns

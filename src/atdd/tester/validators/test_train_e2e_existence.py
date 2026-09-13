@@ -25,9 +25,14 @@ from typing import List
 from atdd.coach.utils.repo import find_repo_root
 from atdd.tester.validators.test_smoke_coverage import PlanTrainDiscovery, e2e_dir_for
 from atdd.coach.utils.disposition_gate import assert_disposition_satisfied
+from atdd.coach.utils.rule_binding import bind_rule
+from atdd.coach.validators._violation import Violation
+from atdd.tester.validators._acceptance_walker import coverage_is_due
 
 
 REPO_ROOT = find_repo_root()
+
+_RULE = bind_rule("tester.smoke.train-e2e-required-from-red")
 E2E_DIR = REPO_ROOT / "e2e"
 TRAINS_FILE = REPO_ROOT / "plan" / "_trains.yaml"
 
@@ -105,9 +110,15 @@ def test_train_e2e_existence():
         pytest.skip("No trains registered in plan/_trains.yaml")
 
     violations = [
-        f"{s.train_id}: no E2E tests in e2e/{s.train_id}/"
+        Violation(
+            rule_id=_RULE.rule_id,
+            severity=_RULE.severity,
+            location=f"plan/_trains.yaml:{s.train_id}",
+            detail=f"{s.train_id}: no E2E tests in e2e/{s.train_id}/",
+            fix_hint_ref=_RULE.fix_hint_ref,
+        )
         for s in statuses
-        if not s.has_tests
+        if not s.has_tests and coverage_is_due(REPO_ROOT, s.train_id)
     ]
 
     if violations:

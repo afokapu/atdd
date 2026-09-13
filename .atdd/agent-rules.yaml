@@ -42,9 +42,9 @@ rules:
   - id: "AR-007"
     rule: "Do NOT add 'Co-Authored-By: Claude <noreply@anthropic.com>' to commits in this repo"
     classification: soft-only
-    enforcement: "Documented in CLAUDE.md git.commits.co_authored=false; no automated check"
+    enforcement: "UNENFORCED and UNDOCUMENTED since #1941 deleted CLAUDE.md, which was this rule's only stated home (#1979); no automated check"
 
   - id: "AR-008"
     rule: "Run atdd gate before starting work on any issue; confirm loaded files and hash"
     classification: soft-only
-    enforcement: "Protocol documented in CLAUDE.md ATDD Bootstrap Protocol; no automated check"
+    enforcement: "UNENFORCED and UNDOCUMENTED since #1941 deleted CLAUDE.md, which carried the Bootstrap Protocol (#1979); no automated check"

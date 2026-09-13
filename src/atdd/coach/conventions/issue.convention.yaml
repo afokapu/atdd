@@ -136,36 +136,21 @@ workflow:
       skip_red: "BLOCKED - Implementation without RED test is untested code"
 
   # ---------------------------------------------------------------------------
-  # SESSION TYPE WORKFLOW MAPPING
   # ---------------------------------------------------------------------------
-  session_type_workflows:
-    implementation:
-      required_phases: ["planner", "tester", "coder"]
-      workflow: "Full ATDD cycle: Plan → Test (RED) → Code (GREEN) → Test (SMOKE) → Refactor"
-
-    migration:
-      required_phases: ["planner", "tester", "coder"]
-      workflow: "Plan migration → Write tests for new behavior → Migrate code"
-
-    refactor:
-      required_phases: ["tester", "coder"]
-      workflow: "Ensure tests exist → Refactor code → Verify tests still pass"
-
-    analysis:
-      required_phases: []
-      workflow: "No code changes - investigation only"
-
-    planning:
-      required_phases: ["planner"]
-      workflow: "Design only - produce specifications"
-
-    cleanup:
-      required_phases: ["coder"]
-      workflow: "Fix violations - tests already exist"
-
-    tracking:
-      required_phases: []
-      workflow: "Progress log - no direct implementation"
+  # SESSION TYPE WORKFLOW MAPPING — REMOVED (#1948)
+  # ---------------------------------------------------------------------------
+  # `session_type_workflows` (and its `required_phases`) declared a seven-member
+  # type vocabulary — implementation, migration, refactor, analysis, planning,
+  # cleanup, tracking — that NO Python ever read, and that disagreed with the one
+  # vocabulary the authoring validator enforces (`issue.schema.json`'s
+  # `type.enum`). Five of its members could not be authored at all, so an agent
+  # reading this block learned a model that did not exist: `analysis` looked like
+  # a valid investigation-only type and `atdd author issue --type analysis` was
+  # refused by the validator.
+  #
+  # The enforced vocabulary is issue.schema.json's `type.enum`, and the
+  # type -> prefix mapping is `coach/commands/issue_prefixes.py::TYPE_TO_PREFIX`,
+  # whose keys are drift-tested against that enum. There is no third source.
 
 # =============================================================================
 # GITHUB ISSUE TRACKING (v2 — replaces local session files)
@@ -223,15 +208,20 @@ github_issue_tracking:
         rule: "`atdd author issue --title <t> --slug <s>` creates wagon:{slug} if it does not exist"
 
   issue_types:
-    note: "Org-level feature — requires GitHub org with issue types enabled"
+    note: >-
+      Org-level feature — requires a GitHub org with issue types enabled. The
+      `parent` map is keyed by the ENFORCED type vocabulary
+      (issue.schema.json's `type.enum`); it previously carried five types that
+      could not be authored (migration, cleanup, analysis, planning, tracking)
+      and omitted four that could (bug, feature, docs, devops) — #1948.
     parent:
       implementation: "Feature"
-      migration: "Feature"
+      feature: "Feature"
+      bug: "Bug"
       refactor: "Task"
-      cleanup: "Task"
-      analysis: "Task"
-      planning: "Task"
-      tracking: "Task"
+      docs: "Task"
+      chore: "Task"
+      devops: "Task"
     sub_issue: "Task (always)"
 
   # The `atdd issue` monolith was REMOVED (#1309, umbrella #1303).

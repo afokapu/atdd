@@ -22,6 +22,19 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, NamedTuple, Optional
 
+# Phase is RE-EXPORTED, not defined here: it is atdd.coach.core.types.Phase.
+# Until #1946 this module defined a SECOND Phase enum carrying MERGED and lacking
+# OBSOLETE. Both were str mixins, so handlers.Phase.COMPLETE ==
+# core.types.Phase.COMPLETE was True and frozenset membership across the two
+# classes succeeded — only `is` could see the fork, which is why it survived from
+# #496 while Phase("OBSOLETE") raised on every live transition path.
+#
+# Bound by a plain import, NOT `Phase = Phase`: a self-assignment makes the name a
+# VARIABLE to a type checker, and every downstream `dict[Phase, Phase]` annotation
+# then fails reportInvalidTypeForm (44 sites).
+from atdd.coach.core.types import Phase
+from atdd.coach.gate.phase_edges import phase_machine, spine
+
 
 class HandlerResult(str, Enum):
     """Return value for every per-concern handle() stub."""
@@ -32,40 +45,17 @@ class HandlerResult(str, Enum):
     BLOCKED = "BLOCKED"
 
 
-class Phase(str, Enum):
-    """Per-issue lifecycle states (spec §4.1).
-
-    `str` mixin gives a stable string serialization for the eventual
-    decision-log writer (#J3); J1 itself never writes the log.
-    """
-
-    INIT = "INIT"
-    PLANNED = "PLANNED"
-    RED = "RED"
-    GREEN = "GREEN"
-    SMOKE = "SMOKE"
-    REFACTOR = "REFACTOR"
-    COMPLETE = "COMPLETE"
-    BLOCKED = "BLOCKED"
-    MERGED = "MERGED"
-
-    def __str__(self) -> str:
-        return self.value
-
-
+#: Legal transitions, PROJECTED from ``phase_machine.convention.yaml`` — whose own
+#: header says *add or change a phase HERE, never in Python*.
+#:
+#: Read at import. If the convention is unreadable this RAISES
+#: :class:`~atdd.coach.gate.phase_edges.PhaseMachineUnavailable` and the coach
+#: runtime does not load, which is deliberate and matches ``phase_edges``: a
+#: hardcoded fallback is the second source of truth the convention forbids, and it
+#: would fail OPEN at exactly the moment the two are most likely to disagree.
 TRANSITION_TABLE: dict[Phase, set[Phase]] = {
-    Phase.INIT:     {Phase.PLANNED, Phase.BLOCKED},
-    Phase.PLANNED:  {Phase.RED, Phase.BLOCKED},
-    Phase.RED:      {Phase.GREEN, Phase.BLOCKED},
-    Phase.GREEN:    {Phase.SMOKE, Phase.BLOCKED},
-    Phase.SMOKE:    {Phase.REFACTOR, Phase.BLOCKED},
-    Phase.REFACTOR: {Phase.COMPLETE, Phase.BLOCKED},
-    Phase.COMPLETE: {Phase.MERGED},
-    Phase.BLOCKED:  {
-        Phase.INIT, Phase.PLANNED, Phase.RED,
-        Phase.GREEN, Phase.SMOKE, Phase.REFACTOR,
-    },
-    Phase.MERGED:   set(),
+    Phase(name): {Phase(target) for target in targets}
+    for name, targets in phase_machine().items()
 }
 
 
@@ -73,10 +63,10 @@ def can_transition(src: Phase, dst: Phase) -> bool:
     return dst in TRANSITION_TABLE[src]
 
 
-PLANNED_PATH: tuple[Phase, ...] = (
-    Phase.INIT, Phase.PLANNED, Phase.RED, Phase.GREEN,
-    Phase.SMOKE, Phase.REFACTOR, Phase.COMPLETE, Phase.MERGED,
-)
+#: The linear spine, projected via the one walker (``phase_edges.spine``).
+#: Escapes are off the path by construction; the terminal is whatever the
+#: convention's chain ends on.
+PLANNED_PATH: tuple[Phase, ...] = tuple(Phase(name) for name in spine())
 
 
 @dataclass

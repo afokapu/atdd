@@ -6,7 +6,7 @@
 """D001-UNIT-001 — `atdd coach <issue>` initializes a state machine in INIT.
 
 Per spec §4.1: the per-issue state machine has nine states
-(INIT|PLANNED|RED|GREEN|SMOKE|REFACTOR|COMPLETE|BLOCKED|MERGED) and a
+(INIT|PLANNED|RED|GREEN|SMOKE|REFACTOR|COMPLETE|BLOCKED|OBSOLETE) and a
 transition table describing legal next states for each. J1 ships the
 *skeleton* — the enum and the table exist and are consulted, but no
 side-effecting transition handlers run.
@@ -23,7 +23,7 @@ def test_phase_enum_has_all_nine_states():
 
     expected = {
         "INIT", "PLANNED", "RED", "GREEN", "SMOKE",
-        "REFACTOR", "COMPLETE", "BLOCKED", "MERGED",
+        "REFACTOR", "COMPLETE", "BLOCKED", "OBSOLETE",
     }
     assert {p.name for p in Phase} == expected
 
@@ -32,7 +32,7 @@ def test_phase_enum_serializes_to_stable_string():
     from atdd.coach.commands.coach import Phase
 
     assert Phase.INIT.value == "INIT"
-    assert Phase.MERGED.value == "MERGED"
+    assert Phase.OBSOLETE.value == "OBSOLETE"
     assert str(Phase.PLANNED) == "PLANNED"
 
 
@@ -52,7 +52,7 @@ def test_transition_table_lifecycle_edges():
     assert Phase.SMOKE in TRANSITION_TABLE[Phase.GREEN]
     assert Phase.REFACTOR in TRANSITION_TABLE[Phase.SMOKE]
     assert Phase.COMPLETE in TRANSITION_TABLE[Phase.REFACTOR]
-    assert Phase.MERGED in TRANSITION_TABLE[Phase.COMPLETE]
+    assert TRANSITION_TABLE[Phase.COMPLETE] == set()  # terminal (#1946)
 
     for forward in (
         Phase.INIT, Phase.PLANNED, Phase.RED,
@@ -60,7 +60,7 @@ def test_transition_table_lifecycle_edges():
     ):
         assert Phase.BLOCKED in TRANSITION_TABLE[forward]
 
-    assert TRANSITION_TABLE[Phase.MERGED] == set()
+    assert TRANSITION_TABLE[Phase.OBSOLETE] == set()
 
 
 def test_can_transition_uses_table():
@@ -68,7 +68,7 @@ def test_can_transition_uses_table():
 
     assert can_transition(Phase.INIT, Phase.PLANNED) is True
     assert can_transition(Phase.INIT, Phase.GREEN) is False
-    assert can_transition(Phase.MERGED, Phase.INIT) is False
+    assert can_transition(Phase.OBSOLETE, Phase.INIT) is False
 
 
 def test_initialize_state_machine_returns_init_phase():

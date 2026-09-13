@@ -48,6 +48,7 @@ GRAPH_CONTEXT_UNAVAILABLE = (
 from atdd.coach.commands.issue_prefixes import (  # noqa: E402  (re-export, single source of truth)
     ALLOWED_BRANCH_PREFIXES,
     TYPE_TO_PREFIX,
+    prefix_for,
 )
 
 # The CLI verb that registers a new parent issue. Manifest-commit failures on
@@ -519,7 +520,7 @@ class IssueManager:
 
         # D001: seed Branch to `{prefix}/{slug}` based on issue_type so orchestrate
         # can resolve the branch without a post-hoc body amendment.
-        prefix = TYPE_TO_PREFIX.get(issue_type, "feat")
+        prefix = prefix_for(issue_type)
         branch_display = f"`{prefix}/{slug}`"
 
         template = self.parent_template_source.read_text()

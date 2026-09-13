@@ -3,7 +3,25 @@ rule_id: planner.criteria.metric-mapping
 kind: family
 status: active
 name: Dimension -> metric mapping
-statement: Each WMBT dimension+direction maps to a default metric_id (e.g. time/minimize -> metric:latency_p50).
+statement: Each WMBT dimension+direction maps to a default metric_id (e.g. time/minimize -> metric:latency_p50), or is explicitly declared unmapped. The table is total over wmbt.schema.json's dimension x direction enums; nothing falls through it silently.
+notes: "#1958: the node declared a dimension->metric contract and bound nothing \u2014\
+  \ no implementation, no validation, and `metric_id` in no schema and no validator,\
+  \ the same shape as #1548. Measured over 472 WMBTs, 368 carry a dimension+direction\
+  \ this table maps and NOT ONE states an executable bar; the single bar in the corpus\
+  \ (govern_lifecycle/D010) is quantity/minimize, which this table does not map. It\
+  \ is now bound to a real validator, ADVISORY: all 368 would fail on day one, and\
+  \ the remedy is not yet affordable because no error_ratio, success_ratio or\
+  \ occurrence_rate module exists for runners/metric_runner.py to resolve \u2014 so it\
+  \ reports a count and lets the debt be paid deliberately (issue Decision #2: phase\
+  \ it, never fail 368 at once). Before #1925 a threshold reached passes() stringified\
+  \ and every comparison was swallowed, so binding this node would have enforced a bar\
+  \ that was never evaluated; that constraint is gone."
+implementation:
+  type: validator
+  ref: test_metric_mapping_corpus_drift::test_mapped_wmbts_without_an_executable_bar_are_reported
+metadata:
+  severity: 2
+  disposition: advisory
 source:
   legacy_path: src/atdd/planner/conventions/criteria.convention.yaml
   legacy_section: metrics
@@ -18,21 +36,101 @@ parity:
 terms:
 - term_id: dimension_metric
   label: Dimension metrics
-  text: dimension -> direction -> metric_id.
+  text: >-
+    dimension -> direction -> metric_id. Keyed on wmbt.schema.json's `dimension`
+    and `direction` enums and TOTAL over their product (6 x 4 = 24 pairs): every
+    legal pair a WMBT can carry has a row here. A pair with no default metric
+    carries the `unmapped` sentinel and states its reason under `unmapped_pairs`,
+    so a reader can tell a deliberate omission from a missing row. The schema
+    owns both vocabularies — key this table at its exact spelling.
+    Pinned by test_metric_mapping_matches_the_wmbt_enums (#1959).
   values:
     time:
       minimize: metric:latency_p50
+      decrease: metric:latency_p50
       maximize: metric:latency_increase
-    likelihood:
-      maximize: metric:success_ratio
-      minimize: metric:error_ratio
+      increase: metric:latency_increase
     effort:
+      minimize: metric:user_steps
       decrease: metric:user_steps
+      maximize: unmapped
+      increase: unmapped
+    likelihood:
+      minimize: metric:error_ratio
+      decrease: metric:error_ratio
+      maximize: metric:success_ratio
+      increase: metric:success_ratio
     frequency:
+      minimize: metric:occurrence_rate
       decrease: metric:occurrence_rate
-    quantity / amount:
+      maximize: unmapped
+      increase: unmapped
+    quantity:
+      minimize: metric:scrap_rate
       decrease: metric:scrap_rate
       maximize: metric:throughput
+      increase: metric:throughput
     financial value:
       minimize: metric:cost_per_unit
+      decrease: metric:cost_per_unit
       maximize: metric:net_margin
+      increase: metric:net_margin
+- term_id: direction_synonyms
+  label: Direction synonyms
+  text: >-
+    The `direction` enum carries two spellings of each intent. `minimize` and
+    `decrease` both mean "less of this is better"; `maximize` and `increase`
+    both mean "more of this is better". A dimension resolves both spellings of
+    one intent to the same metric_id — before #1959 it did not, and 102 of the
+    472 authored WMBTs mapped to nothing because they wrote `minimize` where the
+    table had written `decrease`.
+  values:
+    downward:
+    - minimize
+    - decrease
+    upward:
+    - maximize
+    - increase
+- term_id: unmapped_pairs
+  label: Deliberately unmapped pairs
+  text: >-
+    The pairs carrying the `unmapped` sentinel in `dimension_metric`, with the
+    reason each has no default. Every dimension here names a downward metric
+    only; the table's other dimensions pair each intent with a DIFFERENT metric
+    (error_ratio vs success_ratio, scrap_rate vs throughput, cost_per_unit vs
+    net_margin), so an upward default cannot be the downward metric reused —
+    it would have to be a metric that was never chosen. A WMBT on one of these
+    pairs is legal and must state its own metric rather than inherit a default.
+  values:
+    effort:
+      maximize: >-
+        No upward default. `metric:user_steps` counts steps and the criteria
+        vocabulary optimises for fewer; no metric was ever chosen for wanting
+        more effort. Carried by wmbt:implement-code:E001.
+      increase: >-
+        No upward default; same as effort/maximize, which is its synonym.
+    frequency:
+      maximize: >-
+        No upward default. `metric:occurrence_rate` is paired with the downward
+        intent — the rate of an occurrence you want less of; no metric was
+        chosen for an occurrence you want more of. Carried by
+        wmbt:integrate-end-to-end:M001.
+      increase: >-
+        No upward default; same as frequency/maximize, which is its synonym.
+validation:
+  family: presence
+  template: required_field_presence
+  variant: planner_criteria_metric_mapping_corpus
+  phase: SMOKE
+  enforcement: advisory
+  subject_kind: wmbt
+  selector: WMBT files under plan/ whose dimension+direction this node maps to a metric_id
+  traversal: wmbt file -> acceptances[] -> signal.metric / signal.threshold
+  invariant: a WMBT the mapping covers states an executable bar naming the metric_id
+    the mapping assigns it
+  failure_evidence:
+  - wmbt_urn
+  - dimension
+  - direction
+  - metric_id
+  - cause

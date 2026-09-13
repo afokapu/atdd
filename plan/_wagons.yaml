@@ -623,7 +623,7 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 14
+    total: 15
     D002: maximize likelihood of a documentation-declaration recorded as first-class
       work-item state at Ratify, so every ratified plan states whether it changes
       accepted documentation and why when it does not
@@ -651,6 +651,8 @@ wagons:
       naming is validator-backed and bound
     E003: minimize likelihood of unenforced-artifact-naming-rule — artifact/contract
       naming is validator-backed and bound
+    E004: minimize likelihood of unbound-measurability-claim — the dimension-to-metric
+      mapping is validator-backed and bound, advisory
     Y001: minimize likelihood of decision-bypassing-elicit — keep/pivot/kill routes
       through the elicit channel
     Y002: minimize likelihood of stale-stage-vocabulary-on-the-plan-cli-surface —
@@ -981,7 +983,7 @@ wagons:
   - name: commons:coach:event-semantics-doc
     from: wagon:freeze-runtime-contracts
   wmbt:
-    total: 25
+    total: 26
     D001: minimize likelihood of ad-hoc-coach-state-machine-without-shared-skeleton
     D002: minimize likelihood of agent-runtime-side-effects-without-rule-ided-cli-surface
     P001: minimize likelihood of lossy-coach-decisions-and-judgments-on-restart
@@ -1012,6 +1014,7 @@ wagons:
       versus NOT_APPLICABLE split GateVerdict already models — carrying the reason
       the fetch failed, and exiting non-zero when the advance could not be attempted
       (#1640)
+    D004: minimize likelihood of phase-vocabulary-forked-across-python-copies
   total: 0
   manifest: plan/drive_state_machine/_drive_state_machine.yaml
   path: plan/drive_state_machine/
@@ -1912,6 +1915,11 @@ wagons:
       \ with a real\n    repo-scoped call before refusing and by quoting what gh actually\
       \ said, so the Actions\n    GITHUB_TOKEN is not reported as unauthenticated\
       \ for being unable to call /user (#1937)"
+    E081: minimize likelihood of pre-red-trains-failed-by-coverage-validators when
+      the tester coverage validators run, by resolving the owning work item's phase
+      through the shipped is_pre_test_phase and owning_issue_phase helpers and binding
+      each violation to a declared rule_id, so a train authored at PLANNED is not
+      failed for missing the tests RED exists to write (#1920)
     E076: minimize likelihood of one-contract-read-by-several-implementations-that-drift-apart-unnoticed
       by having the validator use the command's reader rather than a copy of it, and
       by deriving the schema-template difference from the two artifacts instead of

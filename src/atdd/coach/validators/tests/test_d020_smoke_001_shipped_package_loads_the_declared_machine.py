@@ -103,11 +103,12 @@ def test_shipped_machine_declares_the_axis_in_a_real_process() -> None:
 
 
 @pytest.mark.platform
-def test_all_nine_phases_load_in_a_real_process() -> None:
+def test_every_declared_phase_loads_in_a_real_process() -> None:
     """The new key breaks no parse and drops no phase in the shipped artifact."""
     probe = _run_probe()
     assert probe["phases"] == EXPECTED_PHASES, (
-        f"expected the nine phases, the real process loaded {probe['phases']}"
+        f"expected the {len(EXPECTED_PHASES)} declared phases, the real process "
+        f"loaded {probe['phases']}"
     )
 
 

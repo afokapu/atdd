@@ -94,8 +94,12 @@ def apply_transition(
     if rc != 0:
         return rc
 
-    # COMPLETE auto-archives: close WMBTs + parent issue.
-    if status.upper() == "COMPLETE":
+    # Both terminal outcomes auto-archive: close WMBTs + parent issue. COMPLETE
+    # closes because the work MERGED; RESOLVED closes because the work ANSWERED
+    # (#1967). Without RESOLVED here the label swaps and nothing else happens, so a
+    # resolved umbrella sits open forever — terminal in the evidence model and
+    # untouched on the board.
+    if status.upper() in {"COMPLETE", "RESOLVED"}:
         arc_rc = manager.archive(issue_id=issue_id)
         if arc_rc != 0:
             print(f"Warning: Archive step returned {arc_rc} after COMPLETE transition.")

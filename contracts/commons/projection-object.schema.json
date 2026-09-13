@@ -35,7 +35,7 @@
       "type": "string"
     },
     "phase": {
-      "description": "Monotonic and gate-validated (section 7.1). COMPLETE is NOT storable: it is DERIVED from merge-to-main (section 18 decision 1). A committed projection carrying phase=COMPLETE is invalid.",
+      "description": "Monotonic and gate-validated (section 7.1). COMPLETE is NOT storable: it is DERIVED from merge-to-main (section 18 decision 1). A committed projection carrying phase=COMPLETE is invalid. RESOLVED is a stored terminal for work that produced knowledge rather than behaviour (#1967); unlike COMPLETE it is not derived, because it involves no merge.",
       "enum": [
         "INIT",
         "PLANNED",
@@ -44,7 +44,8 @@
         "SMOKE",
         "REFACTOR",
         "BLOCKED",
-        "OBSOLETE"
+        "OBSOLETE",
+        "RESOLVED"
       ],
       "type": "string"
     },

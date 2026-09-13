@@ -9,7 +9,7 @@ Usage:
     atdd branch 69                        # Create worktree from issue #69
     atdd branch 69 --prefix fix           # Override prefix (default: from type)
 
-Convention: CLAUDE.md git.branching
+Convention: src/atdd/coach/conventions/issue.convention.yaml
 """
 import json
 import logging
@@ -21,7 +21,11 @@ from typing import Any, Dict, Optional
 
 import yaml
 
-from atdd.coach.commands.issue_prefixes import ALLOWED_BRANCH_PREFIXES, TYPE_TO_PREFIX
+from atdd.coach.commands.issue_prefixes import (
+    DisallowedBranchPrefix,
+    assert_branch_prefix_allowed,
+    prefix_for,
+)
 from atdd.coach.commands.worktree_placement import (
     resolve_worktree_dir_name,
     resolve_worktree_path,
@@ -103,11 +107,10 @@ class BranchManager:
                 f"        Commit your work, then run `atdd pr {issue_number}` "
                 f"to open the draft PR."
             )
-            print( "        See `CLAUDE.md::issues.commands.new` for lifecycle.")
             return
 
         # Fetch issue title for the PR title
-        prefix = TYPE_TO_PREFIX.get(issue_type, "feat")
+        prefix = prefix_for(issue_type)
         pr_title = f"{prefix}: {slug.replace('-', ' ')} (#{issue_number})"
         try:
             proj = ProjectConfig.from_config(self.config_file)
@@ -414,13 +417,17 @@ class BranchManager:
 
         # Derive prefix
         if prefix is None:
-            prefix = TYPE_TO_PREFIX.get(issue_type, "feat")
+            prefix = prefix_for(issue_type)
 
-        if prefix not in ALLOWED_BRANCH_PREFIXES:
-            print(
-                f"Error: Prefix '{prefix}' is not allowed.\n"
-                f"Allowed: {', '.join(ALLOWED_BRANCH_PREFIXES)}"
+        try:
+            assert_branch_prefix_allowed(prefix)
+        except DisallowedBranchPrefix as exc:
+            logger.error(
+                "refusing branch prefix %r for issue #%s: %s",
+                prefix, issue_number, exc,
+                extra={"issue": issue_number, "prefix": prefix, "error": str(exc)},
             )
+            print(f"Error: {exc}")
             return 1
 
         branch_name = f"{prefix}/{slug}"
@@ -639,7 +646,7 @@ class BranchManager:
                 return 1
             slug = entry["slug"]
             issue_type = entry.get("type", "implementation")
-            prefix = TYPE_TO_PREFIX.get(issue_type, "feat")
+            prefix = prefix_for(issue_type)
             worktree_path = resolve_worktree_path(self.target_dir, prefix, slug)
         else:
             worktree_path = Path(target).expanduser()

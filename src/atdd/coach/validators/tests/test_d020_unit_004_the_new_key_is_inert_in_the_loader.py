@@ -26,7 +26,11 @@ import pytest
 
 from atdd.coach.utils.repo import find_repo_root
 
-from ._d020_autonomy import PRE_CHANGE_SNAPSHOT_HASH, machine_data as _machine_data
+from ._d020_autonomy import (
+    EXPECTED_PHASES,
+    PRE_CHANGE_SNAPSHOT_HASH,
+    machine_data as _machine_data,
+)
 
 pytestmark = [pytest.mark.coach, pytest.mark.platform]
 
@@ -107,13 +111,10 @@ def test_live_snapshot_hash_equals_the_pre_change_baseline() -> None:
 
 
 @pytest.mark.platform
-def test_all_nine_phases_still_load() -> None:
+def test_every_declared_phase_still_loads() -> None:
     """The new key breaks no parse and drops no phase."""
     from atdd.train.persistence import load_conventions
 
     loaded = {phase.value for phase in load_conventions(find_repo_root()).phase_machine}
-    expected = {
-        "INIT", "PLANNED", "RED", "GREEN", "SMOKE",
-        "REFACTOR", "COMPLETE", "BLOCKED", "OBSOLETE",
-    }
-    assert loaded == expected, f"expected the nine phases, loaded {sorted(loaded)}"
+    expected = set(EXPECTED_PHASES)  # derived from the pinned table, not restated (#1967)
+    assert loaded == expected, f"expected the {len(expected)} declared phases, loaded {sorted(loaded)}"

@@ -252,10 +252,6 @@ class ResumeRunner:
                 if idx < 0 or idx + 1 >= len(PLANNED_PATH):
                     break
                 next_phase = PLANNED_PATH[idx + 1]
-                # Stop walking past COMPLETE — MERGED is owned by the
-                # PR-merge handler, not the per-issue resume runner.
-                if next_phase == Phase.MERGED:
-                    break
                 if not can_transition(Phase(current), next_phase):
                     break
 

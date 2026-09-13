@@ -12,7 +12,7 @@ import ``subprocess``, ``threading``, ``asyncio``, networking, ``gh``/``git``/
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import Enum, StrEnum
 from typing import Literal, Mapping
 
 # --------------------------------------------------------------------------- #
@@ -20,7 +20,41 @@ from typing import Literal, Mapping
 # --------------------------------------------------------------------------- #
 
 
-class Phase(StrEnum):
+class Phase(str, Enum):
+    """The per-issue lifecycle vocabulary.
+
+    SOURCE OF TRUTH: ``coach/conventions/phase_machine.convention.yaml``. These
+    members MUST equal the phases that file declares. This is the one part of
+    the lifecycle the convention does NOT fully own — #1946 projected the
+    transition table, ``PLANNED_PATH``, the spine successor maps and the
+    ``atdd:<PHASE>`` label set from the YAML, but kept this enum a literal so
+    ~287 ``Phase.X`` sites across ``coach/``, ``train/`` and ``state/`` stay
+    resolvable to the type checker (#1946 Decision 3).
+
+    SO ADDING A PHASE IS TWO EDITS: the YAML, and one line here. Editing this
+    list without the YAML, or the YAML without this list, is caught — not
+    silently, and not only by a test: ``handlers/state_machine.py`` builds its
+    transition table at import via ``Phase(name)``, so a mismatch raises
+    ``ValueError`` and the coach runtime does not load. The tests that name the
+    coupling are ``D004-UNIT-005::test_the_core_phase_enum_is_pinned_to_the_convention``,
+    ``D004-UNIT-001::test_adding_a_phase_costs_exactly_one_python_edit`` and
+    ``D004-SMOKE-001::test_every_declared_phase_is_nameable_by_the_shipped_runtime``.
+
+    ``(str, Enum)`` with an explicit ``__str__``, NOT ``StrEnum`` — deliberately.
+    ``pyrightconfig.json`` pins ``pythonVersion: "3.10"`` and ``enum.StrEnum``
+    landed in 3.11, so under the repo's own type checker a ``StrEnum`` member
+    degrades to a bare ``str`` literal: every ``dict[str, Phase]`` holding one
+    then fails ``reportAssignmentType`` and every ``.value`` fails
+    ``reportAttributeAccessIssue`` (43 findings when #1946 first collapsed the two
+    enums onto this one). Raising the pinned version would invalidate the frozen
+    baseline wholesale, which ``pyrightconfig.json`` forbids in its own comment.
+
+    The two forms are behaviourally indistinguishable — measured across ``str``,
+    f-string, ``%``, ``format``, ``json.dumps`` as value and as key, concatenation,
+    both equality directions, hash-equality with ``str``, sort order, pickle,
+    identity on construction, ``.value`` type and ``repr``.
+    """
+
     INIT = "INIT"
     PLANNED = "PLANNED"
     RED = "RED"
@@ -30,6 +64,12 @@ class Phase(StrEnum):
     COMPLETE = "COMPLETE"
     BLOCKED = "BLOCKED"
     OBSOLETE = "OBSOLETE"
+    # Success without code (#1967): an umbrella that answered its question and
+    # decomposed it into children. An escape, never a rung — see the convention.
+    RESOLVED = "RESOLVED"
+
+    def __str__(self) -> str:
+        return self.value
 
 
 class Persona(StrEnum):

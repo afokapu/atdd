@@ -11,7 +11,7 @@ source:
   legacy_sha: 027e2d86ff127550
   extraction_mode: high_fidelity
 content:
-  operational_guidance: 'metric_binding: one metric_id from plan/_lego/acceptance-metrics.yaml (no mixed
+  operational_guidance: 'metric_binding: one metric_id from planner.criteria.metric-mapping (no mixed
     measures). lens_dimension_dependency: one dimension and one lens_ref per WMBT. collocation: keep WMBT/acceptances/tests/artifacts
     together for cohesive history/review.'
   constraints:
@@ -25,4 +25,5 @@ parity:
   reviewed_at: '2026-06-16'
 terms:
 - term_id: metric_binding
-  text: each acceptance maps to exactly one metric_id.
+  text: each acceptance maps to exactly one metric_id, drawn from the
+    dimension->metric_id table in planner.criteria.metric-mapping.

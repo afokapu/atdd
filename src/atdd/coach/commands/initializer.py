@@ -3,9 +3,12 @@ Project initializer for ATDD structure in consumer repos.
 
 Creates the following structure:
     consumer-repo/
-    ├── CLAUDE.md                (with managed ATDD block)
     └── .atdd/
-        └── config.yaml          (agent sync + GitHub integration config)
+        └── config.yaml          (GitHub integration config)
+
+    (No agent-config file is written: #1811 retired the projection that rendered a
+    managed ATDD block into CLAUDE.md / AGENTS.md / GEMINI.md / GLM.md, and #1941
+    deleted the artifacts. #1979 removed the claim from this module's output.)
     (Operational issue state lives in the State Store under .atdd/state/, not a
     .atdd/manifest.yaml mirror — the mirror was deleted in #1270 Slice G.)
 
@@ -472,7 +475,6 @@ class ProjectInitializer:
             print("\nStructure created:")
             print(f"  {self.atdd_config_dir}/")
             print(f"  {self.config_file}")
-            print(f"  CLAUDE.md (with ATDD managed block)")
             if github_summary:
                 print(f"\n{github_summary}")
 

@@ -497,12 +497,50 @@ def owning_issue_phase(repo_root: Path, acc: RawAcceptance) -> Optional[str]:
     return status if isinstance(status, str) and status else None
 
 
+def owning_train_phase(repo_root: Path, train_id: str) -> Optional[str]:
+    """Current lifecycle phase of the issue(s) owning *train_id*, or ``None``.
+
+    The train-keyed sibling of :func:`owning_issue_phase`, over the same
+    store-only read (#1203). Returns the MOST-ADVANCED phase among the work items
+    bound to this train, so a train counts as 'still pre-test' only when EVERY
+    owning work item is pre-test. Returns ``None`` when no work item maps it —
+    callers fail closed. Read-only.
+    """
+    if not train_id:
+        return None
+    sessions = [s for s in _store_work_items(repo_root) if s.get("train") == train_id]
+    if not sessions:
+        return None
+    order = _linear_phase_order()
+
+    def _rank(status) -> int:
+        return order.index(status) if status in order else len(order)
+
+    best = max(sessions, key=lambda s: _rank(s.get("status")))
+    status = best.get("status")
+    return status if isinstance(status, str) and status else None
+
+
+def coverage_is_due(repo_root: Path, train_id: str) -> bool:
+    """Whether *train_id* must already carry its e2e + smoke evidence.
+
+    False only while every work item owning the train is strictly before RED —
+    the tests are not due yet, and demanding them makes the PLANNED work that
+    authorises writing them impossible to land (#1920). Fails closed everywhere
+    else: an unmapped train, an escape phase (BLOCKED/OBSOLETE) and an
+    unrecognised token all return True, because ``is_pre_test_phase`` is False
+    for each. An untracked train must never become a way to switch the check off.
+    """
+    return not is_pre_test_phase(owning_train_phase(repo_root, train_id))
+
+
 __all__ = [
-    "RawAcceptance",
     "SUBSTRATE_BACKLOG_ENV",
+    "RawAcceptance",
     "acceptance_phase",
     "acceptance_urn",
     "assert_substrate_strict",
+    "coverage_is_due",
     "find_disposition_path",
     "has_harness_type",
     "has_signal_metric_and_threshold",
@@ -511,6 +549,7 @@ __all__ = [
     "iter_repo_acceptances",
     "iter_repo_wmbts",
     "owning_issue_phase",
+    "owning_train_phase",
     "scan_test_acceptance_headers",
     "yaml_path_str",
 ]
