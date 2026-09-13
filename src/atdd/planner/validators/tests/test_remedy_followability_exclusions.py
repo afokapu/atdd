@@ -74,7 +74,14 @@ from atdd.planner.validators.remedy_followability import (
     scan_nodes,
 )
 
-pytestmark = [pytest.mark.planner]
+# `platform`: this module is a toolkit-self test and cannot run in a consumer
+# repo. Two of its assertions say so concretely — the gitignored-runtime case
+# reads THIS repo's `.gitignore` via `git check-ignore`, and the corpus case
+# globs THIS repo's convention nodes (in a consumer repo it would glob an empty
+# set and pass vacuously, which is worse than failing). Flagged as advisory by
+# `coach.source-layout.toolkit-path-string-in-unmarked-selftest` on the first
+# push, and the flag was right.
+pytestmark = [pytest.mark.planner, pytest.mark.platform]
 
 _ROOT = Path(find_repo_root(Path(__file__)))
 
