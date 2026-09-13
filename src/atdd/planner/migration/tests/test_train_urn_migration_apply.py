@@ -176,3 +176,76 @@ def test_revert_is_a_true_inverse(repo: Path) -> None:
     # registry back to a legacy-shaped, reader-valid state
     restored = mig._flatten_registry(_load(repo / "plan" / "_trains.yaml").get("trains", {}))
     assert set(restored) == set(_EXPECTED_FORWARD)
+
+
+# ---------------------------------------------------------------------------
+# Registry preservation (#1986)
+#
+# ``apply`` re-projects plan/_trains.yaml from LEGACY_TRAIN_ALIASES. That was
+# lossless while the registry held ONLY aliased trains, which is the state the
+# ``repo`` fixture manufactures by reverting first. The live repo has since
+# grown typed trains from other issues that no alias names, and re-projecting
+# from the alias map alone evicts every one of them -- leaving their documents
+# on disk with no row naming them, the exact half-applied state
+# ``planner.train.registry-coherence`` (#1942) exists to catch.
+# ---------------------------------------------------------------------------
+@pytest.fixture()
+def live_repo(tmp_path: Path) -> Path:
+    """A hermetic copy of the LIVE train tree, deliberately NOT normalized.
+
+    The ``repo`` fixture calls ``revert`` to force a flat baseline, but ``revert``
+    also re-projects the registry from the alias map -- so it discards unaliased
+    rows before a test can observe them. This fixture keeps the tree exactly as
+    the repo has it: not-yet-aliased legacy trains sitting alongside typed trains
+    that other issues landed.
+    """
+    shutil.copytree(_REAL_TRAINS_DIR, tmp_path / "plan" / "_trains")
+    shutil.copy2(_REAL_REGISTRY, tmp_path / "plan" / "_trains.yaml")
+    return tmp_path
+
+
+def _registry_ids(root: Path) -> set:
+    return set(mig._flatten_registry(_load(root / "plan" / "_trains.yaml").get("trains", {})))
+
+
+def _unowned_ids(before: set) -> set:
+    """Registry ids ``apply`` does not own: neither a legacy id it migrates nor
+    the typed URN of one it has already migrated."""
+    owned = set(mig.LEGACY_TRAIN_ALIASES) | set(mig.build_alias_map().values())
+    return before - owned
+
+
+def test_apply_preserves_registry_rows_for_trains_it_does_not_own(live_repo: Path) -> None:
+    before = _registry_ids(live_repo)
+    unowned = _unowned_ids(before)
+    assert unowned, (
+        "fixture is not exercising the property: the live registry holds no train "
+        "outside the alias map, so eviction could not be observed"
+    )
+
+    mig.apply(live_repo)
+
+    evicted = sorted(unowned - _registry_ids(live_repo))
+    assert not evicted, (
+        f"apply() evicted {len(evicted)} registry row(s) it does not own: {evicted}. "
+        "The registry projection must carry through every entry the alias map does "
+        "not account for."
+    )
+
+
+def test_apply_leaves_no_train_document_without_a_registry_row(live_repo: Path) -> None:
+    mig.apply(live_repo)
+
+    registered = _registry_ids(live_repo)
+    orphaned = []
+    for path in sorted((live_repo / "plan" / "_trains").rglob("*.yaml")):
+        if path.name.startswith("_") or "_interlockings" in path.parts:
+            continue
+        train_id = _load(path).get("train_id")
+        if train_id and train_id not in registered:
+            orphaned.append(f"{train_id} ({path.relative_to(live_repo)})")
+
+    assert not orphaned, (
+        f"{len(orphaned)} train document(s) survive with no registry row naming "
+        f"them -- the half-applied state registry-coherence rejects: {orphaned}"
+    )
