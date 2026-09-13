@@ -23,6 +23,23 @@ from typing import Literal, Mapping
 class Phase(str, Enum):
     """The per-issue lifecycle vocabulary.
 
+    SOURCE OF TRUTH: ``coach/conventions/phase_machine.convention.yaml``. These
+    members MUST equal the phases that file declares. This is the one part of
+    the lifecycle the convention does NOT fully own — #1946 projected the
+    transition table, ``PLANNED_PATH``, the spine successor maps and the
+    ``atdd:<PHASE>`` label set from the YAML, but kept this enum a literal so
+    ~287 ``Phase.X`` sites across ``coach/``, ``train/`` and ``state/`` stay
+    resolvable to the type checker (#1946 Decision 3).
+
+    SO ADDING A PHASE IS TWO EDITS: the YAML, and one line here. Editing this
+    list without the YAML, or the YAML without this list, is caught — not
+    silently, and not only by a test: ``handlers/state_machine.py`` builds its
+    transition table at import via ``Phase(name)``, so a mismatch raises
+    ``ValueError`` and the coach runtime does not load. The tests that name the
+    coupling are ``D004-UNIT-005::test_the_core_phase_enum_is_pinned_to_the_convention``,
+    ``D004-UNIT-001::test_adding_a_phase_costs_exactly_one_python_edit`` and
+    ``D004-SMOKE-001::test_every_declared_phase_is_nameable_by_the_shipped_runtime``.
+
     ``(str, Enum)`` with an explicit ``__str__``, NOT ``StrEnum`` — deliberately.
     ``pyrightconfig.json`` pins ``pythonVersion: "3.10"`` and ``enum.StrEnum``
     landed in 3.11, so under the repo's own type checker a ``StrEnum`` member
