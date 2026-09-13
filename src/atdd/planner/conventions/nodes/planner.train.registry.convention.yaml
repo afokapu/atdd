@@ -4,10 +4,10 @@ kind: rule
 status: active
 name: Train registry (two-file pattern)
 statement: 'Each train needs two files: a registry entry in plan/_trains.yaml and a full spec at plan/_trains/{train_id}.yaml;
-  every registry entry MUST have a corresponding spec file.'
+  every registry entry MUST have a corresponding spec file, and every spec file MUST have a corresponding registry entry.'
 implementation:
   type: validator
-  ref: conventions/resolution/test_train_validation::test_fault_injection_and_legacy_parity
+  ref: test_train_registry_coherence::test_every_registry_row_resolves_and_every_document_is_registered
 source:
   legacy_path: src/atdd/planner/conventions/train.convention.yaml
   legacy_section: registry
@@ -15,10 +15,17 @@ source:
   extraction_mode: high_fidelity
 content:
   normative_text: Registry is theme-category-grouped (nominal/error/alternate/exception). Validator SPEC-TRAIN-VAL-0003;
-    planner phase gate fails if a spec file is missing.
+    planner phase gate fails if a spec file is missing. Coherence is bidirectional (#1942) - a registry
+    row whose path is not on disk is a dangling pointer consumers resolve through, and a spec file no
+    row names is an orphan. The orphan direction is the residue create_train's document-before-registry
+    write ordering deliberately leaves, so it must be reportable or that choice is unsupported.
   examples:
   - 'registry: plan/_trains.yaml (train_id, description, path, wagons summary)'
   - 'spec: plan/_trains/{train_id}.yaml (full workflow)'
+  constraints:
+  - every registry row's path resolves to a file on disk
+  - every per-train document under plan/_trains is named by a registry row
+  - underscore-prefixed sidecars and the _interlockings subtree are not per-train documents
 metadata:
   severity: 3
   # strict: the planner phase gate fails when a registry entry has no spec file
@@ -31,6 +38,18 @@ parity:
   implementation_preserved: true
   fix_hint_preserved: false
   reviewed_at: '2026-06-16'
+validation:
+  family: coherence
+  template: cross_artifact_existence_agreement
+  variant: planner_train_registry_existence
+  phase: CONFIRM
+  enforcement: confirm-blocking
+  subject_kind: train
+  failure_evidence:
+  - train_id
+  - direction
+  - registry_value
+  - document_value
 terms:
 - term_id: two_file_pattern
   text: registry entry + spec file per train.
