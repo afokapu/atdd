@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import pytest
 
-from atdd.coach.github import GitHubClient
+from atdd.coach.github import GitHubClient, GitHubClientError
 
 pytestmark = [pytest.mark.coach]
 
@@ -83,3 +83,47 @@ def test_issue_state_is_normalised_to_the_vocabulary_callers_compare_against() -
             return '{"number": 1, "state": "open"}'
 
     assert _Open().get_issue(1)["state"] == "OPEN"
+
+
+# --- which failures a label removal may swallow (#1995) ------------------------
+
+_ABSENT = "gh: Label does not exist (HTTP 404)"
+_REFUSED = "gh: Not Found (HTTP 404)"
+
+
+class _Failing(_Spy):
+    """A client whose every `gh` call fails with a given stderr."""
+
+    def __init__(self, stderr: str) -> None:
+        super().__init__()
+        self.stderr = stderr
+
+    def _run_gh(self, args, **_kw):
+        self.calls.append(list(args))
+        _assert_rest(list(args))
+        raise GitHubClientError(f"gh command failed: {' '.join(args)}\nstderr: {self.stderr}")
+
+
+def test_removing_an_absent_label_is_tolerated() -> None:
+    """The end state is what the caller wanted, so it is not an error.
+
+    This is why the swallow exists: REST has no batch delete, so removal is one
+    DELETE per label and a label that is already gone must not fail the swap.
+    """
+    _Failing(_ABSENT).remove_label(1989, ["atdd:RED"])
+
+
+def test_a_refused_label_removal_is_raised() -> None:
+    """A write GitHub would not let us make is NOT a label that was already gone.
+
+    Measured 2026-09-13: GitHub answers an absent label with "Label does not
+    exist" and an unwritable one with "Not Found" — same 404, different text. A
+    swallow that matches the STATUS cannot tell them apart, so a refused write
+    reports as success and the store advances while GitHub does not. That is the
+    divergence #1666's review found and could not attribute, and the distinction
+    `gh_failure` draws one layer down between ABSENT and UNAVAILABLE.
+    """
+    with pytest.raises(GitHubClientError) as refused:
+        _Failing(_REFUSED).remove_label(1989, ["atdd:RED"])
+
+    assert "Not Found" in str(refused.value)
