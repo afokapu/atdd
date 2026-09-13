@@ -1,0 +1,68 @@
+schema_version: 1.1.0
+rule_id: coach.lifecycle.no-init-to-planned-without-lab
+kind: rule
+status: active
+name: No INIT→PLANNED without recorded lab evidence
+statement: >-
+  An issue may not leave INIT without a `## Lab` section recording an experiment that was
+  run against the real system — its hypothesis, its setup, what was measured, and what that
+  changed about the plan. A DISPROVED hypothesis satisfies the rule; an unrun one does not.
+implementation:
+  type: validator
+  ref: test_lab_evidence_gate_binding::test_no_init_to_planned_without_lab_has_a_live_mechanism
+content:
+  fix_hint: >-
+    Fill `## Lab` before transitioning to PLANNED: state the premise so it could be false,
+    how it was tested against the running system, what was measured, and what that changed
+    about the plan. A negative result is the most valuable outcome — record it as one. The
+    refusal names each subsection still unfilled.
+metadata:
+  severity: 4
+  disposition: strict
+  enforcement: >-
+    Enforced by LabEvidenceGateCheck, a #1020 GateCheck registered for INIT->PLANNED that
+    reads the issue body from the State Store and refuses while any `## Lab` subsection is
+    empty or still opens with an unfilled marker. The markers are read from the generator's
+    exported LAB_SCAFFOLD rather than pattern-matched: #1950's lab measured a regex guessing
+    at placeholder-shaped prose at 3 of 4, missing `### Hypothesis` over a comma in its text.
+
+    DELIBERATELY NOT issue_template.check_placeholders, which fires only on a whole-line
+    placeholder (#1904, correctly — the substring form scored four hits over 120 issues and
+    zero real ones). Every hand-written lab in this repo writes the marker followed by prose
+    on one line, so that check reports compliant=True on three live bodies that literally say
+    "To fill". Anchoring at the start of a subsection's CONTENT sees them; a line anchor
+    cannot.
+
+    AND DELIBERATELY NOT issue.schema.json. Requiring the section in the body contract was
+    measured at 398/400 -> 4/400 compliance across the live corpus, and fails the K002
+    back-compat acceptance by construction. The schema is the body contract, binding on every
+    issue ever written; this is an edge contract, binding only on issues moving forward.
+
+    REGISTERED BUT NOT ENABLED. INIT->PLANNED is absent from DEFAULT_GATED_TRANSITIONS, and
+    evaluate_transition_gate consults is_transition_gated before the registry, so the rule
+    has a live mechanism that no repo enforces until it opts in. Unlike the smoke-execution
+    gate there is no per-issue opt-in to soften it — every issue has a premise — so enabling
+    the edge refuses every in-flight issue lacking a lab (measured here: 162 of 163 at INIT),
+    which would make --force the routine exit. Enablement is therefore an operator decision
+    taken once the backlog is triaged, not a consequence of landing the code.
+  not_in_binding_lock: >-
+    Deliberate, and for the same reason as no-green-to-refactor-without-smoke:
+    .atdd/binding.lock.yaml marries a node to a WORKSPACE PROVIDER implementation, and
+    enforce.gating obligates only EXTENSION nodes to appear there. This is a core node whose
+    mechanism is a core phase gate with no workspace detector, so a lock entry would assert a
+    provider realizes it — which is false.
+  scope_limit: >-
+    The gate asks whether an experiment was RUN and its result RECORDED, never whether the
+    experiment was well designed. An author who deletes the markers and writes
+    evasive-but-real prose satisfies it; that is a reviewer's judgement and no mechanical
+    check closes it.
+terms:
+- term_id: lab_evidence
+  text: >-
+    A `## Lab` section whose four subsections — Hypothesis, Setup, Measured result, What it
+    changed about the plan — each carry content that is neither empty nor an unfilled marker.
+- term_id: unfilled_marker
+  text: >-
+    Content OPENING with a scaffold prompt the generator wrote (read from LAB_SCAFFOLD), or
+    with To fill / TBD / N/A / TODO / Not measured / Nothing yet. Bare `Nothing.` is NOT a
+    marker: it is the correct answer for a hypothesis that held.
