@@ -153,7 +153,7 @@ holds it — but the moment #1993 moves that rule, the node becomes an "incohere
 Also measured: of `coder.base`'s 48 nodes only **30** mirror a live core rule (the other 2
 of the 32 twins are tester), so the mirror baseline is 30, not 48.
 
-## Classification — 1 of 28 families settled
+## Classification — 20 of 128 rules adjudicated, 9 queued to mirror
 
 Vocabulary and method are `docs/MIRROR-GAP-ASSIGNMENT.md`'s SHARED METHOD
 (`atdd-extensions@main`), reused verbatim: **AGNOSTIC-CONSUMER → mirror** vs
@@ -178,7 +178,58 @@ of Scope on a provisional ATDD-INTERNAL verdict; this is the evidence that settl
 **No mirror is built for these 7.** They are covered by this record, not by a node — which
 is exactly the disjunction the no-silent-drop guard tests.
 
-### The remaining 27 families — 89 rules, unclassified
+### SUBSTRATE-SPEC — the ATDD substrate's own format (11 rules)
+
+These govern the shape of ATDD's own artifacts — `plan/` acceptances, `plan/_trains.yaml`,
+`e2e/<train_id>/`, the composed convention graph. A consumer repo has those artifacts, so
+the rules reach consumers; but the artifact is the same in every language, the detector is
+the same in every language, and there is no per-stack realization to delegate. An agnostic
+node with a per-stack detector is the wrong shape for them: they belong to the substrate
+spec, and core is where the substrate spec lives.
+
+The evidence is the scan surface, read from the validator each node binds.
+
+| rule_id | verdict | disposition | Quoted evidence |
+|---|---|---|---|
+| `tester.acceptance-violation.acceptance-must-be-measurable` | SUBSTRATE-SPEC | strict | bound to `_acceptance_walker`, whose purpose line reads "Shared helper for substrate enforcement validators (#410) — walks `plan/` for raw acceptance blocks"; the rule is "Every acceptance in `plan/` must declare harness.type … or signal.metric + signal.threshold" |
+| `tester.acceptance-violation.acceptance-must-declare-phase` | SUBSTRATE-SPEC | strict | "Every acceptance in `plan/` must declare `identity.phase` explicitly" — a field of ATDD's acceptance schema |
+| `tester.acceptance-violation.disposition-must-not-be-declared` | SUBSTRATE-SPEC | strict | "Repo acceptance and security YAML must NOT declare a `disposition:` field — the substrate sets it to strict for all repo rules" |
+| `tester.acceptance-violation.hermetic-fake-must-declare-contract` | SUBSTRATE-SPEC | strict | "must declare its hermetic fidelity contract (`exercised_boundaries`, `fake_contract_fidelity` with `known_gaps`, `live_smoke_required`) using only controlled boundary" vocabulary — ATDD's acceptance vocabulary |
+| `tester.acceptance-violation.hermetic-live-smoke-required-must-have-paired-smoke-acceptance` | SUBSTRATE-SPEC | strict | "must have a sibling `execution_kind: live_smoke` acceptance under the same parent WMBT" — a relation between two plan/ blocks |
+| `tester.acceptance-violation.security-rule-must-have-acceptance-ref-resolved` | SUBSTRATE-SPEC | strict | "Every `abuse_case` in `feature.yaml::security.abuse_cases[]` must have `acceptance_ref` pointing at a real acceptance" |
+| `tester.acceptance-violation.validator-binding-must-be-bidirectional` | SUBSTRATE-SPEC | strict | "When `harness.type` is declared, an anchored test must exist whose headers match the acceptance" — the `# URN:` / `# Acceptance:` header block is ATDD's own |
+| `tester.smoke.train-chain-complete-from-red` | SUBSTRATE-SPEC | strict | "Every train whose owning issue has reached RED must carry the full chain of E2E plus smoke coverage" — keyed on ATDD's train and issue phase |
+| `tester.smoke.train-e2e-required-from-red` | SUBSTRATE-SPEC | strict | "must have E2E tests under `e2e/<train_id>/`" — ATDD's prescribed layout |
+| `tester.smoke.train-smoke-required-from-red` | SUBSTRATE-SPEC | strict | its validator resolves `"plan/_trains.yaml:{s.train_id}"`, `"e2e"`, `"plan"` |
+| `tester.test-isolation.no-polluting-patterns` | SUBSTRATE-SPEC | strict | it is a convention-graph policy variant: "Instantiates the `policy/forbidden_construct_absence` template against the composed convention graph", SELECTOR "graph nodes/artifacts matched by a policy scope" — it scans the convention graph, not consumer source |
+
+### ATDD-INTERNAL — the train runtime (2 rules)
+
+| rule_id | verdict | disposition | Quoted evidence |
+|---|---|---|---|
+| `coder.train.acceptance-commit-idempotent` | ATDD-INTERNAL | unset | "An **Acceptance Authority** commit MUST be idempotent — the same `idempotency_key` returns the original receipt … a receipt is recoverable across the commit/receive" — ATDD's own acceptance-commit runtime; binds no validator (`implementation.ref` is absent) |
+| `coder.train.station-master-owns-child-train-fanout` | ATDD-INTERNAL | unset | "fan-out is owned by the **Station Master** … suspend/resume state lives in the durable **run-log**, not in TrainRunner" — ATDD's interlocking runtime; binds no validator |
+
+### AGNOSTIC-CONSUMER — mirror these 9
+
+The other half of the enforcing batch. Each states an obligation on the consumer's own
+code and already has a stack-specific realization, which is exactly the agnostic-parent /
+per-stack-detector shape. These are the highest-value nodes to author first: the detector
+exists, so mirroring buys coverage **and** enforceability without inventing one.
+
+| rule_id | disposition | Why it needs a per-stack realization |
+|---|---|---|
+| `coder.lint.ruff-ratchet` | strict | ruff is Python's linter; its own docstring says "consumer's `atdd validate coder` deselects it and never runs ruff". The obligation — no lint finding absent from the frozen baseline — is agnostic; eslint / dart analyze realize it elsewhere |
+| `coder.types.pyright-ratchet` | strict | same shape, pyright; "consumer's `atdd validate coder` deselects it and never runs pyright" |
+| `coder.coverage.every-feature-must-have` | strict | `test_hierarchy_coverage` resolves implementation roots "from `.atdd/config.yaml` `code:` block … so new stacks can be added per-consumer without forking" — explicitly stack-extensible over consumer code |
+| `coder.coverage.every-implementation-must-have` | strict | same validator, same stack-extensible code roots |
+| `tester.coverage.tracking-manifest-must-be` | strict | same validator family |
+| `tester.smoke.no-collaborator-substitution` | suppress-and-clean | declares its own scope: "**Scope (Tier 1): Python only.** Backend smoke tests" — a stack-scoped realization whose agnostic parent is missing |
+| `tester.acceptance-violation.live-smoke-acceptance-must-execute` | strict | the subject is a plan/ acceptance but the detection is Python: it matches `pytest.skip(...)`, `pytest.importorskip(...)` in harness source |
+| `tester.acceptance-violation.live-smoke-evidence-must-not-be-constant` | strict | AST-walks the harness function for a constant-only return — Python-specific detection of an agnostic obligation |
+| `tester.acceptance-violation.metric-implementation-must-exist` | strict | looks for `compute()` in `<repo>/.atdd/metrics/<metric>.py` — the `.py` is the stack. Classified AGNOSTIC on the conservative reading: a why-not row means no mirror is ever built, so ambiguity resolves toward mirroring |
+
+### The remaining 26 families — 76 rules, unclassified
 
 Each row is one worker's end-to-end unit per #1714's "Family-sized workers" decision.
 `kinds` distinguishes an already-atomized core node from a rule still inside a monolith
@@ -187,8 +238,7 @@ Each row is one worker's end-to-end unit per #1714's "Family-sized workers" deci
 | family | rules | kinds | dispositions |
 |---|---|---|---|
 | `coder.green` | 10 | monolith=10 | documentation-only=10 |
-| `tester.acceptance-violation` | 10 | node=10 | strict=10 |
-| `tester.smoke` | 10 | monolith=3, node=7 | documentation-only=6, strict=3, suppress-and-clean=1 |
+| `tester.smoke` | 7 | monolith=3, node=4 | documentation-only=6, suppress-and-clean=1 |
 | `coder.commons` | 5 | monolith=3, node=2 | documentation-only=5 |
 | `coder.design` | 5 | monolith=2, node=3 | advisory=1, documentation-only=4 |
 | `tester.contract` | 5 | node=5 | documentation-only=5 |
@@ -198,7 +248,7 @@ Each row is one worker's end-to-end unit per #1714's "Family-sized workers" deci
 | `coder.dto` | 3 | node=3 | documentation-only=3 |
 | `coder.presentation` | 3 | node=3 | documentation-only=3 |
 | `coder.technology` | 3 | node=3 | documentation-only=3 |
-| `coder.train` | 3 | node=3 | documentation-only=1, unset=2 |
+| `tester.acceptance-violation` | 3 | node=3 | strict=3 |
 | `coder.composition` | 2 | node=2 | documentation-only=2 |
 | `coder.coverage` | 2 | node=2 | strict=2 |
 | `coder.logging` | 2 | monolith=2 | documentation-only=2 |
@@ -209,14 +259,15 @@ Each row is one worker's end-to-end unit per #1714's "Family-sized workers" deci
 | `coder.duplication` | 1 | node=1 | documentation-only=1 |
 | `coder.lint` | 1 | node=1 | strict=1 |
 | `coder.security` | 1 | node=1 | documentation-only=1 |
+| `coder.train` | 1 | node=1 | documentation-only=1 |
 | `coder.types` | 1 | node=1 | strict=1 |
 | `tester.telemetry` | 1 | node=1 | documentation-only=1 |
-| `tester.test-isolation` | 1 | node=1 | strict=1 |
 | `tester.train` | 1 | node=1 | documentation-only=1 |
 
 Two observations for the herd:
 
-- **69 of the 89 are `documentation-only`.** #1714's "Enforceable over documentation-only"
+- **66 of the 76 are `documentation-only`, and 23 of the 76 are monolith-declared
+  (blocked on #1218, so only 53 are authorable today).** #1714's "Enforceable over documentation-only"
   decision applies to nearly the whole payload: each worker must decide whether a
   locatable per-file violation exists, and reach for `strict`/`advisory` with a detector
   when it does.
@@ -248,6 +299,11 @@ Two observations for the herd:
    `wmbt:govern-registry:E003` (the wagon already governs this relation; the train and
    feature #1714 names do not exist — correction 2). RED and GREEN landed:
    `atdd.enforce.twin_coverage` is the pinned measure.
-3. Per family: classify → (mirror | why-not row) → edges → detector → fixtures. 89 rules,
-   27 families; `coder.state-store` is settled and needs no node.
+3. **Author the 9 AGNOSTIC-CONSUMER nodes above.** Each already has a stack-specific
+   detector, so mirroring buys coverage *and* enforceability with no detector invented —
+   the best value per unit of work left in the program.
+4. Then classify the 66 documentation-only rules before authoring any of them. 26
+   families, 76 rules, of which only 53 are authorable today (23 are monolith-declared
+   and wait on #1218). Classification has so far removed 20 rules from the payload for
+   the cost of reading their statements — keep spending there before spending on nodes.
 4. Coverage 128/128 → `coverage.py` exits 0 → #1993's precondition is met.
