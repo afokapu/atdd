@@ -66,6 +66,13 @@ _BRANCH_KEY = "branch"
 #: plausibly cut a live flow short. (Those seven were agent self-mints, which is the
 #: defect #1670 exists to fix; the headroom is sized for the human-approver regime
 #: it is building toward, not for the one that produced the measurement.)
+#: RE-WEIGHED AND KEPT (#2005). Content binding now refuses the moment the branch
+#: advances, so the clock is no longer the staleness mechanism — it is the backstop
+#: for the one case the head comparison cannot see: a branch that never moves.
+#: Measured 2026-09-13, 94.8% of approvals have a commit land on their branch within
+#: 24h; all of those are now caught by the head, leaving the TTL to govern only the
+#: residue. A backstop may be generous, and 24h already is, so the value stands and
+#: the change is that it is no longer load-bearing.
 APPROVAL_TTL = timedelta(hours=24)
 
 
