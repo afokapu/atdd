@@ -86,6 +86,31 @@ def _produce(ctx: GateContext) -> str:
     )
 
 
+def _content_moved_cause(args, token_data, branch: str, now: str,
+                         head: Optional[str]) -> Optional[str]:
+    """The refusal sentence when the branch advanced under an intact token (#2005).
+
+    Asked before expiry by its caller, because it is the OTHER cause that leaves
+    the signature wholly intact: the token still verifies against the commit it
+    names, and only the comparison to the CURRENT head refused. Re-reviewing this
+    diff is a different operator action from re-approving an aged token, so the
+    two may not share a sentence.
+
+    None when this is not the cause, so the caller falls through to the next.
+    """
+    bound_head = token_head(token_data)
+    if not bound_head or not head or bound_head == head:
+        return None
+    if not verify_token(*args, branch=branch, now=now, head=bound_head):
+        return None
+    return (
+        f"was approved for commit {bound_head[:9]} and the branch is now "
+        f"at {head[:9]} — THE CONTENT MOVED under the approval. The token "
+        f"is intact and the operator reviewed a different diff; review the "
+        f"change and re-approve at the current head"
+    )
+
+
 #: The one autonomy value that lifts the operator token. Matched EXACTLY: the
 #: vocabulary is closed and validated by D020 (#1626), so a near-miss is a
 #: malformed declaration, and a gate must not open on one.
@@ -265,15 +290,9 @@ class ApprovalTokenGateCheck:
         # A HEADLESS token is unaffected: it asserts no commit, so there is
         # nothing to observe and it keeps the regime it was minted in.
         reviewed = resolve_reviewed_head(ctx.worktree, binding.branch)
-        bound_head = token_head(token_data)
-        if bound_head and reviewed.sha is None:
-            return GateCheckResult.could_not_check(
-                self.gate_id, self.rule_id,
-                f"approval token at {_rel(ctx)} was granted for commit "
-                f"{bound_head[:9]}, but the commit currently on "
-                f"{binding.branch} could not be observed, so whether the approved "
-                f"content still stands could not be checked: {reviewed.reason}",
-            )
+        unobservable = self._unobservable_head(token_data, ctx, binding, reviewed)
+        if unobservable is not None:
+            return unobservable
         head = reviewed.sha
         if verify_token(
             token_data, ctx.issue_number, ctx.from_phase, ctx.to_phase, key,
@@ -296,6 +315,30 @@ class ApprovalTokenGateCheck:
             f"{_produce(ctx)}",
         )
 
+    def _unobservable_head(self, token_data, ctx: GateContext, binding, reviewed):
+        """COULD_NOT_CHECK when a head-bearing token meets an unreadable head (#2005).
+
+        A token that NAMES a commit, checked where the current commit cannot be
+        read, is not a pass — it is the same verdict an unobservable branch
+        binding gets (#1719/C013). Leaving the comparison switched off there
+        would be "I could not look at whether this approval still covers the
+        content" reported as "it does", which is #1670's condition 3 in the
+        module that exists to refuse exactly that.
+
+        None when there is nothing to refuse: a HEADLESS token asserts no commit,
+        so there is nothing to observe and it keeps the regime it was minted in.
+        """
+        bound_head = token_head(token_data)
+        if not bound_head or reviewed.sha is not None:
+            return None
+        return GateCheckResult.could_not_check(
+            self.gate_id, self.rule_id,
+            f"approval token at {_rel(ctx)} was granted for commit "
+            f"{bound_head[:9]}, but the commit currently on "
+            f"{binding.branch} could not be observed, so whether the approved "
+            f"content still stands could not be checked: {reviewed.reason}",
+        )
+
     def _diagnose(self, token_data, ctx: GateContext, key, branch: str, now: str,
                   head: Optional[str] = None) -> str:
         """WHY a bound token failed, recovered by re-asking the same pure verifier.
@@ -313,21 +356,9 @@ class ApprovalTokenGateCheck:
         """
         args = (token_data, ctx.issue_number, ctx.from_phase, ctx.to_phase, key)
 
-        # #2005: the content moved. Asked before expiry because it is the other
-        # cause that leaves the signature wholly intact — the token still verifies
-        # against the commit it names, and only the comparison to the CURRENT head
-        # refused. Re-reviewing this diff is a different action from re-approving
-        # an aged token, so the two may not share a sentence.
-        bound_head = token_head(token_data)
-        if bound_head and head and bound_head != head and verify_token(
-            *args, branch=branch, now=now, head=bound_head
-        ):
-            return (
-                f"was approved for commit {bound_head[:9]} and the branch is now "
-                f"at {head[:9]} — THE CONTENT MOVED under the approval. The token "
-                f"is intact and the operator reviewed a different diff; review the "
-                f"change and re-approve at the current head"
-            )
+        moved = _content_moved_cause(args, token_data, branch, now, head)
+        if moved is not None:
+            return moved
 
         # Signature and scope are fine on this branch; only the clock refused.
         if verify_token(*args, branch=branch, head=head):
