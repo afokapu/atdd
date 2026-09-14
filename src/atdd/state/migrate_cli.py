@@ -32,7 +32,6 @@ from __future__ import annotations
 
 import logging
 import sys
-import tempfile
 from pathlib import Path
 from typing import Optional
 
@@ -180,49 +179,20 @@ def _report_store_migration_plan(conn) -> int:
 def _cmd_migrate_store(args) -> int:
     """Mint contract-shaped identity for every work item in the store (CORE-036).
 
-    The operator-facing half of :func:`atdd.state.store_migration.migrate_store`. It exists
-    because a migration nobody can invoke is not shipped — and its sibling ``migrate-manifest``
-    cannot be invoked *usefully*, since ``decommission-manifest`` deleted the file it reads.
+    The operator-facing half of :func:`~atdd.state.store_migration.migrate_store_durably`,
+    and deliberately only that: the durability contract — immutable backup, separate mutable
+    scratch, sidecar-safe swap, all under an exclusive fence — is migration semantics and
+    lives with the migration (#2024). This verb resolves the store, chooses dry-run or live,
+    and turns the three typed refusals into operator-facing exits.
 
     ``--dry-run`` reports the same refusal without touching the store, so an operator can see
     what stands in the way before committing to a write against the only surviving source of
     truth.
-
-    **Durability (#2024).** The store is the only surviving source of truth after CORE-034, and
-    ``migrate_store`` writes per object — ``upsert`` and ``rekey`` each open their own
-    ``with self._conn:``, so there is no enclosing transaction and dying mid-run would leave a
-    half-migrated store that cannot be told apart from an unmigrated one. Wrapping the loop in
-    an outer ``BEGIN`` does not compose: ``sqlite3``'s ``with conn:`` commits the *outermost*
-    transaction, so the per-call managers commit it out from under the loop.
-
-    So this runs the pattern ``reconcile`` already ships, and reuses its helpers rather than
-    re-deriving them:
-
-    - :func:`~atdd.state.reconcile.backup_store` — the **immutable** undo. Never written to.
-      Migrating *it* was the tempting shortcut and it destroys the undo: ``backup_store``
-      returns the sole copy, so the "backup" ends up migrated too and nothing on disk holds
-      the pre-migration store, even on success.
-    - :func:`~atdd.state.reconcile._scratch_copy` — a **separate** mutable copy, which is what
-      actually gets migrated. A crash leaves it half-done and simply discards it.
-    - :func:`~atdd.state.reconcile._replace_store` — the swap, which unlinks ``-wal``/``-shm``
-      before moving. Replacing ``state.sqlite`` alone while those remain makes the store
-      unopenable (``database disk image is malformed``).
-
-    The window is held under ``BEGIN EXCLUSIVE`` on the live store. The scratch is a snapshot
-    at T0, so without a fence a write committed between the copy and the swap is overwritten
-    silently — no error, no trace. Under the fence such a writer is refused loudly with
-    ``database is locked`` after the 5s ``busy_timeout`` ``db.connect()`` already sets, and
-    **readers are unaffected**, which matters: WAL is configured for "concurrent readers + a
-    writer (sibling worktrees)" and every worktree under the Control Root shares this store.
     """
-    import sqlite3
-
     from atdd.state.db import connect, init_state_store
-    from atdd.state.reconcile import (
-        _replace_store, _scratch_copy, backup_store, checkpoint,
+    from atdd.state.store_migration import (
+        MigrationNotCleanError, StoreLockedError, migrate_store_durably,
     )
-    from atdd.state.store_migration import inspect_store, migrate_store
-    from atdd.state.store import StateStore
 
     root = _root(args)
     db_path = init_state_store(start=root)
@@ -234,68 +204,34 @@ def _cmd_migrate_store(args) -> int:
         finally:
             conn.close()
 
-    fence = connect(db_path)
     try:
-        try:
-            # Hold the store for the whole backup -> migrate -> swap window, so a concurrent
-            # writer is refused rather than silently discarded by the swap.
-            fence.execute("BEGIN EXCLUSIVE")
-        except sqlite3.OperationalError as exc:
-            _log.warning(
-                "could not fence the store for migration",
-                extra={"command": "migrate-store", "root": str(root), "error": str(exc)},
-            )
-            return _fail(
-                f"refusing to migrate: the State Store is in use and could not be locked "
-                f"({exc}). Another worktree is writing to it — retry when it is idle."
-            )
+        result = migrate_store_durably(db_path, owner_actor=args.owner_actor)
+    except StoreLockedError as exc:
+        # Logged at the raise site too, but only with the db path: this is the layer that
+        # knows which command the operator ran and against which root
+        # (coder.logging.coach-silent-swallow — observably react, do not merely return).
+        _log.warning(
+            "migrate-store refused: the store could not be fenced",
+            extra={"command": "migrate-store", "root": str(root), "error": str(exc)},
+        )
+        return _fail(f"refusing to migrate: {exc}")
+    except migration.LossyMigrationError as exc:
+        # The refusal IS the feature: the store was not touched, every offender named.
+        _log.warning(
+            "refused a lossy store migration; no object was mutated",
+            extra={"command": "migrate-store", "root": str(root), "defects": len(exc.defects)},
+        )
+        return _fail(f"{exc}\n\nThe store is unchanged.")
+    except MigrationNotCleanError as exc:
+        _log.warning(
+            "migrate-store refused: the migrated copy did not inspect clean, so it was not "
+            "swapped in",
+            extra={"command": "migrate-store", "root": str(root), "defects": len(exc.defects)},
+        )
+        return _fail(f"{exc}\n\nThe store is unchanged.")
 
-        backup = backup_store(db_path)  # immutable undo, taken before anything is written
-        with tempfile.TemporaryDirectory() as tmp:
-            scratch = _scratch_copy(db_path, Path(tmp))
-            scratch_conn = connect(scratch)
-            try:
-                report = migrate_store(scratch_conn, owner_actor=args.owner_actor)
-                # Judge the RESULT, not just the input: a migration that produced an
-                # unmigratable store must not be swapped in on the strength of having run.
-                leftover = inspect_store(StateStore(scratch_conn))
-            except migration.LossyMigrationError as exc:
-                # The refusal IS the feature: the store was not touched, every offender named.
-                _log.warning(
-                    "refused a lossy store migration; no object was mutated",
-                    extra={"command": "migrate-store", "root": str(root),
-                           "defects": len(exc.defects), "backup": str(backup)},
-                )
-                return _fail(f"{exc}\n\nThe store is unchanged. Backup: {backup}")
-            finally:
-                scratch_conn.close()
-
-            if leftover:
-                _log.warning(
-                    "migration produced a store that still does not inspect clean",
-                    extra={"command": "migrate-store", "root": str(root),
-                           "defects": len(leftover), "backup": str(backup)},
-                )
-                return _fail(
-                    "the migrated store still does not inspect clean, so it was NOT swapped "
-                    "in:\n" + "\n".join(f"  {d.render()}" for d in leftover)
-                    + f"\n\nThe store is unchanged. Backup: {backup}"
-                )
-
-            checkpoint(scratch)
-            fence.rollback()   # release before the file moves out from under the connection
-            fence.close()
-            fence = None
-            _replace_store(scratch, db_path)
-    finally:
-        if fence is not None:
-            try:
-                fence.rollback()
-            finally:
-                fence.close()
-
-    print(report.render())
-    print(f"\nBackup (pre-migration store): {backup}")
+    print(result.report.render())
+    print(f"\nBackup (pre-migration store): {result.backup}")
     return 0
 
 

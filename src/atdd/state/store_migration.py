@@ -31,7 +31,9 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+import tempfile
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Dict, FrozenSet, List
 
 from atdd.state.identity import is_uid, mint_uid
@@ -305,3 +307,134 @@ __all__ = [
     "inspect_store",
     "migrate_store",
 ]
+
+
+# --------------------------------------------------------------------------- #
+# The durable run — backup, scratch, swap (#2024)
+# --------------------------------------------------------------------------- #
+class StoreLockedError(Exception):
+    """The live store could not be fenced, so the migration window cannot be held.
+
+    Not a failure of the migration — a refusal to start one. Another worktree is writing,
+    and starting anyway would mean copy-and-swapping over its committed work.
+    """
+
+
+class MigrationNotCleanError(Exception):
+    """The migrated copy still does not inspect clean, so it was not swapped in."""
+
+    def __init__(self, defects: List[MigrationDefect]) -> None:
+        self.defects = list(defects)
+        super().__init__(
+            "the migrated store still does not inspect clean, so it was NOT swapped in:\n"
+            + "\n".join(f"  {defect.render()}" for defect in self.defects)
+        )
+
+
+@dataclass(frozen=True)
+class DurableMigrationResult:
+    """What a durable run produced: the report, and the undo it left behind."""
+
+    report: StoreMigrationReport
+    backup: Path
+
+
+def migrate_store_durably(
+    db_path: Path, *, owner_actor: str = UNATTRIBUTED_OWNER,
+) -> DurableMigrationResult:
+    """Run :func:`migrate_store` so that a failure cannot cost the operator the store (#2024).
+
+    :func:`migrate_store` writes per object — ``upsert`` and ``rekey`` each open their own
+    ``with self._conn:`` — so there is no enclosing transaction and dying mid-run would leave
+    a half-migrated store that cannot be told apart from an unmigrated one. Wrapping the loop
+    in an outer ``BEGIN`` does not compose: ``sqlite3``'s ``with conn:`` commits the
+    *outermost* transaction, so the per-call managers commit it out from under the loop.
+
+    So this runs the pattern :mod:`~atdd.state.reconcile` already ships, and reuses its
+    helpers rather than re-deriving them:
+
+    - :func:`~atdd.state.reconcile.backup_store` — the **immutable** undo, never written to.
+      Migrating *it* is the tempting shortcut and it destroys the undo: ``backup_store``
+      returns the sole copy, so the "backup" ends up migrated too and nothing on disk holds
+      the pre-migration store, even on success.
+    - :func:`~atdd.state.reconcile._scratch_copy` — a **separate** mutable copy, which is what
+      gets migrated. A crash leaves it half-done and it is simply discarded.
+    - :func:`~atdd.state.reconcile._replace_store` — the swap, which unlinks ``-wal``/``-shm``
+      before moving. Replacing ``state.sqlite`` alone while those remain makes the store
+      unopenable (``database disk image is malformed``).
+
+    The window is held under ``BEGIN EXCLUSIVE``. The scratch is a snapshot at T0, so without
+    a fence a write committed between the copy and the swap is overwritten silently. Under it
+    such a writer is refused loudly with ``database is locked`` after the ``busy_timeout``
+    :func:`~atdd.state.db.connect` already sets, and **readers are unaffected** — which
+    matters, because WAL is configured for "concurrent readers + a writer (sibling
+    worktrees)" and every worktree under the Control Root shares this store.
+
+    Preservation is a property of the **snapshot**, not of the file's bytes: ``backup_store``
+    checkpoints the live store before copying it, so ``state.sqlite``'s bytes move before any
+    migration runs. The backup holds the pre-run store's *content*, and restoring it returns
+    that content.
+
+    Raises :class:`StoreLockedError` if the store cannot be fenced, :class:`LossyMigrationError`
+    if an object cannot be migrated, and :class:`MigrationNotCleanError` if the migrated copy
+    does not inspect clean. In every case the live store is untouched and the backup stands.
+    """
+    from atdd.state.db import connect  # local: keeps the module's import surface small
+    from atdd.state.reconcile import (
+        _replace_store, _scratch_copy, backup_store, checkpoint,
+    )
+
+    db_path = Path(db_path)
+    fence = connect(db_path)
+    try:
+        try:
+            fence.execute("BEGIN EXCLUSIVE")
+        except sqlite3.OperationalError as exc:
+            _log.warning(
+                "could not fence the store for migration",
+                extra={"db_path": str(db_path), "error": str(exc)},
+            )
+            raise StoreLockedError(
+                f"the State Store is in use and could not be locked ({exc}). Another "
+                "worktree is writing to it — retry when it is idle."
+            ) from exc
+
+        backup = backup_store(db_path)  # immutable undo, before anything is written
+        with tempfile.TemporaryDirectory() as tmp:
+            scratch = _scratch_copy(db_path, Path(tmp))
+            scratch_conn = connect(scratch)
+            try:
+                report = migrate_store(scratch_conn, owner_actor=owner_actor)
+                # Judge the RESULT, not merely the input: a migration that produced an
+                # unmigratable store must not be swapped in on the strength of having run.
+                leftover = inspect_store(StateStore(scratch_conn))
+            finally:
+                scratch_conn.close()
+            if leftover:
+                _log.warning(
+                    "migration produced a store that still does not inspect clean",
+                    extra={"db_path": str(db_path), "defects": len(leftover),
+                           "backup": str(backup)},
+                )
+                raise MigrationNotCleanError(leftover)
+
+            checkpoint(scratch)
+            # Release BEFORE the file moves out from under the connection: holding it open
+            # across the move is what strands the WAL side files.
+            fence.rollback()
+            fence.close()
+            fence = None
+            _replace_store(scratch, db_path)
+    finally:
+        if fence is not None:
+            try:
+                fence.rollback()
+            finally:
+                fence.close()
+
+    _log.info(
+        "state store migrated durably",
+        extra={"db_path": str(db_path), "backup": str(backup),
+               "migrated": report.migrated},
+    )
+    return DurableMigrationResult(report=report, backup=backup)
