@@ -1,0 +1,128 @@
+urn: wmbt:migrate-projection-authority:E003
+step: execute
+direction: maximize
+dimension: likelihood
+object_of_control: projected-provider-identity
+context_clarifier: when the migration has dropped issue_number and the external_refs table is the only
+  GitHub identity left, so a committed projection cannot say which issue a document is
+lens: functional.effectiveness
+statement: maximize likelihood of a projected-provider-identity that names the GitHub issue of every
+  work item the store binds to one, and that an inbound hydrate restores into the normalized
+  external_refs table
+acceptances:
+- given:
+    abstract:
+    - A store holding a work item bound to a GitHub issue in the external_refs table, and no issue_number
+      in its data bag
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: the projected document names its own GitHub issue, sourced from the refs table, so the
+      committed projection can be read as the transport
+    urn: acc:migrate-projection-authority:E003-UNIT-001-document-names-its-issue
+  metadata:
+    author: atdd:2025
+    created: '2026-09-14'
+  then:
+    abstract:
+    - The document carries external_refs.github.issue equal to the ref_value the table holds
+    - A work item the table binds to no issue carries no external_refs.github.issue
+    - 'RED: build_document reads obj.data alone and nothing writes data["external_refs"], so 0 of 746
+      projected documents name their issue'
+  when:
+    abstract: the store is projected
+- given:
+    abstract:
+    - A committed projection whose documents carry external_refs, and an empty store
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: RED
+    purpose: the inbound half round-trips — a hydrated store can resolve an issue number to a uid, which
+      is what the two identity-resolving gates enter through
+    urn: acc:migrate-projection-authority:E003-UNIT-002-hydrate-restores-the-refs-table
+  metadata:
+    author: atdd:2025
+    created: '2026-09-14'
+  then:
+    abstract:
+    - The refs table holds one (github, issue) row per document that named an issue
+    - Resolving that issue number returns the uid the document carried
+    - 'RED: hydrate upserts store.objects only and never repopulates external_refs'
+  when:
+    abstract: the projection is hydrated into the empty store
+- given:
+    abstract:
+    - Projection documents carrying, in turn, a non-digit issue leaf and a provider subtree the projector
+      does not source
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-003
+    phase: RED
+    purpose: the contract constrains EXACTLY the github issue leaf and nothing else — typed tightly
+      enough that a hand-edit cannot change its type, open enough that every write validate_update
+      admits still validates
+    urn: acc:migrate-projection-authority:E003-UNIT-003-the-contract-constrains-exactly-the-issue-leaf
+  metadata:
+    author: atdd:2025
+    created: '2026-09-14'
+  then:
+    abstract:
+    - An integer, a mapping and a list in the issue position are each refused by name
+    - A github/pr, a jira/ticket and a linear/issue subtree each validate unchanged
+    - 'RED: FIELD_TYPES types external_refs as dict and reaches no deeper, so every malformed shape is
+      admitted'
+  when:
+    abstract: each document is validated
+- given:
+    abstract:
+    - A store whose external_refs table binds ONE work item to two distinct GitHub issue numbers, which
+      the table's UNIQUE (provider, ref_kind, ref_value) permits
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-004
+    phase: RED
+    purpose: a scalar issue leaf cannot carry two issues, so the projector must refuse the object rather
+      than pick one — the surviving ref would otherwise depend on row iteration order, which is an I1
+      determinism break, not merely a loss
+    urn: acc:migrate-projection-authority:E003-UNIT-004-two-issue-refs-are-refused
+  metadata:
+    author: atdd:2025
+    created: '2026-09-14'
+  then:
+    abstract:
+    - The projection is refused naming the object and both issue numbers
+    - No projection file is written for any object in the run
+    - 'RED: the projector emits whichever ref the table yields last and drops the other silently'
+  when:
+    abstract: the store is projected
+- given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real local State Store holding GitHub issue refs
+  harness:
+    category: backend
+    type: integration
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: projected-provider-identity holds against a real repo checkout, the installed
+      atdd CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+    urn: acc:migrate-projection-authority:E003-SMOKE-001-projection-carries-github-identity
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-14'
+  then:
+    abstract:
+    - projected-provider-identity is observed to hold end-to-end against real infrastructure, with no
+      mocks or manual patching
+  when:
+    abstract: the E003 behavior is driven end-to-end through the real CLI

@@ -7,6 +7,8 @@ and CI read. This module is the projection spine (milestone M1):
 
 - :func:`project`            — store → byte-identical canonical per-uid YAML (I1).
 - :func:`hydrate`            — committed projection at HEAD → store, zero providers.
+                               Restores objects AND the projected ``external_refs`` slice,
+                               merging into what the store already holds (#2025).
 - :func:`projection_digest`  — a stable digest over the canonical bytes.
 - :func:`check_canonicality` — the honest CI guarantee (spec §4):
   ``project(hydrate(committed projection)) == committed projection``, byte-for-byte.
@@ -27,7 +29,9 @@ and storage APIs only, never authored definitions (``coder.state-store``
 
 Dependency discipline: stdlib + ``pyyaml`` + ``atdd.state`` only. In particular it
 imports **no** provider and never consults ``external_refs`` for a lifecycle
-decision (I7, spec §8.2 rule 5).
+decision (I7, spec §8.2 rule 5). Reading the ``external_refs`` TABLE to project a
+document (#2025) is a read of a local table, not a call to a provider, and the value
+is *carried* — no phase, no transition and no lifecycle decision in core reads it.
 """
 from __future__ import annotations
 
@@ -40,7 +44,7 @@ import sqlite3
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import FrozenSet, Any, Dict, List, Mapping, Optional, Tuple
+from typing import FrozenSet, Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import yaml
 
@@ -108,10 +112,14 @@ FIELD_TYPES: Dict[str, Any] = {
 #: Keys the projector OMITS from the document while the store keeps them (#1622).
 #:
 #: Strip is not drop. Each of these has a live reader that reads the **live SQLite store**,
-#: which — per the #1622 ruling recorded in
-#: ``docs/1400-findings/1622-projection-authority-ruling.md`` — is never rebuilt from the
-#: projection. So omitting them costs those readers nothing, while carrying them would put
-#: machine-local or unreliable values into shared state:
+#: and carrying them would put machine-local or unreliable values into shared state.
+#:
+#: The #1622 ruling authorized the strip on the premise that the store is never rebuilt from
+#: the projection. #2025 removed that premise — ``hydrate`` is now a real inbound path — so
+#: the strip is held up by :func:`hydrate` carrying these keys forward from the object it is
+#: writing over, NOT by the projection never being read back. Change one and you must change
+#: the other. See the supersession addendum in
+#: ``docs/1400-findings/1622-projection-authority-ruling.md``:
 #:
 #: - ``branch``    the pre-commit registration gate's primary index (#1720). Per-machine:
 #:                 written by ``atdd worktree create`` on the host that needs it, so a peer
@@ -125,6 +133,43 @@ FIELD_TYPES: Dict[str, Any] = {
 STRIPPED_AT_PROJECTION: FrozenSet[str] = frozenset({
     "branch", "feature", "worktree", "created", "id",
 })
+
+#: The projection field the provider identity rides in. Bot-owned (``field-ownership.yaml``:
+#: ``writer: extension_bot``, ``rule: bot-only``, ``lifecycle_readable: false``) and *carried,
+#: never consulted* — no phase, no transition and no lifecycle decision in core reads it (I7).
+EXTERNAL_REFS_FIELD = "external_refs"
+
+GITHUB_PROVIDER = "github"
+ISSUE_REF_KIND = "issue"
+
+#: The ``(provider, ref_kind)`` pairs the PROJECTOR sources from the ``external_refs`` TABLE,
+#: each with the reason it is admitted (#2025). This governs what the projector *emits*; it
+#: does NOT govern what the contract *admits*, and the two are deliberately different — see
+#: :func:`_validate_external_refs`.
+#:
+#: Everything outside this table is excluded, on three independent grounds:
+#:
+#: - ``(claude, session)`` — **determinism**. Those 154 rows carry ``data.last_seen_at``, a
+#:   wall-clock reading, and :func:`assert_deterministic` refuses the whole corpus on the
+#:   first fault. Serializing the table wholesale does not leak session metadata into shared
+#:   state; it makes the projection *unwritable*.
+#: - the row's ``data`` blob — **the #1622 ruling**. It is determinism-clean, so nothing
+#:   mechanical stops it, but 819 of 1,103 GitHub rows carry a ``_recovery`` bag, the key that
+#:   ruling ruled DROP. Carrying it would reverse the ruling by the back door.
+#: - refs on a non-projected kind — **kind**. 56 ``(github, issue)`` rows sit on ``wmbt``
+#:   objects, which have no projection document to ride in.
+PROJECTED_REF_KINDS: Dict[Tuple[str, str], str] = {
+    (GITHUB_PROVIDER, ISSUE_REF_KIND):
+        "the work item's GitHub issue number — the addressing a reconciliation workflow "
+        "reading the committed projection needs, and after the #1622 issue_number drop the "
+        "only GitHub identity the store holds",
+}
+
+#: A projected issue number is a digit STRING. The store column is ``TEXT``, and ``'1975'``
+#: and ``1975`` do not serialize to the same bytes — so an unquoted hand-edit would re-project
+#: differently and break ``project(hydrate(p)) == p`` with no schema violation to explain it.
+#: The contract types this leaf for that reason and constrains nothing else.
+ISSUE_VALUE_RE = re.compile(r"^[0-9]+$")
 
 #: Contract ``required``.
 REQUIRED_FIELDS: Tuple[str, ...] = ("uid", "phase", "state", "owner_actor")
@@ -176,6 +221,53 @@ class NondeterministicProjectionError(ProjectionError):
 
 class ProjectionSchemaError(ProjectionError):
     """A document does not conform to ``commons:projection-object``."""
+
+
+class DuplicateExternalRefError(ProjectionError):
+    """One object carries two refs of the same ``(provider, ref_kind)`` (#2025).
+
+    The refs table is ``UNIQUE (provider, ref_kind, ref_value)`` — *not* per object — so
+    binding one uid to two GitHub issues is a state the store can hold, and a scalar leaf
+    cannot carry it. Picking one would make the emitted bytes depend on the row order
+    ``ExternalRefStore.all()`` happens to yield, which breaks I1 rather than merely losing a
+    row. So the whole run is refused, in the same spirit as :func:`build_documents`' refusal
+    on a determinism fault.
+    """
+
+    def __init__(self, uid: str, provider: str, ref_kind: str, values: Sequence[str]) -> None:
+        self.uid = uid
+        self.provider = provider
+        self.ref_kind = ref_kind
+        self.values = tuple(values)
+        super().__init__(
+            f"{uid} carries {len(self.values)} {provider}/{ref_kind} refs "
+            f"({', '.join(self.values)}), and a projected {provider}.{ref_kind} is a single "
+            "value. Which one survived would depend on row iteration order, so the projection "
+            "is refused rather than made nondeterministic. Retire the stale ref, or bind the "
+            "second issue to its own work item"
+        )
+
+
+class ExternalRefConflictError(ProjectionError):
+    """An inbound ref claims a provider identity the local store binds elsewhere (#2025).
+
+    ``ExternalRefStore.link`` is ``ON CONFLICT(provider, ref_kind, ref_value) DO UPDATE SET
+    object_uid=excluded.object_uid`` — last writer wins, silently. Two peers binding different
+    uids to one issue number is the object conflict this train exists to resolve, and resolving
+    it by overwrite is not resolving it. Raised before the first write of the hydrate.
+    """
+
+    def __init__(self, provider: str, ref_kind: str, ref_value: str, ours: str, theirs: str) -> None:
+        self.provider = provider
+        self.ref_kind = ref_kind
+        self.ref_value = ref_value
+        self.ours = ours
+        self.theirs = theirs
+        super().__init__(
+            f"{provider}/{ref_kind} {ref_value} is bound to {ours} here and to {theirs} in the "
+            "incoming projection. Nothing was written. An issue identifies one work item, so "
+            "this is a conflict for a person to settle, not a value to overwrite"
+        )
 
 
 class MissingProjectionError(ProjectionError):
@@ -384,6 +476,52 @@ def _validate_tombstone(document: Mapping[str, Any]) -> List[str]:
     ]
 
 
+def _validate_external_refs(refs: Any) -> List[str]:
+    """Type the ``github.issue`` leaf; constrain nothing else (#2025).
+
+    ``external_refs`` stays OPEN on purpose, and the reason is load-bearing:
+    ``provider_seam.validate_update`` — the only sanctioned write-back — constrains the uid,
+    the bot namespace, authoritativeness and provider *identity*, and enumerates neither
+    provider nor ref kind. ``github/pr``, ``jira/ticket`` and ``linear/issue`` are all legal
+    writes, and ``merge_driver._bot_only`` unions disjoint providers by design. A contract
+    narrowed to ``github.issue`` would refuse writes the bot is built to make and then reject
+    the merge results those writes produce.
+
+    So exactly two things are checked, and both only when present: that ``github`` is a
+    mapping (the shape ``apply_updates`` writes and the shape the projector merges into), and
+    that ``github.issue`` is a digit string. The second is what keeps the round trip
+    byte-stable — see :data:`ISSUE_VALUE_RE`.
+    """
+    if refs is None:
+        return []
+    if not isinstance(refs, Mapping):
+        return [f"field {EXTERNAL_REFS_FIELD!r} has type {type(refs).__name__}, expected a mapping"]
+    provider_subtree = refs.get(GITHUB_PROVIDER)
+    if not isinstance(provider_subtree, Mapping):
+        # Absent, or the FLAT ``{provider: ref}`` shape ``overlay.EXTERNAL_REF_APPLIED``
+        # writes. That shape disagrees with the nested one ``provider_seam.apply_updates``
+        # emits — the overlay event carries no ref-kind axis to nest by — and converging the
+        # two is a change to the overlay's event payload, not to the projection spine. The
+        # open field admits both; :func:`merge_external_refs` is where the disagreement is
+        # refused, and only when there is actually something to merge.
+        return []
+    if ISSUE_REF_KIND not in provider_subtree:
+        return []
+    issue = provider_subtree[ISSUE_REF_KIND]
+    if not isinstance(issue, str):
+        return [
+            f"{EXTERNAL_REFS_FIELD}.{GITHUB_PROVIDER}.{ISSUE_REF_KIND} has type "
+            f"{type(issue).__name__}, expected a digit string. An unquoted integer re-projects "
+            "to different bytes and would break project(hydrate(p)) == p"
+        ]
+    if not ISSUE_VALUE_RE.match(issue):
+        return [
+            f"{EXTERNAL_REFS_FIELD}.{GITHUB_PROVIDER}.{ISSUE_REF_KIND} is {issue!r}, which is not "
+            f"a GitHub issue number (expected {ISSUE_VALUE_RE.pattern})"
+        ]
+    return []
+
+
 def validate_document(document: Mapping[str, Any]) -> None:
     """Refuse ``document`` unless it conforms to ``commons:projection-object``.
 
@@ -404,6 +542,7 @@ def validate_document(document: Mapping[str, Any]) -> None:
         elif not isinstance(value, expected):
             problems.append(f"field {key!r} has type {type(value).__name__}, expected {expected}")
     problems.extend(_validate_enum(document))
+    problems.extend(_validate_external_refs(document.get(EXTERNAL_REFS_FIELD)))
     if problems:
         raise ProjectionSchemaError(
             f"projection document {document.get('uid', '<no uid>')} is invalid: "
@@ -414,7 +553,71 @@ def validate_document(document: Mapping[str, Any]) -> None:
 # --------------------------------------------------------------------------- #
 # Document ↔ store object
 # --------------------------------------------------------------------------- #
-def build_document(obj: Object) -> Dict[str, Any]:
+def merge_external_refs(
+    carried: Any, sourced: Optional[Mapping[str, Mapping[str, str]]],
+) -> Dict[str, Dict[str, str]]:
+    """Layer ``sourced`` onto ``carried`` at the ``(provider, ref_kind)`` LEAF (#2025).
+
+    Not at the provider. The difference is the whole of C003-UNIT-002: the table sources
+    ``github.issue``, and ``provider_seam.apply_updates`` may legally have written
+    ``github.pr`` under the same provider key. Replacing ``carried['github']`` with the
+    sourced subtree destroys a ref the bot is entitled to write — and a test using only a
+    foreign provider passes straight through that, which is how it survived the first
+    review.
+
+    So the two are merged key by key: the table wins for the kinds it sources, and every
+    other kind, under every provider, is left exactly as it was found.
+    """
+    merged: Dict[str, Dict[str, str]] = {}
+    for provider, kinds in (carried or {}).items():
+        merged[provider] = dict(kinds) if isinstance(kinds, Mapping) else kinds
+    for provider, kinds in (sourced or {}).items():
+        target = merged.get(provider)
+        if target is not None and not isinstance(target, Mapping):
+            # The flat ``{provider: ref}`` shape, with a ref to merge into it. Overwriting
+            # would destroy whatever the flat value said; there is no key to merge under.
+            # Refuse rather than pick — this is the fault class the whole issue corrects.
+            raise ProjectionSchemaError(
+                f"{EXTERNAL_REFS_FIELD}.{provider} is {target!r}, a flat provider value, and "
+                f"the refs table sources {sorted(kinds)} for it. The two shapes cannot be "
+                "merged and overwriting one would lose it. Rewrite the flat ref as "
+                f"{{{provider!r}: {{<ref_kind>: <value>}}}}"
+            )
+        target = dict(target) if isinstance(target, Mapping) else {}
+        target.update(kinds)
+        merged[provider] = target
+    return merged
+
+
+def source_external_refs(store: StateStore) -> Dict[str, Dict[str, Dict[str, str]]]:
+    """``uid -> {provider: {ref_kind: ref_value}}`` for every :data:`PROJECTED_REF_KINDS` row.
+
+    One query for the whole run — the refs table is read once and grouped, never queried per
+    object. Rows outside the projected set are passed over silently: they are excluded by
+    design, and each exclusion's reason is recorded on :data:`PROJECTED_REF_KINDS`.
+
+    Raises :class:`DuplicateExternalRefError` if one object carries two values for the same
+    ``(provider, ref_kind)`` — a state the table's uniqueness permits and a scalar leaf
+    cannot represent.
+    """
+    sourced: Dict[str, Dict[str, Dict[str, str]]] = {}
+    for ref in store.external_refs.all():
+        if (ref.provider, ref.ref_kind) not in PROJECTED_REF_KINDS:
+            continue
+        subtree = sourced.setdefault(ref.object_uid, {}).setdefault(ref.provider, {})
+        present = subtree.get(ref.ref_kind)
+        if present is not None and present != ref.ref_value:
+            raise DuplicateExternalRefError(
+                ref.object_uid, ref.provider, ref.ref_kind,
+                sorted((present, str(ref.ref_value))),
+            )
+        subtree[ref.ref_kind] = str(ref.ref_value)
+    return sourced
+
+
+def build_document(
+    obj: Object, *, external_refs: Optional[Mapping[str, Mapping[str, str]]] = None,
+) -> Dict[str, Any]:
     """The projection document for a stored object — a pure, total mapping.
 
     The ``objects.state`` column is the lifecycle *phase* (the store's long-standing
@@ -425,6 +628,12 @@ def build_document(obj: Object) -> Dict[str, Any]:
     store and are omitted here. Nothing is silently dropped — the set is enumerated, each
     entry carries its reason, and every live reader of one reads the store rather than the
     projection.
+
+    ``external_refs`` is the provider identity for this object, sourced from the refs TABLE
+    by :func:`source_external_refs` and **merged** into whatever the data bag already holds
+    (#2025). Callers that have a store should pass it; the default of ``None`` carries the
+    data bag's subtree through unchanged, which is what a caller holding only an ``Object``
+    can honestly say.
     """
     document: Dict[str, Any] = {
         key: value for key, value in obj.data.items()
@@ -433,6 +642,11 @@ def build_document(obj: Object) -> Dict[str, Any]:
     document["uid"] = obj.uid
     document["phase"] = obj.state
     document.setdefault("state", STATE_ACTIVE)
+    refs = merge_external_refs(document.get(EXTERNAL_REFS_FIELD), external_refs)
+    if refs:
+        document[EXTERNAL_REFS_FIELD] = refs
+    else:
+        document.pop(EXTERNAL_REFS_FIELD, None)
     return document
 
 
@@ -478,10 +692,11 @@ def build_documents(store: StateStore) -> Dict[str, Dict[str, Any]]:
     refuses that, and should.
     """
     documents: Dict[str, Dict[str, Any]] = {}
+    sourced = source_external_refs(store)
     for obj in store.objects.list(kind=WORK_ITEM_KIND):
         if obj.state in ARCHIVED_PHASES:
             continue
-        document = build_document(obj)
+        document = build_document(obj, external_refs=sourced.get(obj.uid))
         assert_deterministic(document, uid=obj.uid)
         validate_document(document)
         documents[obj.uid] = document
@@ -585,6 +800,112 @@ def read_projection(
     return documents
 
 
+def _incoming_refs(
+    documents: Mapping[str, Mapping[str, Any]],
+) -> Dict[Tuple[str, str, str], str]:
+    """``(provider, ref_kind, ref_value) -> uid`` for every projected ref the set carries.
+
+    Refuses two documents claiming the same provider identity. That is the *intra-set* half
+    of the conflict check; :func:`_refuse_ref_collisions` does the half that matters more.
+    """
+    incoming: Dict[Tuple[str, str, str], str] = {}
+    for uid in sorted(documents):
+        refs = documents[uid].get(EXTERNAL_REFS_FIELD) or {}
+        for provider, ref_kind in PROJECTED_REF_KINDS:
+            subtree = refs.get(provider)
+            if not isinstance(subtree, Mapping) or ref_kind not in subtree:
+                continue
+            key = (provider, ref_kind, str(subtree[ref_kind]))
+            claimed = incoming.get(key)
+            if claimed is not None and claimed != uid:
+                raise ExternalRefConflictError(*key, claimed, uid)
+            incoming[key] = uid
+    return incoming
+
+
+@dataclass(frozen=True)
+class _RefRestore:
+    """One projected ref to write back, with the row data it must not destroy."""
+
+    uid: str
+    provider: str
+    ref_kind: str
+    ref_value: str
+    #: The blob the local row already carries, or ``None`` where there is no row yet.
+    data: Optional[Dict[str, Any]]
+
+
+def _plan_ref_restore(
+    store: StateStore, incoming: Mapping[Tuple[str, str, str], str],
+) -> List[_RefRestore]:
+    """Read each incoming ref ONCE — refusing a collision, and keeping what must survive.
+
+    The two things this has to get right both depend on the same row, so it is read once and
+    both are derived from it rather than resolving twice:
+
+    - **Refuse a collision.** Checking uniqueness only *within* the incoming set is not
+      enough, and was the first version's mistake: the collision that actually happens on an
+      ingest is against the refs the LOCAL STORE ALREADY HOLDS. ``link`` would resolve it
+      last-writer-wins and re-point a live binding in silence.
+    - **Keep the row's ``data`` blob.** ``link`` is ``DO UPDATE SET data=excluded.data`` and
+      ``_dumps(None)`` is ``'{}'``, so writing back without it would wipe the provenance on
+      1,103 live rows — the same wholesale-replace fault the hydrate exists to repair, one
+      table over. The projection carries no opinion about that blob, which is exactly why it
+      must not overwrite it.
+
+    Called before the first write, so a refused hydrate leaves the store exactly as it was —
+    the same refuse-before-any-write discipline :func:`build_documents` keeps. The plan stays
+    valid across the object writes that follow: :meth:`ObjectStore.upsert` does not touch the
+    refs table.
+    """
+    plan: List[_RefRestore] = []
+    for (provider, ref_kind, ref_value), uid in sorted(incoming.items()):
+        held = store.external_refs.resolve(provider, ref_kind, ref_value)
+        if held is not None and held.object_uid != uid:
+            raise ExternalRefConflictError(
+                provider, ref_kind, ref_value, held.object_uid, uid,
+            )
+        plan.append(_RefRestore(
+            uid=uid, provider=provider, ref_kind=ref_kind, ref_value=ref_value,
+            data=dict(held.data) if held is not None else None,
+        ))
+    return plan
+
+
+def _restore_external_refs(store: StateStore, plan: Sequence[_RefRestore]) -> None:
+    """Write back the projected slice of the refs table (#2025).
+
+    Restores, never deletes. A ref the projection does not name is left alone: the projection
+    is authoritative for the objects it carries, not for the ones it does not, and 304 of the
+    live work-item refs belong to ``COMPLETE`` objects that :data:`ARCHIVED_PHASES` keeps out
+    of it. A hydrate that made the table *match* would delete every one of them on first
+    ingest.
+    """
+    for entry in plan:
+        store.external_refs.link(  # noqa: N+1 — one link per projected ref, not a query loop
+            entry.uid, entry.provider, entry.ref_kind, entry.ref_value, data=entry.data,
+        )
+
+
+def _carry_stripped_keys_forward(data: Dict[str, Any], existing: Optional[Object]) -> None:
+    """Preserve the keys the projection deliberately declined to speak about (#2025).
+
+    A document that omits ``branch`` is not claiming the object has no branch — it is
+    declining to have an opinion, because :data:`STRIPPED_AT_PROJECTION` stripped it on the
+    way out. :meth:`ObjectStore.upsert` is a wholesale replace, so without this the
+    projection's SILENCE about a key deletes it: measured, one cycle took both
+    identity-resolving gates from 174/174 to 0/174.
+
+    ``existing`` is ``None`` for an object this store has never seen, where there is by
+    definition nothing local to preserve. Mutates ``data`` in place.
+    """
+    if existing is None:
+        return
+    for key in STRIPPED_AT_PROJECTION:
+        if key in existing.data:
+            data[key] = existing.data[key]
+
+
 def hydrate(projection_dir: Path, store: StateStore) -> HydrateResult:
     """Rebuild the public store objects from the committed projection (E002).
 
@@ -592,23 +913,38 @@ def hydrate(projection_dir: Path, store: StateStore) -> HydrateResult:
     store: the committed YAML at HEAD is the only input. This is the read half of
     the CI guarantee — CI hydrates what the branch committed, then re-projects it.
 
-    **That is the whole of it: this is not disaster recovery** (#1622 ruling). It
-    rebuilds ``store.objects`` and nothing else — in particular it never repopulates
-    ``external_refs``, so a store hydrated from a projection cannot resolve an issue
-    number to a uid. Restore from the SQLite store, never from here.
+    It is also the inbound half of git-as-transport (#2025): a peer's committed
+    projection is hydrated here, so this rebuilds ``store.objects`` **and** the projected
+    slice of ``external_refs`` — a hydrated store can resolve an issue number to a uid,
+    which is what both identity-resolving gates enter through. It remains *not* disaster
+    recovery: the projection carries a defined slice of the store, never all of it, so
+    restore from the SQLite store rather than from here.
 
-    The consequence a caller must hold on to: :meth:`ObjectStore.upsert` is a
-    wholesale replace, not a merge. Any key the projector stops emitting is deleted
-    from every hydrated store on the next cycle. That is why dropping a key is a
-    corpus decision and not a formatting one — see
-    ``docs/1400-findings/1622-projection-authority-ruling.md``.
+    Three things this must not do, each of them a wholesale replace that the #1622 ruling's
+    CI-only premise let pass unexamined (see the supersession addendum in
+    ``docs/1400-findings/1622-projection-authority-ruling.md``):
+
+    - **Delete what it does not speak for.** :meth:`ObjectStore.upsert` replaces the whole
+      data bag, so every :data:`STRIPPED_AT_PROJECTION` key is carried forward from the
+      object already in the store. A document that omits ``branch`` is declining to have an
+      opinion, not asserting the object has none.
+    - **Overwrite a ref row's provenance.** The restore preserves the existing ``data`` blob
+      — see :func:`_restore_external_refs`.
+    - **Resolve a conflict by overwriting it.** An inbound ref claiming an identity the local
+      store binds elsewhere raises :class:`ExternalRefConflictError` before the first write.
     """
     documents = read_projection(projection_dir)
+    incoming = _incoming_refs(documents)
+    restore = _plan_ref_restore(store, incoming)
+
     for uid in sorted(documents):
         obj_uid, phase, data = document_to_object(documents[uid])
+        _carry_stripped_keys_forward(data, store.objects.get(obj_uid))
         store.objects.upsert(  # noqa: N+1 — one upsert per projected object, not a query loop
             obj_uid, WORK_ITEM_KIND, state=phase, data=data,
         )
+
+    _restore_external_refs(store, restore)
     _log.info(
         "projection hydrated",
         extra={"projection_dir": str(projection_dir), "objects": len(documents)},
