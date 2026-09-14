@@ -50,6 +50,30 @@ acceptances:
     - The removed readers' tests are deleted or retargeted at the projection reader
   when:
     abstract: the source tree is scanned for manifest read paths
+- given:
+    abstract:
+    - The shipped `atdd state` verb surface after the manifest read-fallback is decommissioned
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-003
+    phase: RED
+    purpose: no registered verb resolves .atdd/manifest.yaml as its input, which the module scan cannot
+      see because the read happens inside a declared-exempt module
+    urn: acc:migrate-projection-authority:Y002-UNIT-003-no-registered-verb-reads-the-manifest
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-09-14'
+  then:
+    abstract:
+    - No verb in the `atdd state` parser, OPS tuple, or dispatch map resolves .atdd/manifest.yaml as its
+      input
+    - 'RED: `mint-uids` and `migrate-manifest` are registered today and both fail with "no legacy manifest
+      to migrate" on any real repo'
+    - The three surfaces that register a verb — OPS, add_parsers, dispatch — agree on the same verb set
+  when:
+    abstract: the registered verb surface is enumerated and each verb's input is resolved
 - identity:
     urn: acc:migrate-projection-authority:Y002-SMOKE-001-manifest-read-fallback
     id: AC-SMOKE-001
