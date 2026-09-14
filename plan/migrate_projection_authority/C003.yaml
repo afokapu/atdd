@@ -6,8 +6,8 @@ object_of_control: destructive-projection-write
 context_clarifier: when hydrate becomes a real inbound path and every write on the projection path
   replaces a whole value where it holds only part of one, so the projection's silence reads as deletion
 lens: functional.effectiveness
-statement: minimize frequency of a projection or hydrate write that replaces state it does not speak for,
-  across all four write paths the inbound half touches
+statement: minimize frequency of a destructive-projection-write that replaces state it does not speak
+  for, across all four write paths the inbound half touches
 acceptances:
 - given:
     abstract:

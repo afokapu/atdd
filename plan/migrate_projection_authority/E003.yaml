@@ -6,8 +6,8 @@ object_of_control: projected-provider-identity
 context_clarifier: when the migration has dropped issue_number and the external_refs table is the only
   GitHub identity left, so a committed projection cannot say which issue a document is
 lens: functional.effectiveness
-statement: maximize likelihood of a committed projection that names the GitHub issue of every work item
-  the store binds to one, and of an inbound hydrate that restores that binding into the normalized
+statement: maximize likelihood of a projected-provider-identity that names the GitHub issue of every
+  work item the store binds to one, and that an inbound hydrate restores into the normalized
   external_refs table
 acceptances:
 - given:
