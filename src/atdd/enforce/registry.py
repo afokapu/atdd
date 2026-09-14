@@ -44,6 +44,8 @@ from typing import Iterable, Iterator, Mapping, Optional, Sequence
 
 import yaml
 
+import atdd
+
 # The cross-registry collision error lives with its sibling registry errors
 # (RuleNotInRegistryError, AmbiguousRuleError) in the rule-binding module, its
 # designated home. Re-exported here so enforce callers import it from one place.
@@ -54,6 +56,15 @@ from atdd.coach.utils.rule_binding import (  # noqa: F401 (re-exported)
 )
 
 _log = logging.getLogger(__name__)
+
+# The CORE territory, pinned. These guards police the boundary between core and
+# the extension tree, so they must not resolve "core" through the registry's
+# CURRENT search roots -- `_default_roots()` is the subject they measure, and
+# #1992 widens it. A measuring instrument defined in terms of its subject reads
+# zero the moment the subject moves: with the extension tree in the default
+# roots, `new_rules_from_extensions` falls 35 -> 0 and `find_mirror_incoherences`
+# 35 -> 17, neither by repair (wmbt:govern-registry:D002).
+_CORE_ROOT = Path(atdd.__file__).resolve().parent
 
 
 # ---------------------------------------------------------------------------
@@ -74,10 +85,11 @@ class CoreSuccessionError(Exception):
 def core_convention_files(roots: Optional[Iterable[Path]] = None) -> list[Path]:
     """The ``*.convention.yaml`` files admitted into the core rule registry.
 
-    Thin pass-through to :func:`find_convention_files`; its default roots are the
-    core ``src/atdd`` tree, so no file under ``.atdd/extensions`` is ever admitted.
+    Pinned to :data:`_CORE_ROOT` rather than deferring to the registry's default
+    search roots, so widening those roots cannot redefine what this reports as
+    core. Pass ``roots`` explicitly to scope it somewhere else (tests do).
     """
-    return find_convention_files(roots)
+    return find_convention_files(roots if roots is not None else [_CORE_ROOT])
 
 
 def core_rule_ids(roots: Optional[Iterable[Path]] = None) -> set[str]:
