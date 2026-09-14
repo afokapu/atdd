@@ -118,7 +118,7 @@ def _run_gate(repo):
 
     check = ApprovalTokenGateCheck(signing_key=_KEY, now=_NOW)
     ctx = GateContext(issue_number=_ISSUE, from_phase=_FROM, to_phase=_TO,
-                      worktree=str(repo))
+                      worktree=repo)
     return check.run(ctx)
 
 

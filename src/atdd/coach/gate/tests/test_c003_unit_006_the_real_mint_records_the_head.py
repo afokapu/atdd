@@ -89,7 +89,7 @@ def test_the_mint_call_site_passes_a_head():
     assert calls, "approve_command no longer calls build_token at all"
 
     for call in calls:
-        kwargs = {k.arg for k in call.keywords}
+        kwargs = {k.arg for k in call.keywords if k.arg}
         assert "head" in kwargs, (
             "the production mint calls build_token without a head, so every "
             "approval it writes is headless and `content_still_stands` will "

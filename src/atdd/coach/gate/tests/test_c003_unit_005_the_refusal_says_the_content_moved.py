@@ -24,6 +24,8 @@ RED state: `_diagnose` has no content-moved branch; no `head` argument exists.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 pytestmark = [pytest.mark.platform]
@@ -41,7 +43,7 @@ _SHA_B = "91e5ba3e591cfb063ab02adafde6f04438ae68eb"
 def _token(**over):
     from atdd.coach.gate.approval import build_token
 
-    kwargs = dict(approved_by="operator", approved_at=_NOW, branch=_BRANCH,
+    kwargs: dict = dict(approved_by="operator", approved_at=_NOW, branch=_BRANCH,
                   expires_at=_EXPIRES, head=_SHA_A, key=_KEY)
     kwargs.update(over)
     return build_token(_ISSUE, _FROM, _TO, **kwargs)
@@ -53,7 +55,7 @@ def _diagnose(token, *, branch=_BRANCH, now=_NOW, head=_SHA_A):
 
     check = ApprovalTokenGateCheck(signing_key=_KEY, now=now)
     ctx = GateContext(issue_number=_ISSUE, from_phase=_FROM, to_phase=_TO,
-                      worktree=".")
+                      worktree=Path("."))
     return check._diagnose(token, ctx, _KEY, branch, now, head)
 
 

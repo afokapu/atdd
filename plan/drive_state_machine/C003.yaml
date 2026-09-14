@@ -135,3 +135,24 @@ acceptances:
     metadata:
       author: "atdd:self-compliance"
       created: "2026-09-13"
+  - identity:
+      urn: "acc:drive-state-machine:C003-UNIT-006-the-real-mint-records-the-head"
+      id: "AC-UNIT-006"
+      purpose: "The token the approve command actually writes carries the commit"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The production mint path, as `atdd coach approve` invokes it"
+    when:
+      abstract: "An approval is minted"
+    then:
+      abstract:
+        - "The token it writes records the reviewed head"
+        - "A token minted that way stops verifying once the branch advances"
+        - "Every other acceptance of this WMBT builds its token by hand, so none of them observes this: measured 2026-09-13, all 18 were green while the mint passed no head at all and the binding was inert for every real approval"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-13"

@@ -265,11 +265,12 @@ class ApprovalTokenGateCheck:
         # A HEADLESS token is unaffected: it asserts no commit, so there is
         # nothing to observe and it keeps the regime it was minted in.
         reviewed = resolve_reviewed_head(ctx.worktree, binding.branch)
-        if token_head(token_data) and reviewed.sha is None:
+        bound_head = token_head(token_data)
+        if bound_head and reviewed.sha is None:
             return GateCheckResult.could_not_check(
                 self.gate_id, self.rule_id,
                 f"approval token at {_rel(ctx)} was granted for commit "
-                f"{token_head(token_data)[:9]}, but the commit currently on "
+                f"{bound_head[:9]}, but the commit currently on "
                 f"{binding.branch} could not be observed, so whether the approved "
                 f"content still stands could not be checked: {reviewed.reason}",
             )
