@@ -60,3 +60,25 @@ acceptances:
       error'
   when:
     abstract: the migration tool is run again on the renamed manifest
+- identity:
+    urn: acc:migrate-projection-authority:E001-SMOKE-001-live-migration-is-uid-keyed
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end through the real `atdd state migrate-store` CLI. RETARGETED by #2023: this
+      WMBT''s SMOKE acceptance drove `atdd state migrate-manifest`, whose input .atdd/manifest.yaml
+      CORE-034 deleted, so it could not run. The contract did not go away with the verb — CORE-036''s
+      live migration carries it — so the acceptance follows the contract to the verb that runs.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout and a real on-disk .atdd/state/state.sqlite, driven through the shipped CLI
+  when:
+    abstract: the live store migration is run end-to-end, with no mocks and no manual patching
+  then:
+    abstract:
+    - Every work item gains an immutable uid and an owner_actor, the store then projects one document per work item keyed by that uid, and a second run is a no-op
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-09-14'

@@ -51,3 +51,25 @@ acceptances:
     - The projection directory is absent or unchanged
   when:
     abstract: the migration tool is run against that manifest
+- identity:
+    urn: acc:migrate-projection-authority:C001-SMOKE-001-lossy-migration-write-refused-live
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end through the real `atdd state migrate-store` CLI. RETARGETED by #2023: this
+      WMBT''s SMOKE acceptance drove `atdd state migrate-manifest`, whose input .atdd/manifest.yaml
+      CORE-034 deleted, so it could not run. The contract did not go away with the verb — CORE-036''s
+      live migration carries it — so the acceptance follows the contract to the verb that runs.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout and a real on-disk .atdd/state/state.sqlite, driven through the shipped CLI
+  when:
+    abstract: the live store migration is run end-to-end, with no mocks and no manual patching
+  then:
+    abstract:
+    - A migration that cannot faithfully carry one object refuses the WHOLE run before any write, names every offending object, and leaves the store byte-identical
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-09-14'
