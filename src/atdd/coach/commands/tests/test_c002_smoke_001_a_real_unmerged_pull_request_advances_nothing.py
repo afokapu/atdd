@@ -117,6 +117,10 @@ def test_a_real_unmerged_pull_request_advances_nothing():
             "auto-advanceable phase, so the merge premise cannot be exercised "
             "against the live projection right now"
         )
+    # `pytest.skip` ends the test, but the tuple unpacking leaves `result`
+    # Optional to a type checker even after `pr` is narrowed — they are separate
+    # bindings. Asserted rather than ignored: the pair is always both-or-neither.
+    assert result is not None
 
     assert pr["mergedAt"] is None, (
         f"PR #{pr['number']} is open and reports mergedAt={pr['mergedAt']!r}; "
