@@ -14,6 +14,13 @@ fail. A probe that cannot fail proves nothing.
   4b  a ref colliding with one the local store already holds  — refused, or silently re-pointed?
   4c  a ref whose local row carries a `data` blob             — preserved, or wiped?
 
+DESIGN-PHASE PROBE. This measures the behaviour of the projection spine BEFORE #2025
+landed, plus the prototype fix that was proposed for it. The implementation has since
+shipped, so what it reports is the historical finding, not the current state of the
+code. The regression check for the shipped behaviour is the E003/C003 acceptances in
+``src/atdd/state/tests/migrate_projection_authority/`` — ten of them, one per
+acceptance, each building its own populated store.
+
 Usage:  python adversarial.py <control-root>
 """
 from __future__ import annotations
@@ -32,6 +39,26 @@ from roundtrip import patched_build_documents, patched_hydrate
 
 GH, ISSUE = "github", "issue"
 WORK_ITEM = "work_item"
+
+#: Leaf shapes that must not reach a projection file.
+_MALFORMED = (
+    ("int 1975 (hand-edit drops quotes)", 1975),
+    ("a nested dict where a scalar belongs", {"number": 1975}),
+    ("a list", ["1975"]),
+)
+
+
+def _admits(refs) -> bool:
+    """Whether `validate_document` lets this external_refs subtree through."""
+    document = {
+        "uid": "wi_01M2EZ25BPW2NNQTPCQFWS5RQ9", "phase": "PLANNED",
+        "state": "ACTIVE", "owner_actor": "atdd:unattributed", "external_refs": refs,
+    }
+    try:
+        P.validate_document(document)
+        return True
+    except P.ProjectionSchemaError:
+        return False
 
 
 def _migrated_copy(source: pathlib.Path, dest: pathlib.Path) -> sqlite3.Connection:
@@ -55,10 +82,7 @@ def main(control_root: pathlib.Path) -> int:
 
         # ---- 4a: a malformed nested ref ------------------------------------
         print("== 4a: a malformed nested ref — refused, or admitted? ==")
-        for label, value in (("str '1975' (intended)", "1975"),
-                             ("int 1975 (hand-edit drops quotes)", 1975),
-                             ("a nested dict where a scalar belongs", {"number": 1975}),
-                             ("a list", ["1975"])):
+        for label, value in (("str '1975' (intended)", "1975"), *_MALFORMED):
             document = {
                 "uid": "wi_01M2EZ25BPW2NNQTPCQFWS5RQ9", "phase": "PLANNED",
                 "state": "ACTIVE", "owner_actor": "atdd:unattributed",
@@ -70,9 +94,17 @@ def main(control_root: pathlib.Path) -> int:
             except P.ProjectionSchemaError as exc:
                 verdict = f"refused ({exc})"
             print(f"  {label:<38} -> {verdict}")
-        print("  => validate_document types external_refs as `dict` and reaches NO deeper,")
-        print("     so every one of these is admitted. The contract must type the leaf.")
-        gaps.append("4a: a malformed nested ref is admitted by validate_document today")
+        admitted = [label for label, value in _MALFORMED
+                    if _admits({GH: {ISSUE: value}})]
+        if admitted:
+            print("  => validate_document types external_refs as `dict` and reaches NO deeper,")
+            print(f"     so {len(admitted)} of {len(_MALFORMED)} are admitted. The contract must "
+                  "type the leaf.")
+            gaps.append(
+                f"4a: {len(admitted)} malformed nested ref shape(s) admitted by validate_document"
+            )
+        else:
+            print("  => every malformed shape is refused; the leaf is typed.")
 
         # ---- 4b + 4c: collision and data preservation, on a POPULATED store -
         conn = _migrated_copy(source, work / "copy.sqlite")

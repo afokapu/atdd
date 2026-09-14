@@ -10,6 +10,13 @@
     representable today. A single scalar `github.issue` cannot carry it. What
     does the proposed design do?
 
+DESIGN-PHASE PROBE. This measures the behaviour of the projection spine BEFORE #2025
+landed, plus the prototype fix that was proposed for it. The implementation has since
+shipped, so what it reports is the historical finding, not the current state of the
+code. The regression check for the shipped behaviour is the E003/C003 acceptances in
+``src/atdd/state/tests/migrate_projection_authority/`` — ten of them, one per
+acceptance, each building its own populated store.
+
 Usage:  python rr2.py <control-root>
 """
 from __future__ import annotations

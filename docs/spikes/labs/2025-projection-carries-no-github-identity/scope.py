@@ -11,6 +11,13 @@ two live writers rather than by reading intent off the prose.
       do with a provider only one side knows about?
   5c  the three candidate contracts, scored against 5a and 5b.
 
+DESIGN-PHASE PROBE. This measures the behaviour of the projection spine BEFORE #2025
+landed, plus the prototype fix that was proposed for it. The implementation has since
+shipped, so what it reports is the historical finding, not the current state of the
+code. The regression check for the shipped behaviour is the E003/C003 acceptances in
+``src/atdd/state/tests/migrate_projection_authority/`` — ten of them, one per
+acceptance, each building its own populated store.
+
 Usage:  python scope.py
 """
 from __future__ import annotations

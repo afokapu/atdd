@@ -1,5 +1,18 @@
 # Lab — #2025: the committed projection carries no GitHub identity
 
+> **These are design-phase probes.** They measure the projection spine as it was
+> BEFORE #2025 landed, plus the prototype fix proposed for it, and that is what the
+> numbers below record. The implementation has since shipped. The regression check for
+> the shipped behaviour is the ten E003/C003 acceptances under
+> `src/atdd/state/tests/migrate_projection_authority/`, each building its own populated
+> store — not these files. Run them for the history and the method, not for the status
+> of the code.
+>
+> `adversarial.py` 4a now reports clean, because the contract change it called for
+> shipped and it exercises the real `validate_document`. 4b/4c/4d still report against
+> the prototype they were written to attack. `hazard.py` reports the hazard gone, for
+> the same reason.
+
 Three hypotheses, each stated so it could be false, each with its own probe.
 
 | probe | hypothesis | verdict |
@@ -26,9 +39,11 @@ against a copy, and `store_migration.migrate_store()` is applied to the copy fir
 so the numbers describe the world the projection cutover is about to create rather
 than the pre-migration one.
 
-`roundtrip.py` and `hazard.py` patch the two seams this issue proposes to change and
-then call the **real** `project`, `check_canonicality` and gate resolvers. They are a
-measurement harness, not the implementation — RED owns that.
+`roundtrip.py` and `hazard.py` patch the two seams this issue changed and then call the
+**real** `project`, `check_canonicality` and gate resolvers. The patches are kept as the
+prototypes they were, deliberately: aliasing them onto the shipped functions would make
+these files silently change meaning every time the spine is edited, and the record of
+what was measured — and when — is the whole value of a lab.
 
 ## What the probes found
 

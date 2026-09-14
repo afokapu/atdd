@@ -5,7 +5,7 @@
 # Layer: integration
 # Runtime: python
 # Assertion: behavioral
-# Purpose: End-to-end — the real `atdd state migrate-manifest --mint-uids` CLI turns a real repo's populated .atdd/manifest.yaml into a committed .atdd/state/projection/ tree of one <uid>.yaml per work item; re-running it is a no-op (git reports no diff) and `atdd state canonicality` passes over the produced tree. Refs #1434.
+# Purpose: End-to-end — the real `atdd state migrate-manifest --mint-uids` CLI turns a real repo's populated .atdd/manifest.yaml into a committed .atdd/state/projection/ tree of one <uid>.yaml per work item, each naming its GitHub issue from the quarantined external_refs table (#2025) and none carrying issue_number in its data bag; re-running it is a no-op (git reports no diff) and `atdd state canonicality` passes over the produced tree. Refs #1434, #2025.
 """SMOKE — the shipped CLI migrates a real manifest into a canonical projection (E001-SMOKE-001).
 
 wagon: migrate-projection-authority | feature: migrate-manifest-projection | phase: SMOKE
@@ -61,11 +61,30 @@ def test_e001_smoke_001_cli_migrates_real_manifest(tmp_path) -> None:
     assert all(name.startswith("wi_") for name in files), files
     assert "archived" in migrated.stdout and "shipped-thing" not in "".join(files)
 
-    # The GitHub issue number is NOT in the projection — external_refs is the bot's field, and a
-    # core commit writing it would be the wrong writer (§7.1). It is quarantined in the store.
+    # The GitHub issue number IS in the projection, and the quarantine that put it there still
+    # holds. These used to be the same assertion inverted: this test asserted `external_refs`
+    # was absent, on the #1622 ruling that a core commit writing a bot-owned field is the wrong
+    # writer (§7.1). #2025 SUPERSEDED the premise that ruling rested on — the committed
+    # projection is now the transport to GitHub, and a document that cannot say which issue it
+    # is gives the reconciliation workflow nothing to reconcile. See the supersession addendum
+    # in docs/1400-findings/1622-projection-authority-ruling.md.
+    #
+    # The ruling's NARROW rule survives untouched, and the second half of this check is what
+    # pins it: core still does not AUTHOR provider identity into the data bag. The migration
+    # quarantines the issue number in the external_refs TABLE, exactly as before, and the
+    # projector reads it back out of that table. Carried, never authored.
     for name in files:
         document = yaml.safe_load((repo / _PROJECTION / name).read_text(encoding="utf-8"))
-        assert "external_refs" not in document, document
+        refs = document.get("external_refs")
+        assert refs is not None, f"{name} names no GitHub issue, so it cannot be the transport"
+        issue = refs.get("github", {}).get("issue")
+        assert isinstance(issue, str) and issue.isdigit(), (
+            f"{name} must carry its issue as a digit string, got {issue!r}"
+        )
+        assert "issue_number" not in document, (
+            f"{name} carries issue_number in the data bag — the quarantine is broken; the "
+            "identity must live in the external_refs table and be projected from there"
+        )
     assert "quarantined in the store" in migrated.stdout
 
     commit_all(repo, "migrate the manifest into the committed projection")

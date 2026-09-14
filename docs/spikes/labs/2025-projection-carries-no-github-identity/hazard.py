@@ -15,6 +15,13 @@ Both enter through ``external_refs.resolve(github, issue, N)``, which is the oth
 half of why this issue exists: on a store hydrated from the projection today, that
 table is empty and both answer nothing regardless of what the data bag holds.
 
+DESIGN-PHASE PROBE. This measures the behaviour of the projection spine BEFORE #2025
+landed, plus the prototype fix that was proposed for it. The implementation has since
+shipped, so what it reports is the historical finding, not the current state of the
+code. The regression check for the shipped behaviour is the E003/C003 acceptances in
+``src/atdd/state/tests/migrate_projection_authority/`` — ten of them, one per
+acceptance, each building its own populated store.
+
 Usage:  python hazard.py <control-root>
 """
 from __future__ import annotations
@@ -156,7 +163,11 @@ def main(control_root: pathlib.Path) -> int:
             print("  refs. On a store hydrated from the projection alone the table is")
             print("  empty and both answer nothing at all.")
         else:
-            print("REFUTED — the gates still answer after a hydrate. Re-examine the premise.")
+            print("THE HAZARD IS GONE from the shipped hydrate — both gates still answer after")
+            print("a real project+hydrate cycle. That is the POST-FIX reading: this probe was")
+            print("written against the pre-#2025 spine, where the same run took both gates from")
+            print(f"{before_branch}/{len(issues)} to 0/{len(issues)}. Nothing to re-examine; the")
+            print("regression check is the C003 acceptances, not this file.")
 
         if repaired:
             print("\nAND THE PROPOSED FIX HOLDS — merge-hydrate + refs restore:")
@@ -165,7 +176,9 @@ def main(control_root: pathlib.Path) -> int:
             print("  No stripped key was deleted, and both gates still answer.")
         else:
             print("\nTHE PROPOSED FIX DOES NOT HOLD — rescope before RED.")
-        return 0 if (destroyed and repaired) else 1
+        # Either reading is a pass: the hazard is present (pre-fix) and the prototype
+        # repairs it, or the shipped code no longer exhibits it at all.
+        return 0 if repaired else 1
 
 
 if __name__ == "__main__":

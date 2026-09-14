@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "commons:projection-object",
   "title": "Projection Object v1",
-  "description": "The committed, deterministic per-UID projection document at `.atdd/state/projection/<uid>.yaml`. Authoritative for shared project state (doc section 2.1) — what peers agree the objects are. NOT a store-recovery source: `hydrate` restores objects only and never repopulates `external_refs`, so the projection is the CI round-trip artifact, not a backup (#1622 ruling, docs/1400-findings/1622-projection-authority-ruling.md). Identity is the immutable uid, never the slug; the filename is derived from the uid. Deletion is a tombstone, never file removal (section 10).",
+  "description": "The committed, deterministic per-UID projection document at `.atdd/state/projection/<uid>.yaml`. Authoritative for shared project state (doc section 2.1) \u2014 what peers agree the objects are. NOT a store-recovery source: `hydrate` restores objects only and never repopulates `external_refs`, so the projection is the CI round-trip artifact, not a backup (#1622 ruling, docs/1400-findings/1622-projection-authority-ruling.md). Identity is the immutable uid, never the slug; the filename is derived from the uid. Deletion is a tombstone, never file removal (section 10).",
   "version": "1.0.0",
   "type": "object",
   "properties": {
@@ -19,9 +19,22 @@
       "type": "object"
     },
     "external_refs": {
+      "type": "object",
+      "description": "Extension-bot writable ONLY. Non-authoritative: lifecycle code MUST NOT read this (I7, section 8.2 rule 5). Shape is {provider: {ref_kind: value}}, as provider_seam.apply_updates writes it. Deliberately OPEN to any provider and any ref kind: validate_update enumerates neither, and merge_driver._bot_only unions disjoint providers, so narrowing this would refuse legal bot writes and reject the merge results they produce. Only github.issue is typed, because the projector sources it from the external_refs table and an unquoted integer would re-project to different bytes and break project(hydrate(p)) == p (#2025).",
       "additionalProperties": true,
-      "description": "Extension-bot writable ONLY. Non-authoritative: lifecycle code MUST NOT read this (I7, section 8.2 rule 5).",
-      "type": "object"
+      "properties": {
+        "github": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "issue": {
+              "type": "string",
+              "pattern": "^[0-9]+$",
+              "description": "The work item's GitHub issue number, as a digit STRING \u2014 the store column is TEXT and the quoting is load-bearing for byte-stability."
+            }
+          }
+        }
+      }
     },
     "last_lifecycle_actor": {
       "description": "Last actor to write a lifecycle field (phase/state). Lets the field-writer validator and the merge driver explain a conflict.",
@@ -101,7 +114,7 @@
       "type": "string"
     },
     "wagon": {
-      "description": "The wagon the work item belongs to. Core train ops; conflict unless same digest, as for its sibling `train`. Nullable, and deliberately without a pattern: live values are heterogeneous — full URNs, bare slugs, and one prose value (#1622).",
+      "description": "The wagon the work item belongs to. Core train ops; conflict unless same digest, as for its sibling `train`. Nullable, and deliberately without a pattern: live values are heterogeneous \u2014 full URNs, bare slugs, and one prose value (#1622).",
       "type": [
         "string",
         "null"
