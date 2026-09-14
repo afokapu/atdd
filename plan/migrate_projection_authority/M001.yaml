@@ -4,12 +4,12 @@ direction: maximize
 dimension: likelihood
 object_of_control: shadow-projection-report
 context_clarifier: 'when CORE-032''s shadow-mode CI job runs before projection becomes blocking: it recomputes
-  the projection from the store and reports drift against the committed projection and against the manifest-derived
-  projection, without failing the build'
+  the projection from the store and reports drift against the committed projection, without failing the build —
+  and reports rather than raises when the projection cannot be computed at all (#2023)'
 lens: functional.effectiveness
 statement: maximize likelihood of a shadow-projection-report that recomputes the projection on every push
-  and surfaces drift against both the committed projection and the manifest-derived projection while remaining
-  non-blocking
+  and surfaces drift against the committed projection while remaining non-blocking on every path, including
+  one on which the projection cannot be computed
 acceptances:
 - given:
     abstract:
@@ -53,6 +53,30 @@ acceptances:
     - The check exits zero
   when:
     abstract: the shadow-mode projection check is run
+- given:
+    abstract:
+    - A store whose documents cannot be projected, so build_documents raises before any source is read
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-003
+    phase: RED
+    purpose: the non-blocking exit code is the invariant on EVERY path, including the store side,
+      which is computed before the per-source loop and outside any handler
+    urn: acc:migrate-projection-authority:M001-UNIT-003-store-side-failure-still-exits-zero
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-09-14'
+  then:
+    abstract:
+    - The run exits SHADOW_EXIT_CODE rather than raising, honouring compare()'s own "never raises to
+      gate"
+    - The failure is reported as an unavailable source, with its reason, on stdout
+    - 'RED: the projection error escapes as a traceback and the command exits 1, through the one
+      constant declared so the CLI, the workflow and the tests cannot drift from it'
+  when:
+    abstract: the shadow-mode projection check is run against that store
 - identity:
     urn: acc:migrate-projection-authority:M001-SMOKE-001-shadow-projection-report
     id: AC-SMOKE-001
@@ -74,3 +98,26 @@ acceptances:
   metadata:
     author: atdd:self-compliance
     created: '2026-07-10'
+- identity:
+    urn: acc:migrate-projection-authority:M001-SMOKE-002-dead-run-exits-zero-and-says-so
+    id: AC-SMOKE-002
+    phase: SMOKE
+    purpose: 'End-to-end: the real `atdd state shadow`, against a real store that cannot be projected, exits
+      0 and writes a report naming the failure; and the CI step that publishes it cannot render that failure
+      as an empty, clean-looking drift block.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout whose real State Store holds an object the projection guard must refuse
+  when:
+    abstract: the real shadow command is run, and the workflow step that publishes it is replayed verbatim
+  then:
+    abstract:
+    - The command exits SHADOW_EXIT_CODE and its stdout names the offending field
+    - The report never reads 'no drift' when nothing was compared
+    - The replayed CI step publishes a non-empty report that shows the failure
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-09-14'

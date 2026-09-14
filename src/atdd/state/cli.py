@@ -158,7 +158,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     add_provider_parsers(sub)
 
-    # Migration to projection authority (#1400): mint-uids, migrate-manifest, shadow, hot-path,
+    # Migration to projection authority (#1400): migrate-store, shadow, hot-path,
     # manifest-fallback, cutover, runbook-check, rollout-check.
     from atdd.state.migrate_cli import add_parsers as add_migrate_parsers
 
