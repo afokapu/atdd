@@ -21,9 +21,13 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from atdd.state import gitstore
+from atdd.state import cutover, gitstore
 from atdd.state import merge_authority as ma
-from atdd.state.projection import PROJECTION_RELATIVE, PROJECTION_SUFFIX
+from atdd.state.db import connect, init_state_store
+from atdd.state.identity import mint_uid
+from atdd.state.projection import PROJECTION_RELATIVE, PROJECTION_SUFFIX, project
+from atdd.state.store import StateStore
+from atdd.state.store_migration import WORK_ITEM_KIND
 
 PROJ = PROJECTION_RELATIVE.as_posix()
 
@@ -181,5 +185,56 @@ def main():
     print(f"  => {verdict}")
 
 
+def from_flag_bypasses_head():
+    """`cutover --from` passes any directory through, so fixing the default is not enough.
+
+    migrate_cli.py:280 forwards args.from_dir straight into cutover.check, and
+    _projection_criterion (cutover.py:120) treats whatever it is handed as authoritative.
+    """
+    print("\n" + "=" * 78)
+    print("(d) the --from bypass: can an UNCOMMITTED directory still earn a pass?")
+    print("=" * 78)
+    base = Path(tempfile.mkdtemp(prefix="frombypass-"))
+    repo = base / "repo"
+    (repo / ".atdd" / "state").mkdir(parents=True)
+    (repo / ".atdd" / "config.yaml").write_text("{}\n")
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo, capture_output=True)
+    for key, value in (("user.email", "probe@example.com"), ("user.name", "probe")):
+        subprocess.run(["git", "config", key, value], cwd=repo, capture_output=True)
+    (repo / "README.md").write_text("x\n")
+    subprocess.run(["git", "add", "-A"], cwd=repo, capture_output=True)
+    subprocess.run(["git", "commit", "-q", "--no-verify", "-m", "init"],
+                   cwd=repo, capture_output=True)
+
+    db = init_state_store(start=repo)
+    conn = connect(db)
+    store = StateStore(conn)
+    for i in range(3):
+        store.objects.upsert(mint_uid(), WORK_ITEM_KIND, state="PLANNED",
+                             data={"title": f"item {i}", "slug": f"thing-{i}",
+                                   "owner_actor": "someone"})
+    # A canonical projection, written OUTSIDE the repository entirely.
+    elsewhere = base / "outside-the-repo"
+    result = project(store, elsewhere)
+    conn.close()
+
+    committed = subprocess.run(
+        ["git", "ls-tree", "--name-only", "HEAD:" + PROJECTION_RELATIVE.as_posix()],
+        cwd=repo, capture_output=True).returncode == 0
+    report = cutover.check(repo, projection_dir=elsewhere)
+    criterion = [c for c in report.criteria if c.name == "projection-is-shared-state"][0]
+
+    print(f"  canonical projection files : {len(result.files)}")
+    print(f"  inside the repository?     : {elsewhere.is_relative_to(repo)}")
+    print(f"  committed at HEAD?         : {committed}")
+    print(f"  criterion reports met?     : {criterion.met}")
+    print(f'  its claim: "...over the projection at HEAD"')
+    if criterion.met:
+        print("  => a directory outside the repo, never committed, satisfies a criterion")
+        print("     whose own text says HEAD. Fixing the DEFAULT path is not sufficient;")
+        print("     --from must be constrained or removed.")
+
+
 if __name__ == "__main__":
     main()
+    from_flag_bypasses_head()

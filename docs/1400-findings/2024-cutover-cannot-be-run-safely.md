@@ -55,39 +55,51 @@ managers inside `upsert` and `rekey` commit the enclosing one out from under the
 nesting does not compose, and the result would look atomic while being exactly as
 non-atomic as today.
 
-**What does work — with two conditions found only by measuring it.** Migrate against a
-`backup_store()` copy, re-run `inspect_store` on the result, and swap the copy into place
-only if it is clean. That survives a crash: run end to end it migrates 30/30 and re-inspects
-clean; crashed at object 6 it leaves the live store's digest and uid set **unchanged**. The
-backup is genuinely restorable — 50/50 objects, identical uid set, restore-by-copy verified.
-And the checkpoint inside `backup_store` is the difference between a backup and an empty
-file: a plain `copy2` of a live WAL store captured **0 of 10** objects.
+**The repair is not "migrate the backup" — that destroys the undo.** An earlier revision of
+this document said to migrate against a `backup_store()` copy and swap. `backup_store()`
+returns the **sole** copied file (`reconcile.py:381`), so migrating it migrates the backup.
+Run to completion: the live store ends 30/30 contract-shaped **and so does the "backup"**,
+`backup == pre-run` is **False**, and nothing on disk still holds the pre-migration store.
+The repair had no undo in it even on success.
 
-It also leaves `upsert`/`rekey` alone, which matters: `rekey`'s transaction is load-bearing,
+**The repo already ships the correct pattern**, and this work should reuse it rather than
+invent one — `reconcile.py` does all three steps:
+
+```
+backup  = backup_store(db_path)            # reconcile.py:847  immutable undo, never written
+scratch = _scratch_copy(db_path, workdir)  # reconcile.py:877  separate mutable copy
+...mutate the scratch...
+_replace_store(scratch, db_path)           # reconcile.py:936  unlink -wal/-shm, then move
+```
+
+Measured against that pattern: the scratch migrates 30/30 and re-inspects clean, the live
+store ends fully migrated, and the backup is **byte-identical to the pre-run store**. That
+byte-identity is the assertion to require as a test — it is precisely what the one-copy
+design silently lost.
+
+`_replace_store` also already unlinks the WAL sidecars. That matters: the naive
+`write_bytes` swap over a live WAL store yields **`sqlite3.DatabaseError: database disk
+image is malformed`**, where `_replace_store` reopens clean.
+
+Leaving `upsert`/`rekey` untouched still matters: `rekey`'s transaction is load-bearing,
 re-pointing `relationships`, `events`, `external_refs` and `overlay_events` **before**
-deleting the old row against `ON DELETE CASCADE`. Breaking that would silently take each
-object's entire history with it.
+deleting the old row against `ON DELETE CASCADE`.
 
-But copy/swap as stated has two holes, both measured:
+### Two things no copy count fixes
 
-- **Silent data loss.** The copy is a snapshot at T0. Three objects committed to the *live*
-  store while the copy was being migrated were **all three discarded** by the swap — 33
-  objects at swap time, 30 after, no error and no trace.
-- **Corruption.** Replacing the `.sqlite` while `-wal`/`-shm` are still on disk makes the
-  store unopenable: **`sqlite3.DatabaseError: database disk image is malformed`**. The naive
-  swap does not rewind the store, it destroys it.
+**"Byte-identical" is not well-defined here.** `backup_store` checkpoints the *live* store
+before copying (`reconcile.py:389` → `:365`), so `state.sqlite`'s bytes change merely by
+taking the backup, before any migration runs. A success criterion demanding the live file be
+left byte-identical would fail a correct implementation. Preservation has to be stated over
+the snapshot — the object set and their content. Byte-identity belongs to the *backup*.
 
-Both close, and the closures were measured too:
-
-| fix | result |
-|---|---|
-| close every live connection → `checkpoint()` → unlink `-wal`/`-shm` → replace | the identical swap that corrupted now reopens clean, every object migrated |
-| hold `BEGIN EXCLUSIVE` from backup to swap | the concurrent writer gets `OperationalError: database is locked` after the 5s `busy_timeout` `db.connect()` already sets — refused loudly, not silently discarded |
-| take the copy with `conn.backup()` or `VACUUM INTO` | 15/15 objects with writes still in the `-wal` and no manual checkpoint (plain `cp` got 0), and a **sidecar-free** copy, removing the corruption class by construction |
-
-So the repair is copy/swap **plus an exclusive lock plus a sidecar-aware swap**. Specified as
-"migrate against a copy and swap" it would have shipped a data-loss window and a corruption
-path.
+**A concurrent writer is lost regardless.** The scratch is a snapshot at T0: three objects
+committed to the live store during the migration, **zero** survived the swap, with one copy
+or two. Only a fence fixes that. `BEGIN EXCLUSIVE` refuses another writer loudly
+(`database is locked` after the 5s `busy_timeout`) and leaves **readers unaffected**
+(0.00s) — but it refuses writers across every worktree sharing this store (122 registered,
+61 sibling checkouts), and `db.py:9` configures WAL precisely for "concurrent readers + a
+writer (sibling worktrees)". That is an operational trade to state, not a free fix.
 
 Reproduce: `docs/spikes/labs/2024-migrate-store-durability/probe.py` (this branch, not `main`).
 
@@ -166,6 +178,25 @@ Not free: `gitstore.projection_at` has existing callers whose return type would 
 itself is an implementation call, and the caller survey belongs in the plan.
 
 Reproduce: `docs/spikes/labs/2024-projection-at-byte-exactness/probe.py` (this branch, not `main`).
+
+## 4. The path fix must name every reader, and `--from` must be closed
+
+Two gaps in the obvious repairs, both verified:
+
+**Every default reader moves, not just the writer.** `reconcile.projection_path`
+(`reconcile.py:361`) resolves `<control-root>/.atdd/state/projection` and is used by
+`hydrate` (`:444`) and `reconcile` (`:813`). Moving only `atdd state project`'s default to
+the worktree root would leave ordinary reconciliation reading the old parent path — a split
+worse than today's, because the halves would disagree during normal operation rather than
+only at cutover.
+
+**Fixing the default cutover path is not sufficient.** `_cmd_cutover` forwards
+`args.from_dir` straight into `cutover.check` (`migrate_cli.py:280`) and
+`_projection_criterion` treats whatever it is handed as authoritative (`cutover.py:120`).
+Measured: a canonical 3-file projection written **outside the repository**, never committed,
+passed through `--from` → the criterion reports **met**, under a claim whose own text reads
+"over the projection at HEAD". `--from` must be constrained to a path inside the worktree
+and resolved at HEAD, or removed.
 
 ## Why these travel together
 
