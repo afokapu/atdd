@@ -887,6 +887,25 @@ def _restore_external_refs(store: StateStore, plan: Sequence[_RefRestore]) -> No
         )
 
 
+def _carry_stripped_keys_forward(data: Dict[str, Any], existing: Optional[Object]) -> None:
+    """Preserve the keys the projection deliberately declined to speak about (#2025).
+
+    A document that omits ``branch`` is not claiming the object has no branch — it is
+    declining to have an opinion, because :data:`STRIPPED_AT_PROJECTION` stripped it on the
+    way out. :meth:`ObjectStore.upsert` is a wholesale replace, so without this the
+    projection's SILENCE about a key deletes it: measured, one cycle took both
+    identity-resolving gates from 174/174 to 0/174.
+
+    ``existing`` is ``None`` for an object this store has never seen, where there is by
+    definition nothing local to preserve. Mutates ``data`` in place.
+    """
+    if existing is None:
+        return
+    for key in STRIPPED_AT_PROJECTION:
+        if key in existing.data:
+            data[key] = existing.data[key]
+
+
 def hydrate(projection_dir: Path, store: StateStore) -> HydrateResult:
     """Rebuild the public store objects from the committed projection (E002).
 
@@ -920,16 +939,7 @@ def hydrate(projection_dir: Path, store: StateStore) -> HydrateResult:
 
     for uid in sorted(documents):
         obj_uid, phase, data = document_to_object(documents[uid])
-        existing = store.objects.get(obj_uid)
-        if existing is not None:
-            # The merge. A document that omits `branch` is not claiming the object has no
-            # branch — it is declining to have an opinion, because the projector stripped it.
-            # upsert is a wholesale replace, so without this the projection's SILENCE about a
-            # key deletes it: measured, one cycle took both identity-resolving gates from
-            # 174/174 to 0/174 (#2025).
-            for key in STRIPPED_AT_PROJECTION:
-                if key in existing.data:
-                    data[key] = existing.data[key]
+        _carry_stripped_keys_forward(data, store.objects.get(obj_uid))
         store.objects.upsert(  # noqa: N+1 — one upsert per projected object, not a query loop
             obj_uid, WORK_ITEM_KIND, state=phase, data=data,
         )
