@@ -134,7 +134,15 @@ def _committed_prefix(root: Path, projection_dir: Optional[Path]) -> Optional[st
     try:
         return Path(projection_dir).resolve().relative_to(Path(root).resolve()).as_posix()
     except ValueError:
-        return None  # outside the repository: no commit can contain it
+        # Observably react, do not merely return (coder.logging.coach-silent-swallow). The
+        # criterion below renders this as a blocker the operator reads, but someone watching
+        # logs while a cutover refuses would otherwise never learn that --from was the reason.
+        _log.warning(
+            "the projection directory is outside the repository, so nothing at HEAD can "
+            "contain it",
+            extra={"root": str(root), "projection_dir": str(projection_dir)},
+        )
+        return None
 
 
 def _projection_criterion(root: Path, projection_dir: Optional[Path]) -> Criterion:
@@ -166,6 +174,10 @@ def _projection_criterion(root: Path, projection_dir: Optional[Path]) -> Criteri
     try:
         committed = gitstore.projection_bytes_at(root, "HEAD", prefix)
     except gitstore.GitError as exc:
+        _log.warning(
+            "the projection at HEAD could not be read",
+            extra={"root": str(root), "prefix": prefix, "error": str(exc)},
+        )
         return Criterion(
             CRITERION_PROJECTION, False, CLAIMS[CRITERION_PROJECTION],
             [f"the projection at HEAD could not be read: {exc}"],

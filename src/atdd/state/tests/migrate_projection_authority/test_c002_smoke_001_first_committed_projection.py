@@ -46,7 +46,7 @@ from pathlib import Path
 
 import pytest
 
-from .._fixtures import commit_all
+from atdd.state.tests._fixtures import commit_all
 from ._live import atdd_state, make_checkout
 
 pytestmark = [pytest.mark.platform]

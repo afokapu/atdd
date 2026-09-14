@@ -40,7 +40,7 @@ from atdd.state.manifest_migration import migrate_store
 from atdd.state.projection import PROJECTION_RELATIVE, project
 from atdd.state.work_item_writer import create_work_item
 
-from .._fixtures import checkout, commit_all
+from atdd.state.tests._fixtures import checkout, commit_all
 from ._helpers import memory_store
 
 

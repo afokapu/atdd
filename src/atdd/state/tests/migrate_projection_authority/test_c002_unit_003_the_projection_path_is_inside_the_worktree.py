@@ -38,7 +38,7 @@ from atdd.state import reconcile
 from atdd.state.paths import LayoutMode, resolve_control_root
 from atdd.state.projection import PROJECTION_RELATIVE
 
-from .._fixtures import make_checkout
+from atdd.state.tests._fixtures import make_checkout
 from ._helpers import control_root
 
 
@@ -80,9 +80,10 @@ def test_the_writer_writes_where_no_commit_can_reach(tmp_path: Path) -> None:
     """
     from atdd.state import projection_cli
 
-    parent, worktree = _sibling_layout(tmp_path)
+    _parent, worktree = _sibling_layout(tmp_path)
 
-    writer_default = projection_cli._projection_dir(  # noqa: SLF001 — the default under test
+    # A private helper on purpose: the DEFAULT is what is under test, and it is resolved here.
+    writer_default = projection_cli._projection_dir(
         type("Args", (), {"root": str(worktree), "out": None, "from_dir": None})(),
     )
 

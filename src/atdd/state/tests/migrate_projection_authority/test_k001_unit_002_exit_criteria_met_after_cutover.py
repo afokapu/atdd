@@ -28,7 +28,7 @@ from atdd.state import cutover
 from atdd.state.manifest_import import WORK_ITEM_KIND
 from atdd.state.projection import project
 
-from .._fixtures import checkout, commit_all
+from atdd.state.tests._fixtures import checkout, commit_all
 from ._helpers import UID_A, UID_B, memory_store
 
 #: This repo's own `atdd` package — the source tree the claim is actually about.

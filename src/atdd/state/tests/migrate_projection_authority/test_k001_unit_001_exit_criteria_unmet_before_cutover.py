@@ -28,7 +28,7 @@ from atdd.state import cutover
 from atdd.state.manifest_import import WORK_ITEM_KIND
 from atdd.state.projection import project
 
-from .._fixtures import checkout, commit_all
+from atdd.state.tests._fixtures import checkout, commit_all
 from ._helpers import UID_A, control_root, memory_store
 
 _BASE = {"slug": "alpha", "owner_actor": "dev-a", "state": "ACTIVE", "wmbts": []}

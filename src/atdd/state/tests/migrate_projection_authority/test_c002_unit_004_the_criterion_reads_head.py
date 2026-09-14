@@ -34,7 +34,7 @@ from atdd.state.projection import PROJECTION_RELATIVE
 
 from atdd.state.projection import canonical_bytes
 
-from .._fixtures import checkout, commit_all, git
+from atdd.state.tests._fixtures import checkout, commit_all, git
 from ._helpers import UID_A
 
 CRITERION = "projection-is-shared-state"
