@@ -60,7 +60,8 @@ def test_an_inbound_ref_colliding_with_a_local_binding_is_refused(tmp_path) -> N
             conn, "my-work-item", state="PLANNED",
             data={"title": "mine"}, github_number=int(_CONTESTED),
         )
-        assert store.external_refs.resolve(_GITHUB, _ISSUE, _CONTESTED).object_uid == mine.uid
+        seeded = store.external_refs.resolve(_GITHUB, _ISSUE, _CONTESTED)
+        assert seeded is not None and seeded.object_uid == mine.uid
 
         projection_dir = tmp_path / "projection"
         _write_peer_projection(projection_dir, UID_A)
@@ -78,6 +79,7 @@ def test_an_inbound_ref_colliding_with_a_local_binding_is_refused(tmp_path) -> N
         )
 
         still = store.external_refs.resolve(_GITHUB, _ISSUE, _CONTESTED)
+        assert still is not None, "the refused hydrate must not have deleted the local binding"
         assert still.object_uid == mine.uid, (
             "the local binding was re-pointed. link() is DO UPDATE SET object_uid, so a "
             "collision silently reassigns a live issue->uid binding"

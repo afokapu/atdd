@@ -84,6 +84,8 @@ wmbt:
   C002: maximize likelihood of a first-committed-projection that reproduces itself
     byte for byte through hydrate and re-projection, and that flips the projection-is-shared-state
     cutover criterion to met
+  C003: minimize frequency of a destructive-projection-write that replaces state it
+    does not speak for, across all four write paths the inbound half touches
   D001: maximize likelihood of a migration-runbook that names the cutover steps in
     order, the developer-facing command changes, and the numbered invariant each step
     preserves
@@ -93,6 +95,9 @@ wmbt:
   E002: maximize likelihood of a store-projection-migration that mints a uid and an
     owner_actor for every projectable work item already in the State Store and refuses
     the whole run before any write when an object cannot be migrated
+  E003: maximize likelihood of a projected-provider-identity that names the GitHub
+    issue of every work item the store binds to one, and that an inbound hydrate restores
+    into the normalized external_refs table
   K001: maximize likelihood of a clean projection-authority-cutover in which the committed
     projection is the shared source of truth, GitHub is an optional mirror, and the
     legacy manifest no longer acts as a fallback source of truth
@@ -107,4 +112,4 @@ wmbt:
     behind the SyncProvider seam and the external-ref quarantine'
   Y002: 'minimize likelihood of a manifest-read-fallback: once projection is in blocking
     mode, no core reader consults .atdd/manifest.yaml for shared lifecycle state'
-  total: 10
+  total: 12

@@ -52,7 +52,8 @@ def test_a_projected_document_names_the_issue_the_table_binds_it_to() -> None:
 
         # The given is real: the identity is in the TABLE, which is where the
         # authoritative linkage lives and where #1622 ruled it must stay.
-        assert store.external_refs.resolve(_GITHUB, _ISSUE, "2025").object_uid == bound.uid
+        seeded = store.external_refs.resolve(_GITHUB, _ISSUE, "2025")
+        assert seeded is not None and seeded.object_uid == bound.uid
 
         documents = build_documents(store)
 

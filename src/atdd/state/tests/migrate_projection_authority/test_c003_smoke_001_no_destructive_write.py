@@ -87,7 +87,9 @@ def test_a_live_ingest_destroys_no_locally_held_state(tmp_path) -> None:
     conn = connect(init_state_store(start=root))
     try:
         store = StateStore(conn)
-        data = store.objects.get(uid).data
+        stored = store.objects.get(uid)
+        assert stored is not None, "the object must survive the shipped ingest"
+        data = stored.data
 
         lost = {k: v for k, v in _LOCAL.items() if data.get(k) != v}
         assert not lost, (

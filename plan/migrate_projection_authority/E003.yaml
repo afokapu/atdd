@@ -26,10 +26,6 @@ acceptances:
   metadata:
     author: atdd:2025
     created: '2026-09-14'
-  signal:
-    metric: metric:success_ratio
-    threshold: every projectable work item bound to a GitHub issue carries it in external_refs (measured
-      0 of 746 today)
   then:
     abstract:
     - The document carries external_refs.github.issue equal to the ref_value the table holds
@@ -53,10 +49,6 @@ acceptances:
   metadata:
     author: atdd:2025
     created: '2026-09-14'
-  signal:
-    metric: metric:success_ratio
-    threshold: external_refs.resolve(github, issue, N) answers for every document that names an issue
-      (measured 0 rows restored today)
   then:
     abstract:
     - The refs table holds one (github, issue) row per document that named an issue
@@ -81,10 +73,6 @@ acceptances:
   metadata:
     author: atdd:2025
     created: '2026-09-14'
-  signal:
-    metric: metric:success_ratio
-    threshold: all four malformed issue-leaf shapes refused and all four legal provider writes admitted
-      (measured 0 of 4 refused today)
   then:
     abstract:
     - An integer, a mapping and a list in the issue position are each refused by name
@@ -110,10 +98,6 @@ acceptances:
   metadata:
     author: atdd:2025
     created: '2026-09-14'
-  signal:
-    metric: metric:success_ratio
-    threshold: every multiply-bound object is refused before any file is written (measured 0 refused,
-      1 silently dropped today)
   then:
     abstract:
     - The projection is refused naming the object and both issue numbers

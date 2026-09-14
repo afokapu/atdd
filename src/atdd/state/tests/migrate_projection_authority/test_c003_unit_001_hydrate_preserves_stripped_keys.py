@@ -57,13 +57,17 @@ def test_an_inbound_ingest_deletes_no_locally_held_key(tmp_path) -> None:
             data={"title": "carries local state", **_LOCAL_ONLY}, github_number=6001,
         )
 
-        before = dict(store.objects.get(item.uid).data)
+        stored = store.objects.get(item.uid)
+        assert stored is not None
+        before = dict(stored.data)
         assert all(key in before for key in _LOCAL_ONLY), "the given carries every stripped key"
 
         project(store, tmp_path / "projection")
         hydrate(tmp_path / "projection", store)
 
-        after = dict(store.objects.get(item.uid).data)
+        rehydrated = store.objects.get(item.uid)
+        assert rehydrated is not None, "the object must survive its own hydrate"
+        after = dict(rehydrated.data)
         lost = {
             key: before[key] for key in STRIPPED_AT_PROJECTION
             if key in before and after.get(key) != before[key]

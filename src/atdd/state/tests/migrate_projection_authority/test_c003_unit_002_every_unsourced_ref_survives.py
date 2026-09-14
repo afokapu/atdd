@@ -52,7 +52,9 @@ def test_a_ref_the_table_cannot_source_survives_a_full_cycle(tmp_path) -> None:
         project(store, tmp_path / "projection")
         hydrate(tmp_path / "projection", store)
 
-        refs = dict(store.objects.get(item.uid).data.get("external_refs") or {})
+        stored = store.objects.get(item.uid)
+        assert stored is not None, "the object must survive the round trip"
+        refs = dict(stored.data.get("external_refs") or {})
         github = dict(refs.get(_GITHUB) or {})
 
         assert github.get(_PR) == "2028", (
