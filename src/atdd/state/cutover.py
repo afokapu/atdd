@@ -145,6 +145,40 @@ def _committed_prefix(root: Path, projection_dir: Optional[Path]) -> Optional[st
         return None
 
 
+def _canonicality_over(committed: dict, root: Path, prefix: str) -> Criterion:
+    """Run the round-trip over blobs read from git, written out verbatim.
+
+    The blobs are staged into a scratch directory rather than parsed in memory so the
+    existing ``check_canonicality`` runs unchanged — and written as **bytes**, because the
+    claim is byte-for-byte and a text round-trip would normalise exactly the corruption the
+    check exists to catch.
+
+    A committed projection that cannot be hydrated at all is *unmet*, not a crash: an
+    operator running the cutover gate needs the criterion and the offending file, not a
+    traceback out of the YAML parser.
+    """
+    with tempfile.TemporaryDirectory() as scratch:
+        staged = Path(scratch)
+        for filename, blob in committed.items():
+            (staged / filename).write_bytes(blob)
+        try:
+            report = check_canonicality(staged)
+        except (ProjectionError, UnicodeDecodeError, yaml.YAMLError) as exc:
+            _log.warning(
+                "the committed projection could not be hydrated",
+                extra={"root": str(root), "prefix": prefix, "error": str(exc)},
+            )
+            return Criterion(
+                CRITERION_PROJECTION, False, CLAIMS[CRITERION_PROJECTION],
+                [f"the projection at HEAD cannot be hydrated, so it cannot be canonical: {exc}"],
+            )
+    return Criterion(
+        CRITERION_PROJECTION, report.ok, CLAIMS[CRITERION_PROJECTION],
+        [f"{m.filename} is not the canonical projection of what it hydrates to"
+         for m in report.mismatches],
+    )
+
+
 def _projection_criterion(root: Path, projection_dir: Optional[Path]) -> Criterion:
     """The projection round-trips **at HEAD** — the property the blocking gate enforces.
 
@@ -152,12 +186,6 @@ def _projection_criterion(root: Path, projection_dir: Optional[Path]) -> Criteri
     said "over the projection at HEAD"; it globbed the filesystem instead, so 3/3 could flip
     before a single byte was committed and the gate that exists to prove the cutover happened
     would certify that it had when it had not (#2024).
-
-    Bytes, not text: the canonicality claim is byte-for-byte, and a CRLF-corrupted commit —
-    exactly what the projector would never emit — normalises to LF through a text-mode read
-    and compares equal to canonical output. :func:`gitstore.projection_bytes_at` is the
-    byte-exact reader; the blobs are materialised verbatim into a scratch directory so the
-    existing round-trip can run over them unchanged.
 
     An **empty** projection does not pass. A repo with no projection at HEAD has not made the
     projection its shared state; it has made nothing its shared state, and a check that called
@@ -188,29 +216,7 @@ def _projection_criterion(root: Path, projection_dir: Optional[Path]) -> Criteri
             [f"no committed projection at {prefix} in HEAD — the shared state does not exist "
              "yet (files in the working tree do not count; they are not what anyone else gets)"],
         )
-    with tempfile.TemporaryDirectory() as scratch:
-        staged = Path(scratch)
-        for filename, blob in committed.items():
-            (staged / filename).write_bytes(blob)  # verbatim: the claim is byte-for-byte
-        try:
-            report = check_canonicality(staged)
-        except (ProjectionError, UnicodeDecodeError, yaml.YAMLError) as exc:
-            # A committed projection that cannot even be read back is not canonical — that is
-            # a verdict, not a crash. An operator running the cutover gate needs the criterion
-            # and the offending file, not a traceback out of the YAML parser.
-            _log.warning(
-                "the committed projection could not be hydrated",
-                extra={"root": str(root), "prefix": prefix, "error": str(exc)},
-            )
-            return Criterion(
-                CRITERION_PROJECTION, False, CLAIMS[CRITERION_PROJECTION],
-                [f"the projection at HEAD cannot be hydrated, so it cannot be canonical: {exc}"],
-            )
-    return Criterion(
-        CRITERION_PROJECTION, report.ok, CLAIMS[CRITERION_PROJECTION],
-        [f"{m.filename} is not the canonical projection of what it hydrates to"
-         for m in report.mismatches],
-    )
+    return _canonicality_over(committed, root, prefix)
 
 
 def _hot_path_criterion(package: Optional[Path]) -> Criterion:
