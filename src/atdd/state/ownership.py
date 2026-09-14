@@ -271,6 +271,10 @@ DEFAULT_POLICY: Dict[str, Any] = {
         {"field": "last_lifecycle_actor", "writer": "core_lifecycle", "rule": RULE_DERIVED},
         {"field": "extension_digests", "writer": "core_lifecycle", "rule": RULE_DERIVED},
         {"field": "train", "writer": "core_train_ops", "rule": RULE_SAME_DIGEST},
+        # Grown from the data bag by #1622. `type` is authoring metadata, like slug/title.
+        # `wagon` follows its sibling `train`: same writer, same merge rule.
+        {"field": "type", "writer": "core_authoring", "rule": RULE_MUTABLE},
+        {"field": "wagon", "writer": "core_train_ops", "rule": RULE_SAME_DIGEST},
         {"field": "wmbts", "writer": "core_test_ops", "rule": RULE_POLICY_MERGE},
         {
             "field": "external_refs",

@@ -17,7 +17,13 @@ import pytest
 
 from atdd.state.agent_session import KIND_AGENT_SESSION, REF_KIND_SESSION
 
-from ._publish_helpers import open_store, run_author_issue, stub_github_create
+from ._publish_helpers import (
+    open_store,
+    run_author_issue,
+    stub_github_create,
+    work_item,
+    work_item_uid,
+)
 
 pytestmark = [pytest.mark.platform]
 
@@ -42,10 +48,10 @@ def test_e009_unit_002_mint_without_agent_env_records_nothing_and_succeeds(tmp_p
     store, conn = open_store(tmp_path)
     try:
         # the mint itself happened
-        assert store.objects.get(SLUG) is not None
+        assert work_item(store, SLUG) is not None
         # but nothing was invented about who did it
         assert [r for r in store.external_refs.all() if r.ref_kind == REF_KIND_SESSION] == []
         assert store.objects.list(kind=KIND_AGENT_SESSION) == []
-        assert store.relationships.list(dst_uid=SLUG) == []
+        assert store.relationships.list(dst_uid=work_item_uid(store, SLUG)) == []
     finally:
         conn.close()

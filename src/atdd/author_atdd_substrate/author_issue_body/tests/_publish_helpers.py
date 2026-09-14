@@ -57,6 +57,30 @@ def open_store(control_root: Path):
     return StateStore(conn), conn
 
 
+def work_item(store, slug: str):
+    """The work item ``slug`` names, resolved the way production resolves it.
+
+    A work item is no longer *keyed* by its slug (#1622): ``atdd author issue``
+    mints a ``wi_<ULID>`` uid, because the projection contract requires one and
+    refuses a slug-keyed object outright. The slug survives as display metadata
+    inside ``data``, so a test that wants "the object I just authored" has to ask
+    the same question the CLI does rather than fetching at ``objects.get(slug)``.
+
+    Returns the :class:`~atdd.state.store.Object`, or ``None`` when nothing
+    matches — so "no work item was written" stays distinguishable from "written
+    under an identity I did not expect".
+    """
+    from atdd.state.work_item_writer import resolve_work_item
+
+    return resolve_work_item(store, slug)
+
+
+def work_item_uid(store, slug: str) -> Optional[str]:
+    """The minted uid for ``slug``, or ``None``. The key every FK onto it uses."""
+    found = work_item(store, slug)
+    return None if found is None else found.uid
+
+
 def path_with_stub_gh(tmp_path, number: int = STUB_ISSUE_NUMBER) -> str:
     """Write a fake ``gh`` under ``tmp_path/bin`` and return a PATH prefixed with it.
 
