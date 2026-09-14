@@ -98,3 +98,26 @@ acceptances:
   metadata:
     author: atdd:self-compliance
     created: '2026-07-10'
+- identity:
+    urn: acc:migrate-projection-authority:M001-SMOKE-002-dead-run-exits-zero-and-says-so
+    id: AC-SMOKE-002
+    phase: SMOKE
+    purpose: 'End-to-end: the real `atdd state shadow`, against a real store that cannot be projected, exits
+      0 and writes a report naming the failure; and the CI step that publishes it cannot render that failure
+      as an empty, clean-looking drift block.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout whose real State Store holds an object the projection guard must refuse
+  when:
+    abstract: the real shadow command is run, and the workflow step that publishes it is replayed verbatim
+  then:
+    abstract:
+    - The command exits SHADOW_EXIT_CODE and its stdout names the offending field
+    - The report never reads 'no drift' when nothing was compared
+    - The replayed CI step publishes a non-empty report that shows the failure
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-09-14'

@@ -117,3 +117,26 @@ acceptances:
   metadata:
     author: atdd:self-compliance
     created: '2026-07-10'
+- identity:
+    urn: acc:migrate-projection-authority:Y002-SMOKE-002-shipped-cli-offers-no-manifest-verb
+    id: AC-SMOKE-002
+    phase: SMOKE
+    purpose: 'End-to-end: the real `atdd state` CLI rejects the manifest-era verbs as unknown rather than
+      failing on an input that cannot exist, still offers the live migration, and the doc-integrity checks
+      pass over the reduced surface.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout and the shipped atdd CLI, with no .atdd/manifest.yaml
+  when:
+    abstract: the retired verbs are typed at the real command surface
+  then:
+    abstract:
+    - Each retired verb is refused as an invalid choice, not run and failed
+    - '`atdd state migrate-store` is still offered — the successor did not go out with them'
+    - '`atdd state runbook-check` and `atdd state rollout-check` pass against this checkout'
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-09-14'
