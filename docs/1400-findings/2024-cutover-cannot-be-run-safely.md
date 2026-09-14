@@ -55,13 +55,41 @@ managers inside `upsert` and `rekey` commit the enclosing one out from under the
 nesting does not compose, and the result would look atomic while being exactly as
 non-atomic as today.
 
-**What does work** is to migrate against a `backup_store()` copy, re-run `inspect_store` on
-the result, and swap the copy into place only if it is clean. One change buys the backup,
-the atomicity and the operator's undo together — and it leaves `upsert`/`rekey` alone,
-which matters, because `rekey`'s transaction is load-bearing: it re-points
-`relationships`, `events`, `external_refs` and `overlay_events` **before** deleting the old
-row, against `ON DELETE CASCADE`. Breaking that would silently take each object's entire
-history with it.
+**What does work — with two conditions found only by measuring it.** Migrate against a
+`backup_store()` copy, re-run `inspect_store` on the result, and swap the copy into place
+only if it is clean. That survives a crash: run end to end it migrates 30/30 and re-inspects
+clean; crashed at object 6 it leaves the live store's digest and uid set **unchanged**. The
+backup is genuinely restorable — 50/50 objects, identical uid set, restore-by-copy verified.
+And the checkpoint inside `backup_store` is the difference between a backup and an empty
+file: a plain `copy2` of a live WAL store captured **0 of 10** objects.
+
+It also leaves `upsert`/`rekey` alone, which matters: `rekey`'s transaction is load-bearing,
+re-pointing `relationships`, `events`, `external_refs` and `overlay_events` **before**
+deleting the old row against `ON DELETE CASCADE`. Breaking that would silently take each
+object's entire history with it.
+
+But copy/swap as stated has two holes, both measured:
+
+- **Silent data loss.** The copy is a snapshot at T0. Three objects committed to the *live*
+  store while the copy was being migrated were **all three discarded** by the swap — 33
+  objects at swap time, 30 after, no error and no trace.
+- **Corruption.** Replacing the `.sqlite` while `-wal`/`-shm` are still on disk makes the
+  store unopenable: **`sqlite3.DatabaseError: database disk image is malformed`**. The naive
+  swap does not rewind the store, it destroys it.
+
+Both close, and the closures were measured too:
+
+| fix | result |
+|---|---|
+| close every live connection → `checkpoint()` → unlink `-wal`/`-shm` → replace | the identical swap that corrupted now reopens clean, every object migrated |
+| hold `BEGIN EXCLUSIVE` from backup to swap | the concurrent writer gets `OperationalError: database is locked` after the 5s `busy_timeout` `db.connect()` already sets — refused loudly, not silently discarded |
+| take the copy with `conn.backup()` or `VACUUM INTO` | 15/15 objects with writes still in the `-wal` and no manual checkpoint (plain `cp` got 0), and a **sidecar-free** copy, removing the corruption class by construction |
+
+So the repair is copy/swap **plus an exclusive lock plus a sidecar-aware swap**. Specified as
+"migrate against a copy and swap" it would have shipped a data-loss window and a corruption
+path.
+
+Reproduce: `docs/spikes/labs/2024-migrate-store-durability/probe.py` (this branch, not `main`).
 
 ## 3. The cutover exit check reads the working tree
 
@@ -137,7 +165,7 @@ Not free: `gitstore.projection_at` has existing callers whose return type would 
 `str` to `bytes`. Whether this lands as a `text=False` sibling or a change to the function
 itself is an implementation call, and the caller survey belongs in the plan.
 
-Reproduce: `docs/spikes/labs/2024-projection-at-byte-exactness/probe.py`.
+Reproduce: `docs/spikes/labs/2024-projection-at-byte-exactness/probe.py` (this branch, not `main`).
 
 ## Why these travel together
 
