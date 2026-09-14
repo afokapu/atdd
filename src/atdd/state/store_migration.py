@@ -339,6 +339,59 @@ class DurableMigrationResult:
     backup: Path
 
 
+def _fence_store(db_path: Path):
+    """Hold the live store for the whole backup → migrate → swap window.
+
+    The scratch is a snapshot at T0, so without this a write committed between the copy and
+    the swap is overwritten silently — no error, no trace. Under the fence such a writer is
+    refused loudly with ``database is locked`` after the ``busy_timeout``
+    :func:`~atdd.state.db.connect` already sets, and **readers are unaffected** — which
+    matters, because WAL is configured for "concurrent readers + a writer (sibling
+    worktrees)" and every worktree under the Control Root shares this store.
+    """
+    from atdd.state.db import connect
+
+    conn = connect(Path(db_path))
+    try:
+        conn.execute("BEGIN EXCLUSIVE")
+    except sqlite3.OperationalError as exc:
+        conn.close()
+        _log.warning(
+            "could not fence the store for migration",
+            extra={"db_path": str(db_path), "error": str(exc)},
+        )
+        raise StoreLockedError(
+            f"the State Store is in use and could not be locked ({exc}). Another worktree "
+            "is writing to it — retry when it is idle."
+        ) from exc
+    return conn
+
+
+def _migrate_onto_scratch(scratch: Path, *, owner_actor: str) -> StoreMigrationReport:
+    """Migrate the scratch copy and judge the **result**, not merely the input.
+
+    A migration that produced an unmigratable store must not be swapped in on the strength
+    of having run, so ``inspect_store`` runs again over what came out.
+    """
+    from atdd.state.db import connect
+    from atdd.state.reconcile import checkpoint
+
+    conn = connect(scratch)
+    try:
+        report = migrate_store(conn, owner_actor=owner_actor)
+        leftover = inspect_store(StateStore(conn))
+    finally:
+        conn.close()
+    if leftover:
+        _log.warning(
+            "migration produced a store that still does not inspect clean",
+            extra={"scratch": str(scratch), "defects": len(leftover)},
+        )
+        raise MigrationNotCleanError(leftover)
+    checkpoint(scratch)
+    return report
+
+
 def migrate_store_durably(
     db_path: Path, *, owner_actor: str = UNATTRIBUTED_OWNER,
 ) -> DurableMigrationResult:
@@ -379,46 +432,15 @@ def migrate_store_durably(
     if an object cannot be migrated, and :class:`MigrationNotCleanError` if the migrated copy
     does not inspect clean. In every case the live store is untouched and the backup stands.
     """
-    from atdd.state.db import connect  # local: keeps the module's import surface small
-    from atdd.state.reconcile import (
-        _replace_store, _scratch_copy, backup_store, checkpoint,
-    )
+    from atdd.state.reconcile import _replace_store, _scratch_copy, backup_store
 
     db_path = Path(db_path)
-    fence = connect(db_path)
+    fence = _fence_store(db_path)
     try:
-        try:
-            fence.execute("BEGIN EXCLUSIVE")
-        except sqlite3.OperationalError as exc:
-            _log.warning(
-                "could not fence the store for migration",
-                extra={"db_path": str(db_path), "error": str(exc)},
-            )
-            raise StoreLockedError(
-                f"the State Store is in use and could not be locked ({exc}). Another "
-                "worktree is writing to it — retry when it is idle."
-            ) from exc
-
         backup = backup_store(db_path)  # immutable undo, before anything is written
         with tempfile.TemporaryDirectory() as tmp:
             scratch = _scratch_copy(db_path, Path(tmp))
-            scratch_conn = connect(scratch)
-            try:
-                report = migrate_store(scratch_conn, owner_actor=owner_actor)
-                # Judge the RESULT, not merely the input: a migration that produced an
-                # unmigratable store must not be swapped in on the strength of having run.
-                leftover = inspect_store(StateStore(scratch_conn))
-            finally:
-                scratch_conn.close()
-            if leftover:
-                _log.warning(
-                    "migration produced a store that still does not inspect clean",
-                    extra={"db_path": str(db_path), "defects": len(leftover),
-                           "backup": str(backup)},
-                )
-                raise MigrationNotCleanError(leftover)
-
-            checkpoint(scratch)
+            report = _migrate_onto_scratch(scratch, owner_actor=owner_actor)
             # Release BEFORE the file moves out from under the connection: holding it open
             # across the move is what strands the WAL side files.
             fence.rollback()
