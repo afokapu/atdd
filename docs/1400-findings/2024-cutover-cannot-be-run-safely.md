@@ -83,25 +83,61 @@ Nothing in the code path touches git. So `atdd state cutover` can report **3/3 �
 over files that have never been committed. The gate that exists to prove the cutover
 happened will certify that it did when it did not.
 
-### Reuse the right `projection_at`
+### Which `projection_at`? — measured, and the first answer was wrong
 
-Two functions carry that name, and the difference decides the fix:
+Two functions carry that name:
 
 | | returns | keyed by |
 |---|---|---|
 | `merge_authority.projection_at` (`merge_authority.py:170`) | `Dict[str, Dict[str, Any]]` — parsed YAML | uid |
-| `gitstore.projection_at` (`gitstore.py:63`) | `Dict[str, str]` — raw text | filename |
+| `gitstore.projection_at` (`gitstore.py:63`) | `Dict[str, str]` — text | filename |
 
-The criterion's claim is *byte for byte*. Parsing discards exactly the bytes the claim is
-about, so the byte-exact reader — `gitstore.projection_at` — is the one to reuse.
-`gitstore.projection_at`'s docstring already states the property the criterion needs:
+This document originally concluded that `gitstore.projection_at` was "the byte-exact
+reader" to reuse. **A probe over eight constructed git repositories refuted that**, and the
+correction is recorded here rather than left to be rediscovered.
 
-> Read straight out of git object storage, so it reports what that commit *committed* —
-> never what the working tree happens to hold right now.
+**What held.** On a repo with no projection at HEAD — never committed, committed then
+deleted, or present in the working tree only — *both* functions return `{}`. The criterion
+can report `unmet` without crashing. `gitstore.projection_at` achieves this with
+`ls-tree ... check=False`; `merge_authority.projection_at` achieves it because a pathspec
+matching nothing exits 0.
 
-Secondary consequence for whoever implements it: `check_canonicality` takes a `Path` and
-reads from disk, so reading HEAD needs either a bytes-accepting entry point or HEAD's
-projection materialised into a temp directory first. That is a design choice, not a detail.
+**What did not hold.** `gitstore._git` (`gitstore.py:36`) runs `subprocess.run(..., text=True)`,
+which applies universal-newline translation and UTF-8 decoding to the blob:
+
+| committed blob | `projection_at` returns | byte-exact? |
+|---|---|---|
+| `b'uid: wi_CRLF\r\nslug: windows\r\n'` | `b'uid: wi_CRLF\nslug: windows\n'` | **no** |
+| `b'uid: wi_CR\rslug: oldmac\r'` | `b'uid: wi_CR\nslug: oldmac\n'` | **no** |
+| `b'uid: wi_BAD\nslug: \xff\xfe\n'` | **raises `UnicodeDecodeError`** | n/a |
+
+The CRLF row is a **false pass on the gate**, which is the same class of defect as the one
+this document reports:
+
+```
+true committed blob == canonical LF output ?  False   <- the honest verdict: NOT canonical
+text-read blob      == canonical LF output ?  True    <- what the criterion would conclude
+```
+
+A projection committed with CRLF endings is not what `project()` emits, so it is not
+canonical — but normalised to LF before comparison it compares equal, and the criterion
+reports `met`. Meanwhile the other half of the comparison (`_read_bytes` → `path.read_bytes()`)
+reads true bytes, so the two sides are not measured the same way.
+
+`merge_authority.projection_at` failed for two further reasons the probe surfaced: it
+**raises** on a repo with no commits (a cold start `reconcile.resolve_head` explicitly calls
+legitimate), and it **silently drops** a committed file carrying no `uid`.
+
+**The reader that works** is neither, as written: the same two git calls on **binary** pipes,
+returning `Dict[str, bytes]`. That cleared all eight repos and was byte-identical to the
+committed blob in every case, CRLF and non-UTF-8 included — and it pairs correctly with
+`check_canonicality`'s existing `read_bytes()` side.
+
+Not free: `gitstore.projection_at` has existing callers whose return type would move from
+`str` to `bytes`. Whether this lands as a `text=False` sibling or a change to the function
+itself is an implementation call, and the caller survey belongs in the plan.
+
+Reproduce: `docs/spikes/labs/2024-projection-at-byte-exactness/probe.py`.
 
 ## Why these travel together
 
