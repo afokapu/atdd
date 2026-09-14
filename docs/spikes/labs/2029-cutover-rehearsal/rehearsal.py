@@ -93,12 +93,44 @@ def main() -> int:
         if not canonical:
             return 1
 
+        # #2025: the transport must carry identity, or a workflow can create but never
+        # update. Canonicality does not check this — it only round-trips the documents
+        # through themselves, so it passes just as happily on a projection with none.
+        docs = P.build_documents(store)
+        with_ref = [d for d in docs.values()
+                    if (d.get("external_refs") or {}).get("github", {}).get("issue")]
+        print(f"carrying identity {len(with_ref)} of {len(docs)} documents")
+        if not with_ref:
+            print("FAIL: no document names its GitHub issue — the projection cannot be "
+                  "the transport (#2025 regressed or has not landed)")
+            return 1
+
         # 3. Commit it. Hooks off: this is a measurement, not a delivery.
         _git(scratch, "checkout", "-q", "-b", "rehearsal")
         _git(scratch, "add", ".atdd/state/projection")
         staged = _git(scratch, "diff", "--cached", "--name-only").stdout.split()
         _git(scratch, "-c", "core.hooksPath=/dev/null", "commit", "-q", "-m", "rehearsal")
         print(f"committed         {len(staged)} files")
+
+        # The Done-when is byte-identity against HEAD, not 3/3 canonicality: canonicality
+        # only asks whether the committed documents round-trip through themselves, so a
+        # stale or partial commit satisfies it. Compare the committed bytes directly.
+        from atdd.state import gitstore
+        prefix = P.PROJECTION_RELATIVE.as_posix()
+        try:
+            at_head = gitstore.projection_bytes_at(scratch, "HEAD", prefix)
+        except Exception as exc:                       # pragma: no cover - reported, not raised
+            print(f"byte-identity     COULD NOT CHECK: {exc}")
+            at_head = None
+        if at_head is not None:
+            on_disk = {f.name: f.read_bytes() for f in sorted(out.glob("*.yaml"))}
+            head_named = {k.rsplit("/", 1)[-1]: v for k, v in at_head.items()}
+            identical = head_named == on_disk
+            print(f"byte-identity     HEAD == fenced projection: {identical} "
+                  f"({len(head_named)} at HEAD, {len(on_disk)} on disk)")
+            if not identical:
+                print("FAIL: committed bytes differ from the projection they came from")
+                return 1
 
         report = cutover.check(scratch)
         print(f"cutover           MET={report.met}")
