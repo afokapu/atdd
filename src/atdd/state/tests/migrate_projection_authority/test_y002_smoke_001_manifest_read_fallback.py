@@ -25,6 +25,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .._fixtures import commit_all
 from ._live import atdd_state, make_checkout
 
 
@@ -48,6 +49,12 @@ def _package_with_a_reader(root: Path) -> Path:
         "                return s['status']\n"
     )
     return package
+
+
+#: Sentinel step: commit the working tree. The lifecycle walk below is a list of shipped
+#: commands, and the commit is not one — but `cutover` reads HEAD, so a projection that is
+#: only on disk is not yet shared state and the walk has to make it real (#2024).
+_COMMIT = ("<commit>",)
 
 
 def test_y002_smoke_001_manifest_read_fallback(tmp_path) -> None:
@@ -79,8 +86,12 @@ def test_y002_smoke_001_manifest_read_fallback(tmp_path) -> None:
         ("object", "rename", uid, "--slug", "widget-v2"),
         ("project",),
         ("canonicality",),
+        _COMMIT,          # the cutover criterion judges HEAD, so the projection must land (#2024)
         ("cutover",),
     ):
+        if step is _COMMIT:
+            commit_all(repo, "the first committed projection")
+            continue
         result = atdd_state(repo, *step)
         assert result.returncode == 0, (
             f"`atdd state {' '.join(step)}` failed with the manifest absent: "

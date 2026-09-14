@@ -40,12 +40,14 @@ from atdd.state.manifest_migration import migrate_store
 from atdd.state.projection import PROJECTION_RELATIVE, project
 from atdd.state.work_item_writer import create_work_item
 
+from .._fixtures import checkout, commit_all
 from ._helpers import memory_store
 
 
 def test_projection_is_shared_state_reports_met(tmp_path) -> None:
     """A repo whose store has been migrated reports all three M8 criteria met."""
-    projection_dir = tmp_path / PROJECTION_RELATIVE
+    repo = checkout(tmp_path / "repo")
+    projection_dir = repo / PROJECTION_RELATIVE
     with memory_store() as (conn, store):
         for slug in ("alpha-work-item", "beta-work-item"):
             create_work_item(conn, slug, state="PLANNED", data={"title": slug})
@@ -53,8 +55,11 @@ def test_projection_is_shared_state_reports_met(tmp_path) -> None:
         # the claim: after CORE-036 there is nothing left for the migration to do.
         assert migrate_store(conn).migrated == 0
         project(store, projection_dir)
+    # The acceptance's given is "a repo ... whose projection is COMMITTED". It never was —
+    # the criterion globbed the working tree, so the fixture got away with stopping here (#2024).
+    commit_all(repo, "the first committed projection")
 
-    report = cutover.check(tmp_path, projection_dir=projection_dir)
+    report = cutover.check(repo)
 
     verdicts = {criterion.name: criterion for criterion in report.criteria}
     assert set(verdicts) == set(cutover.CRITERIA), "every criterion must be evaluated"

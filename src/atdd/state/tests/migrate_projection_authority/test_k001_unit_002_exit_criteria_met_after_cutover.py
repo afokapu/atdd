@@ -28,7 +28,8 @@ from atdd.state import cutover
 from atdd.state.manifest_import import WORK_ITEM_KIND
 from atdd.state.projection import project
 
-from ._helpers import UID_A, UID_B, control_root, memory_store
+from .._fixtures import checkout, commit_all
+from ._helpers import UID_A, UID_B, memory_store
 
 #: This repo's own `atdd` package — the source tree the claim is actually about.
 CORE = Path(__file__).resolve().parents[3]
@@ -40,13 +41,15 @@ def test_k001_unit_002_exit_criteria_met_after_cutover(tmp_path) -> None:
     """All three criteria pass against the real core tree and a real canonical projection."""
     assert CORE.name == "atdd", CORE
 
-    repo = control_root(tmp_path / "migrated")
+    repo = checkout(tmp_path / "migrated")
     projection = repo / ".atdd" / "state" / "projection"
     with memory_store() as (_conn, store):
         store.objects.upsert(UID_A, WORK_ITEM_KIND, state="PLANNED", data=dict(_BASE))
         store.objects.upsert(UID_B, WORK_ITEM_KIND, state="GREEN",
                              data={**_BASE, "slug": "beta"})
         project(store, projection)
+    # Commit it: the criterion judges the projection at HEAD, not the working tree (#2024).
+    commit_all(repo, "the first committed projection")
 
     # The manifest is gone. And — the point of Y002 — it being gone is not what makes this pass;
     # the READERS being gone is. See Y002-UNIT-002.

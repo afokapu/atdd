@@ -28,12 +28,19 @@ Dependency discipline: stdlib + ``atdd.state``. No provider (I7).
 from __future__ import annotations
 
 import logging
+import tempfile
+
+import yaml
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
 
-from atdd.state import hot_path, manifest_fallback
-from atdd.state.projection import PROJECTION_RELATIVE, check_canonicality
+from atdd.state import gitstore, hot_path, manifest_fallback
+from atdd.state.projection import (
+    PROJECTION_RELATIVE,
+    ProjectionError,
+    check_canonicality,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -110,20 +117,83 @@ class CutoverReport:
         return "\n".join([header, *(criterion.render() for criterion in self.criteria)])
 
 
-def _projection_criterion(root: Path, projection_dir: Optional[Path]) -> Criterion:
-    """The projection round-trips — the property the blocking canonicality gate enforces.
+def _committed_prefix(root: Path, projection_dir: Optional[Path]) -> Optional[str]:
+    """The repo-relative prefix to judge at HEAD, or ``None`` if there cannot be one.
 
-    An **empty** projection does not pass. A repo with no projection files has not made the
+    ``--from`` names a directory, and an operator may legitimately point the check at a
+    projection kept somewhere other than the default. What it must **not** do is turn the
+    check into a working-tree read: a directory outside the repository has no commit behind
+    it at all, so there is nothing at HEAD to judge and the answer is `unmet`, not `met`.
+
+    Containment is not the property either — a directory *inside* the worktree that has never
+    been committed also yields nothing at HEAD, and falls out of this for free: its prefix
+    simply is not in the tree (#2024).
+    """
+    if projection_dir is None:
+        return PROJECTION_RELATIVE.as_posix()
+    try:
+        return Path(projection_dir).resolve().relative_to(Path(root).resolve()).as_posix()
+    except ValueError:
+        return None  # outside the repository: no commit can contain it
+
+
+def _projection_criterion(root: Path, projection_dir: Optional[Path]) -> Criterion:
+    """The projection round-trips **at HEAD** — the property the blocking gate enforces.
+
+    Read out of git, never off the working tree. The claim this criterion stamps has always
+    said "over the projection at HEAD"; it globbed the filesystem instead, so 3/3 could flip
+    before a single byte was committed and the gate that exists to prove the cutover happened
+    would certify that it had when it had not (#2024).
+
+    Bytes, not text: the canonicality claim is byte-for-byte, and a CRLF-corrupted commit —
+    exactly what the projector would never emit — normalises to LF through a text-mode read
+    and compares equal to canonical output. :func:`gitstore.projection_bytes_at` is the
+    byte-exact reader; the blobs are materialised verbatim into a scratch directory so the
+    existing round-trip can run over them unchanged.
+
+    An **empty** projection does not pass. A repo with no projection at HEAD has not made the
     projection its shared state; it has made nothing its shared state, and a check that called
     that "canonical" would report M8 complete on a repo that had not started.
     """
-    directory = Path(projection_dir) if projection_dir is not None else Path(root) / PROJECTION_RELATIVE
-    if not directory.is_dir() or not any(directory.glob("*.yaml")):
+    root = Path(root)
+    prefix = _committed_prefix(root, projection_dir)
+    if prefix is None:
         return Criterion(
             CRITERION_PROJECTION, False, CLAIMS[CRITERION_PROJECTION],
-            [f"no committed projection at {directory} — the shared state does not exist yet"],
+            [f"{projection_dir} is outside {root}, so no commit can contain it — there is "
+             "nothing at HEAD to judge"],
         )
-    report = check_canonicality(directory)
+    try:
+        committed = gitstore.projection_bytes_at(root, "HEAD", prefix)
+    except gitstore.GitError as exc:
+        return Criterion(
+            CRITERION_PROJECTION, False, CLAIMS[CRITERION_PROJECTION],
+            [f"the projection at HEAD could not be read: {exc}"],
+        )
+    if not committed:
+        return Criterion(
+            CRITERION_PROJECTION, False, CLAIMS[CRITERION_PROJECTION],
+            [f"no committed projection at {prefix} in HEAD — the shared state does not exist "
+             "yet (files in the working tree do not count; they are not what anyone else gets)"],
+        )
+    with tempfile.TemporaryDirectory() as scratch:
+        staged = Path(scratch)
+        for filename, blob in committed.items():
+            (staged / filename).write_bytes(blob)  # verbatim: the claim is byte-for-byte
+        try:
+            report = check_canonicality(staged)
+        except (ProjectionError, UnicodeDecodeError, yaml.YAMLError) as exc:
+            # A committed projection that cannot even be read back is not canonical — that is
+            # a verdict, not a crash. An operator running the cutover gate needs the criterion
+            # and the offending file, not a traceback out of the YAML parser.
+            _log.warning(
+                "the committed projection could not be hydrated",
+                extra={"root": str(root), "prefix": prefix, "error": str(exc)},
+            )
+            return Criterion(
+                CRITERION_PROJECTION, False, CLAIMS[CRITERION_PROJECTION],
+                [f"the projection at HEAD cannot be hydrated, so it cannot be canonical: {exc}"],
+            )
     return Criterion(
         CRITERION_PROJECTION, report.ok, CLAIMS[CRITERION_PROJECTION],
         [f"{m.filename} is not the canonical projection of what it hydrates to"

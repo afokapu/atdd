@@ -94,12 +94,33 @@ def _control_root(root: Optional[str]) -> Path:
     return resolve_control_root(start).control_root
 
 
+def _projection_anchor(root: Optional[str]) -> Path:
+    """The directory the projection default hangs off: the **git worktree root** (#2024).
+
+    Not the Control Root. The store is operational, git-ignored state and lives once at the
+    Control Root; the projection is the opposite — a *committed* artifact, and the whole point
+    of the cutover is that git carries it. In sibling-worktree layout the Control Root is a
+    parent of the worktrees and is deliberately **not** a git repository, so anchoring there
+    writes a projection no commit can ever contain, and one that ``merge_authority`` and
+    ``gitstore`` (which both anchor at the repo) can never see.
+
+    Falls back to the Control Root only when the resolver reports no worktree root at all —
+    a Control Root outside git, where there is no better answer and the caller's own error is
+    the honest one.
+    """
+    from atdd.state.paths import resolve_control_root  # local: keeps the import surface small
+
+    start = Path(root).resolve() if root else Path.cwd()
+    resolution = resolve_control_root(start)
+    return resolution.git_worktree_root or resolution.control_root
+
+
 def _projection_dir(args) -> Path:
     """The projection directory an invocation targets — explicit flag or the default."""
     explicit = getattr(args, "from_dir", None) or getattr(args, "out", None)
     if explicit:
         return Path(explicit).resolve()
-    return _control_root(getattr(args, "root", None)) / PROJECTION_RELATIVE
+    return _projection_anchor(getattr(args, "root", None)) / PROJECTION_RELATIVE
 
 
 def _open_store(root: Optional[str]):

@@ -81,6 +81,47 @@ def projection_at(repo: Path, commit: str) -> Dict[str, str]:
     return documents
 
 
+def projection_bytes_at(
+    repo: Path, commit: str, prefix: Optional[str] = None,
+) -> Dict[str, bytes]:
+    """Every ``<uid>.yaml`` under ``prefix`` at ``commit``, as ``{filename: raw bytes}``.
+
+    The byte-exact sibling of :func:`projection_at`, and the one a canonicality check must
+    use. :func:`projection_at` decodes through ``text=True``, which applies universal-newline
+    translation and UTF-8 decoding: a blob committed with ``\r\n`` comes back normalised to
+    ``\n``, so a projection the projector would never emit compares *equal* to canonical
+    output — a false pass on the very gate that exists to catch it. Non-UTF-8 bytes raise
+    ``UnicodeDecodeError`` out of ``subprocess`` instead of yielding a verdict.
+
+    Reads straight out of git object storage, so it reports what that commit *committed* —
+    never what the working tree happens to hold. Returns ``{}`` when the commit has no such
+    directory, including a repository with no commits at all, because "there is no committed
+    projection" is a verdict the caller must be able to render, not an error (#2024).
+    """
+    repo = Path(repo)
+    prefix = PROJECTION_RELATIVE.as_posix() if prefix is None else prefix
+    listing = subprocess.run(
+        ["git", "ls-tree", "--name-only", f"{commit}:{prefix}"],
+        cwd=str(repo), capture_output=True, timeout=_TIMEOUT,  # binary: no text=True
+    )
+    if listing.returncode != 0:
+        return {}  # the commit predates the directory, or there is no commit at all
+    names = sorted(
+        name for name in listing.stdout.decode("utf-8", "surrogateescape").splitlines()
+        if name.endswith(PROJECTION_SUFFIX)
+    )
+    documents: Dict[str, bytes] = {}
+    for name in names:
+        blob = subprocess.run(  # noqa: N+1 — one blob per file, as projection_at does
+            ["git", "show", f"{commit}:{prefix}/{name}"],
+            cwd=str(repo), capture_output=True, timeout=_TIMEOUT,
+        )
+        if blob.returncode != 0:
+            raise GitError(f"git show {commit}:{prefix}/{name} failed in {repo}")
+        documents[name] = blob.stdout
+    return documents
+
+
 def toplevel(start: Optional[Path] = None) -> Path:
     """The repository root containing ``start`` (default: cwd)."""
     where = Path(start) if start is not None else Path.cwd()
