@@ -4,12 +4,12 @@ direction: maximize
 dimension: likelihood
 object_of_control: shadow-projection-report
 context_clarifier: 'when CORE-032''s shadow-mode CI job runs before projection becomes blocking: it recomputes
-  the projection from the store and reports drift against the committed projection and against the manifest-derived
-  projection, without failing the build'
+  the projection from the store and reports drift against the committed projection, without failing the build —
+  and reports rather than raises when the projection cannot be computed at all (#2023)'
 lens: functional.effectiveness
 statement: maximize likelihood of a shadow-projection-report that recomputes the projection on every push
-  and surfaces drift against both the committed projection and the manifest-derived projection while remaining
-  non-blocking
+  and surfaces drift against the committed projection while remaining non-blocking on every path, including
+  one on which the projection cannot be computed
 acceptances:
 - given:
     abstract:

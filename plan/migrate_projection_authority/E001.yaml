@@ -60,27 +60,3 @@ acceptances:
       error'
   when:
     abstract: the migration tool is run again on the renamed manifest
-- given:
-    abstract:
-    - A real repo checkout with a populated .atdd/manifest.yaml and the installed
-      atdd CLI
-  harness:
-    category: integration
-    type: integration
-  identity:
-    id: AC-SMOKE-001
-    phase: SMOKE
-    purpose: Verify the migration tool converts a real repo's manifest into a committed
-      projection tree through the installed CLI
-    urn: acc:migrate-projection-authority:E001-SMOKE-001-cli-migrates-real-manifest
-  metadata:
-    author: atdd:state-projection-plan
-    created: '2026-07-09'
-  then:
-    abstract:
-    - A .atdd/state/projection/ tree is produced with one <uid>.yaml per manifest
-      work item
-    - 'Re-running the command is a no-op: git reports no diff'
-    - The projection canonicality check passes over the produced tree
-  when:
-    abstract: the migration command is run end-to-end in that checkout

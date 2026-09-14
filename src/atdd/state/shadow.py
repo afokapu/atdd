@@ -16,17 +16,25 @@ shadow window exists to *earn*. So: it reports, loudly, in the job summary, and 
 through. When the drift has been zero for long enough that the team believes it,
 ``atdd state canonicality`` — which does block — is turned on, and this job's job is done.
 
-It compares against **both** sources, because during the cutover there are two:
+It compares against one source, because after the cutover there is one:
 
 ``committed``
     ``project(store)`` vs the projection files on disk. Drift here means someone's store and the
     branch's committed projection disagree — the thing the canonicality gate will refuse.
 
-``manifest``
-    ``project(store)`` vs the projection the *legacy manifest* would produce. Drift here means the
-    old ledger and the new one disagree — the thing the migration is supposed to have settled. It
-    is the only check that can tell you the migration was incomplete rather than merely stale, and
-    it stops mattering the day the manifest does.
+There was a second, ``manifest`` — ``project(store)`` vs the projection the *legacy manifest* would
+produce — and it was the only check that could tell you the migration was incomplete rather than
+merely stale. It stopped mattering the day the manifest did. ``decommission-manifest`` deleted the
+file, so that comparison could only ever report a skip, and a source that is *structurally* skipped
+is not a source: it is a heading with nothing under it, in a report whose whole job is to be
+believed. Removed in #2023.
+
+**A run that cannot happen still exits zero.** ``project(store)`` is computed before any source is
+read, so a store that cannot be projected used to escape as a traceback and exit 1 — through the one
+module that declares its exit code a constant precisely so nothing can drift from it. That failure
+is now reported as the ``store`` source being unavailable, and the run exits
+:data:`SHADOW_EXIT_CODE` like every other. Shadow mode measures; a measurement that dies is a
+measurement that says so, not one that gates (#2023).
 
 Dependency discipline: stdlib + ``pyyaml`` + ``atdd.state``. No provider (I7).
 """
@@ -41,6 +49,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from atdd.state.projection import (
     PROJECTION_RELATIVE,
+    ProjectionError,
     build_documents,
     canonical_bytes,
     MemoryStore,  # re-exported below: a shadow run touches no developer SQLite either
@@ -50,10 +59,13 @@ from atdd.state.store import StateStore
 
 _log = logging.getLogger(__name__)
 
-#: The two things a shadow run compares ``project(store)`` against.
+#: What a shadow run compares ``project(store)`` against.
 SOURCE_COMMITTED = "committed"
-SOURCE_MANIFEST = "manifest"
-SOURCES: Tuple[str, ...] = (SOURCE_COMMITTED, SOURCE_MANIFEST)
+SOURCES: Tuple[str, ...] = (SOURCE_COMMITTED,)
+
+#: Not a comparison source: the name the *store side* is reported under when ``project(store)``
+#: itself cannot be computed, so "the run died" is a line in the report rather than a traceback.
+SOURCE_STORE = "store"
 
 #: Shadow mode is non-blocking. This is the invariant, stated as a constant so the CLI, the
 #: workflow and the tests all read the same number and none of them can drift from it (M001).
@@ -87,8 +99,9 @@ class ShadowReport:
 
     drifts: List[Drift] = field(default_factory=list)
     checked: int = 0
-    #: Sources that could not be compared at all (no manifest in the repo, say) — reported, not
-    #: fatal. A missing legacy manifest is the *goal state*, not an error.
+    #: Sources that could not be compared at all — reported, not fatal. Carries
+    #: :data:`SOURCE_STORE` when ``project(store)`` could not be computed, which is the one failure
+    #: that stops the run before any comparison begins.
     unavailable: Dict[str, str] = field(default_factory=dict)
 
     @property
@@ -106,6 +119,18 @@ class ShadowReport:
 
     def render(self) -> str:
         lines: List[str] = []
+        if SOURCE_STORE in self.unavailable:
+            # Never "no drift": nothing was compared, and the two must not read alike.
+            lines.append(
+                "shadow projection: COULD NOT RUN — project(store) could not be computed, so "
+                "nothing was compared"
+            )
+            lines.append(f"  ({SOURCE_STORE}: {self.unavailable[SOURCE_STORE]})")
+            lines.append(
+                "shadow mode is NON-BLOCKING and exits 0 by design, including here: this is a "
+                "failed measurement, not a failed build. `atdd state canonicality` is the gate."
+            )
+            return "\n".join(lines)
         if self.clean:
             lines.append(f"shadow projection: no drift ({self.checked} object(s) checked)")
         else:
@@ -152,44 +177,6 @@ def _diff(
     return drifts
 
 
-def _manifest_documents(root: Path) -> Tuple[Optional[Dict[str, Dict[str, Any]]], str]:
-    """The projection the *legacy manifest* would produce, or ``(None, why-not)``.
-
-    A repo with no manifest is the cutover's goal, not a failure — so "there is no manifest" is
-    reported as an *unavailable source*, and the shadow run carries on with the comparison it can
-    still make.
-    """
-    from atdd.state import manifest_migration as migration
-
-    try:
-        document = migration.read_manifest(migration.manifest_path(root))
-    except migration.MigrationError as exc:
-        # Not an error: a repo with no manifest is the cutover's GOAL. Said out loud anyway, so
-        # that "the manifest comparison was skipped" is a fact in the log and not an inference
-        # from a report that quietly compared one source instead of two.
-        _log.info(
-            "the manifest-derived projection is unavailable; comparing against the committed "
-            "projection only",
-            extra={"root": str(root), "reason": str(exc)},
-        )
-        return None, str(exc)
-
-    sessions = migration.sessions_of(document)
-    defects = migration.inspect(sessions)
-    if defects:
-        reason = (
-            f"{len(defects)} manifest entr(ies) cannot be projected "
-            f"(run `atdd state migrate-manifest` to see them)"
-        )
-        _log.warning(
-            "the legacy manifest cannot be projected, so shadow mode cannot compare against it",
-            extra={"root": str(root), "defects": len(defects)},
-        )
-        return None, reason
-    documents, _archived = migration.build_documents(sessions)
-    return documents, ""
-
-
 def compare(
     store: StateStore,
     *,
@@ -206,20 +193,25 @@ def compare(
     root = Path(root)
     projection_dir = Path(projection_dir) if projection_dir is not None else root / PROJECTION_RELATIVE
 
-    ours = build_documents(store)
     drifts: List[Drift] = []
     unavailable: Dict[str, str] = {}
+
+    try:
+        ours = build_documents(store)
+    except ProjectionError as exc:
+        # The store side is computed before any source is read, so its failure would otherwise
+        # escape as a traceback and exit non-zero — out of the one module that declares its exit
+        # code a constant so nothing can drift from it. Report it and carry on measuring nothing:
+        # an operator must be able to tell "the projection is clean" from "the check never ran".
+        _log.warning(
+            "shadow could not compute project(store); the run is non-blocking and exits 0 (M001)",
+            extra={"root": str(root), "error": str(exc), "exit_code": SHADOW_EXIT_CODE},
+        )
+        return ShadowReport(unavailable={SOURCE_STORE: str(exc)})
 
     if SOURCE_COMMITTED in sources:
         committed = read_projection(projection_dir)
         drifts.extend(_diff(ours, committed, SOURCE_COMMITTED))
-
-    if SOURCE_MANIFEST in sources:
-        documents, why = _manifest_documents(root)
-        if documents is None:
-            unavailable[SOURCE_MANIFEST] = why
-        else:
-            drifts.extend(_diff(ours, documents, SOURCE_MANIFEST))
 
     report = ShadowReport(drifts=drifts, checked=len(ours), unavailable=unavailable)
     if drifts:
@@ -256,6 +248,6 @@ def canonical_of(store: StateStore) -> Dict[str, bytes]:
 
 
 __all__ = [
-    "Drift", "SHADOW_EXIT_CODE", "SOURCES", "SOURCE_COMMITTED", "SOURCE_MANIFEST", "ShadowReport",
+    "Drift", "SHADOW_EXIT_CODE", "SOURCES", "SOURCE_COMMITTED", "SOURCE_STORE", "ShadowReport",
     "MemoryStore", "canonical_of", "compare", "compare_repo",
 ]
