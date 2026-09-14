@@ -1,0 +1,74 @@
+urn: "wmbt:drive-state-machine:C002"
+step: "confirm"
+direction: "minimize"
+dimension: "quantity"
+object_of_control: "lifecycle-advances-authorised-by-a-pull-request-that-never-merged"
+context_clarifier: "when auto-phase resolves a pull request to its issue, because PRManager requests state and mergedAt and read_linked_issue consults neither, so an open or closed-unmerged pull request produces a result byte-identical to a merged one, and no gate stands behind the check on any of the four edges auto-phase can drive"
+lens: "functional.effectiveness"
+statement: "minimize quantity of lifecycle-advances-authorised-by-a-pull-request-that-never-merged when auto-phase resolves a pull request to its issue"
+acceptances:
+  - identity:
+      urn: "acc:drive-state-machine:C002-UNIT-001-an-unmerged-pull-request-advances-nothing"
+      id: "AC-UNIT-001"
+      purpose: "The merge is what authorises the advance, and it is consulted"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A pull request that is open and has never merged"
+        - "A pull request that was closed without merging"
+        - "A pull request that merged"
+    when:
+      abstract: "auto-phase resolves each to a transition"
+    then:
+      abstract:
+        - "Neither unmerged pull request produces a transition"
+        - "The merged pull request advances exactly one step, unchanged from today"
+        - "The three results are not identical, which is the whole defect: measured 2026-09-13, across three PR states and seven phases the shipped resolver returned byte-identical results and produced eight advances out of pull requests that never merged"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-13"
+  - identity:
+      urn: "acc:drive-state-machine:C002-UNIT-002-the-refusal-names-the-merge-not-an-absent-link"
+      id: "AC-UNIT-002"
+      purpose: "The refusal states the cause it actually observed, not a cause it assumed"
+      phase: "GREEN"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A pull request that has not merged and whose body declares a closing reference"
+    when:
+      abstract: "auto-phase runs and prints its outcome"
+    then:
+      abstract:
+        - "The printed line names the merge as the missing authority"
+        - "The printed line names which kind of unmerged it was, so an open pull request and a closed-unmerged one read differently"
+        - "The printed line does NOT say the pull request links no issue, because it links one"
+        - "The assertion is made on the printed text, not on the action field: measured 2026-09-13, the fix applied to read_linked_issue alone stopped the advance two times out of two while reporting `no-op - no linked issue`, which satisfies an action-only assertion and states a falsehood"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-13"
+  - identity:
+      urn: "acc:drive-state-machine:C002-SMOKE-001-a-real-unmerged-pull-request-advances-nothing"
+      id: "AC-SMOKE-001"
+      purpose: "Against the live projection, an unmerged pull request moves no phase"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "An open pull request in this repository whose closingIssuesReferences names an issue"
+    when:
+      abstract: "auto-phase is driven against it in dry-run"
+    then:
+      abstract:
+        - "No transition is produced, and the reason names the merge"
+        - "The pull request state is read from the live projection rather than a fixture, because the fact under test is one only GitHub holds"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-09-13"

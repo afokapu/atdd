@@ -61,6 +61,43 @@ def _store_issue_number_for_slug(root, slug: str):
         return None
 
 
+def _unmerged_refusal(pr_data: dict, pr_number: int):
+    """A refusal when the PR has not merged, or None when it has (#2004).
+
+    ``_read_pr`` already requests ``state`` and ``mergedAt``; ``read_linked_issue``
+    consulted neither, so an open or a closed-unmerged pull request produced a
+    reading byte-identical to a merged one. Measured 2026-09-13 across three PR
+    states and seven phases: the resolver returned the same action every time, and
+    8 of 12 transitions came out of a pull request that never merged.
+
+    ``mergedAt`` IS THE AUTHORITY; ``state`` IS THE REASON. Across all 853 pull
+    requests in this repository ``mergedAt`` is present if and only if
+    ``state == MERGED`` — 802 MERGED with it, 28 CLOSED without, 23 OPEN without,
+    zero counterexamples. They are not two facts to refuse on: one decides, the
+    other names which kind of unmerged it was, because waiting for a merge and
+    re-opening a declined pull request are different next actions.
+
+    NO_OBLIGATION rather than UNREADABLE: the observation succeeded and the
+    advance is simply not owed, which keeps it distinct from "I could not look"
+    — that still fails the run (#1640).
+    """
+    from atdd.coach.validators._observation import Reading
+
+    if pr_data.get("mergedAt"):
+        return None
+    state = str(pr_data.get("state") or "UNKNOWN").upper()
+    return Reading.no_obligation(
+        # The PR number is NOT repeated here: `auto_phase.run` prefixes every
+        # no-op line with "PR #N: ", and forwarding a reason that names it again
+        # printed "PR #9002: no-op — PR #9002 has not merged". That is a
+        # regression in the exact operator-facing line this change exists to
+        # improve, introduced by surfacing the reason at all.
+        f"it has not merged (state={state}); the advance is "
+        f"authorised by the merge and no merge has happened",
+        subject=pr_number,
+    )
+
+
 class PRManager:
     """Create pull requests from ATDD issue metadata."""
 
@@ -323,6 +360,10 @@ class PRManager:
 
         UNREADABLE carries the reason: a refusal an operator cannot act on is
         only marginally better than the vacuous pass it replaces.
+
+        The merge premise is :func:`_unmerged_refusal` (#2004), which is the
+        third answer this split was always missing: read it, and it has not
+        merged.
         """
         from atdd.coach.validators._observation import Reading
 
@@ -334,10 +375,15 @@ class PRManager:
                 subject=pr_number,
             )
 
+        unmerged = _unmerged_refusal(pr_data, pr_number)
+        if unmerged is not None:
+            return unmerged
+
         resolution = self._resolve_from(pr_data, pr_number)
         if resolution is None:
             return Reading.no_obligation(
-                f"PR #{pr_number} declares no closing reference",
+                # Same: the caller prefixes the PR number (see above).
+                "it declares no closing reference",
                 subject=pr_number,
             )
         return Reading.observed(resolution, subject=pr_number)
