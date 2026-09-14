@@ -213,9 +213,27 @@ class TraceabilityGraph:
         return True
 
     def _ensure_node(self, urn: str, family: str) -> None:
-        """Synthesize a bare node for a URN the graph has not seen yet."""
+        """Synthesize a node for a URN the graph has not seen yet, marked undeclared.
+
+        An edge endpoint reaching this method was named by *another* artefact's
+        URN text; nothing declared it. The ``declared: False`` stamp is what
+        keeps it distinguishable from a node built by ``_node_for`` out of a
+        real declaration (#1758) — without it, a synthesized endpoint is
+        indistinguishable from a declared one for every downstream consumer.
+
+        Deliberately does NOT resolve: this class is a pure in-memory structure
+        that is pickled into ``.atdd/cache/graph.pickle``, so it holds no
+        registry and no ``repo_root``. Resolution is filled in afterwards by
+        ``GraphBuilder._stamp_synthesized_endpoints``, which owns the registry.
+        The provenance stamp therefore holds unconditionally, including for the
+        bare ``TraceabilityGraph()`` constructions in tests.
+        """
         if urn not in self._nodes:
-            self._nodes[urn] = URNNode(urn=urn, family=family)
+            self._nodes[urn] = URNNode(
+                urn=urn,
+                family=family,
+                metadata={"declared": False, "synthesized_by": "graph.add_edge"},
+            )
 
     def _infer_family(self, urn: str) -> str:
         """Infer family from URN prefix."""
@@ -787,6 +805,12 @@ class GraphBuilder:
         self._build_journey_test_edges(graph, content_cache)
         self._build_jel_contract_nodes(graph)
 
+        # 3. Resolve the endpoints edge construction synthesized. Runs LAST, so
+        #    edge builders that read node.artifact_path / metadata['source_path']
+        #    (e.g. _build_test_edges) see the same bare nodes they always did and
+        #    the edge set is unchanged.
+        self._stamp_synthesized_endpoints(graph)
+
         # Disk cache: persist for next run
         if cache_key is not None:
             self._save_cached_graph(graph, cache_key)
@@ -820,6 +844,43 @@ class GraphBuilder:
             ),
             metadata=metadata,
         )
+
+    def _stamp_synthesized_endpoints(self, graph: TraceabilityGraph) -> None:
+        """Resolve every endpoint ``_ensure_node`` synthesized, keeping it undeclared.
+
+        Provenance (``declared: False``) is stamped at synthesis and is never
+        overwritten here — resolving an endpoint says a *file* exists, which is a
+        different question from whether any artefact *declared* it. The two come
+        apart in practice: on the live corpus 5 of the 44 synthesized endpoints
+        are legacy ``train:NNNN-slug`` aliases that resolve through
+        ``plan/_trains/_aliases.yaml`` to real files nobody declared as a node
+        (#1758). Filling only ``is_broken`` would report those 5 as equivalent to
+        declared nodes — the exact confusion this stamp exists to prevent.
+
+        The resolution block mirrors ``_node_for`` so a synthesized node and a
+        declared node carry the same keys and differ only in ``declared``.
+        """
+        resolve_cache: Dict[str, URNResolution] = {}
+
+        for node in graph.nodes.values():
+            if node.metadata.get("synthesized_by") != "graph.add_edge":
+                continue
+
+            if node.urn not in resolve_cache:
+                resolve_cache[node.urn] = self.registry.resolve(node.urn)
+            resolution = resolve_cache[node.urn]
+
+            if resolution.resolved_paths:
+                node.artifact_path = resolution.resolved_paths[0]
+
+            node.metadata.update({
+                "source_path": "",
+                "is_broken": resolution.is_broken,
+                "resolution_error": resolution.error,
+                "is_deterministic": resolution.is_deterministic,
+                "is_resolved": resolution.is_resolved,
+                "resolved_paths": [str(p) for p in resolution.resolved_paths],
+            })
 
     def _build_containment_edges(self, graph: TraceabilityGraph) -> None:
         """Build containment edges (wagon -> feature -> wmbt -> acceptance)."""
@@ -1291,6 +1352,9 @@ class GraphBuilder:
                 "is_resolved": resolution.is_resolved,
                 "resolved_paths": [str(p) for p in resolution.resolved_paths],
                 "synthesized_by": "abuse_case.acceptance_ref",
+                # Same invariant as _ensure_node (#1758): this target is reached
+                # only when the acc URN was declared nowhere.
+                "declared": False,
             },
         ))
 
