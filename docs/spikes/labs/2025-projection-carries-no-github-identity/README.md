@@ -1,52 +1,74 @@
 # Lab — #2025: the committed projection carries no GitHub identity
 
-Three hypotheses, each stated so it could be false:
+Three hypotheses, each stated so it could be false, each with its own probe.
 
-1. The projection carries no GitHub identity today, and after the #1622-ruled
-   migration there is no identity anywhere in the projected document.
-2. Folding the `external_refs` table into the document *wholesale* is not merely
-   untidy but impossible: some rows would make the projection unwritable.
-3. Making `hydrate` a field-scoped merge resolves the deletion hazard without
-   breaking `project(hydrate(p)) == p`.
+| probe | hypothesis | verdict |
+|---|---|---|
+| `roundtrip.py` | a projection carrying `external_refs` still satisfies `project(hydrate(p)) == p` byte-for-byte and passes `check_canonicality` | **HELD** — and surfaced the str/int contract gap |
+| `hazard.py` | today's wholesale-replace `hydrate` destroys `feature` and `branch`, and the destruction reaches the gates that read them | **HELD** — 174/174 → 0/0 on both gates; the proposed merge restores 174/174 |
+| `subtree.py` | the refs table cannot be serialized wholesale, and every excluded row has a stateable reason | **HELD** — three independent exclusion grounds |
 
-## Running it
+## Running them
 
-    ./lab.sh
+    ./lab.sh                 # the corpus census + the hazard, end to end
+    PYTHONPATH=../../../../src python3 roundtrip.py <control-root>
+    PYTHONPATH=../../../../src:. python3 hazard.py  <control-root>
+    PYTHONPATH=../../../../src python3 subtree.py   <control-root>
 
-Reads `<control-root>/.atdd/state/state.sqlite` **through a copy** and writes
-nothing back. `store_migration.migrate_store()` is run on the copy first, so the
-measurements describe the world the projection cutover is about to create, not
-the pre-migration one.
+All four are **read-only** with respect to the live store: every measurement runs
+against a copy, and `store_migration.migrate_store()` is applied to the copy first,
+so the numbers describe the world the projection cutover is about to create rather
+than the pre-migration one.
 
-## Measured 2026-09-14
+`roundtrip.py` and `hazard.py` patch the two seams this issue proposes to change and
+then call the **real** `project`, `check_canonicality` and gate resolvers. They are a
+measurement harness, not the implementation — RED owns that.
 
-`./lab.sh` prints all of the below. The corpus GROWS as issues are authored, so
-the absolute counts move between runs — authoring #2024 and #2025 themselves moved
-the document count from 743 to 746 while this lab was being written. What does not
-move is the shape of the answer: the identity count is **zero**, and it is zero for
-every document. Treat the ratios, not the integers, as the finding.
+## What the probes found
 
-Reading of 2026-09-14, against 1,050 work items / 1,257 external refs:
+**1 — the round trip holds, and the contract needs one thing more than planned.**
+747 files written, 744 carrying the subtree, `check_canonicality` canonical, digest
+stable across hydrate + re-project. Committed shape:
 
-| claim | result |
-|---|---|
-| 1 | 746 projectable documents; **0** carry any `external_refs` key. The table holds 1,103 `(github, issue)` rows, 743 of them on projected uids. Every `ref_value` is all-digits; the mapping is strictly one-to-one. |
-| 2 | The other 154 rows are `(claude, session)` with `data = {"last_seen_at": "<ISO-8601>"}`. `assert_deterministic` catches that twice — `_key_fault` on the `_at` suffix and `_TIMESTAMP_VALUE_RE` on the value — and `build_documents` refuses the whole corpus on the first fault. The lab prints the actual refusal: `nondeterministic projection content claude:6453e644-… at field 'external_refs.claude.last_seen_at': is a wall-clock timestamp field`. Separately, 819 of the 1,103 GitHub rows carry a `data._recovery` bag, the key #1622 ruled DROP. |
-| 3 | Merge-hydrate preserves every stripped key (`feature` 566→566, `branch` 457→457, `created`/`id` 79→79, `worktree` 1→1) and the round trip stays byte-identical. Today's wholesale-replace hydrate on the same inputs deletes 358 `feature`, 195 `branch`, 75 `created`, 75 `id`, 1 `worktree`. |
+    external_refs:
+      github:
+        issue: '2029'
 
-Hydrated into a **fresh, empty** store — the actual inbound case — the prototype
-yields 743 external-refs rows (today: 0) and resolves a real issue number to its
-uid. That object's `branch` and `feature` come back `None`, which is correct:
-those stay stripped, and a peer was never going to inherit a useful value for
-either.
+Probe 1c is the finding that changed the plan: `'1975'` and `1975` do **not** produce
+the same bytes, the store column is `TEXT`, and `FIELD_TYPES` types `external_refs` as
+`dict` and reaches no deeper. So an unquoted hand-edit reads back as an `int` and breaks
+canonicality with no schema violation to explain it. **The contract must type the leaf,
+not just the container.**
 
-Two further findings that changed the plan:
+**2 — the hazard is total, and the fix is within scope.** Sampling 174 live issues whose
+branch *and* feature both resolve today, driven through the real gate resolvers:
 
-- **`hydrate` must restore, never delete.** The table holds far more work-item
-  rows than there are projected uids — the surplus belongs to `COMPLETE` objects
-  that `ARCHIVED_PHASES` keeps out of the projection. A hydrate that made the
-  table *match* the projection would delete those live bindings on first ingest.
-- **Duplicate issue claims need an explicit refusal.** `ExternalRefStore.link` is
-  `ON CONFLICT(provider, ref_kind, ref_value) DO UPDATE SET object_uid=excluded.object_uid`
-  — last writer silently wins. Two peers binding different uids to one issue
-  number is exactly the object conflict this train exists to resolve.
+| | branch resolves | feature resolves | keys lost |
+|---|---|---|---|
+| before hydrate | 174/174 | 174/174 | — |
+| after today's wholesale replace | **0/174** | **0/174** | 359 `feature`, 195 `branch`, 75 `created`, 75 `id`, 1 `worktree` |
+| after the proposed merge + refs restore | 174/174 | 174/174 | none |
+
+Not degraded — zero. And repaired completely by changing `hydrate`'s write semantics,
+so `STRIPPED_AT_PROJECTION` does not have to open and the issue does not grow.
+
+**3 — three independent reasons to exclude, not one.**
+
+| excluded | rows | ground |
+|---|---|---|
+| `(claude, session)` | 154 | **determinism** — `last_seen_at` is refused by `assert_deterministic`, and `build_documents` refuses the whole corpus on the first fault. Wholesale serialization makes the projection *unwritable*, not merely leaky. |
+| the row's `data` blob | 819 of 1,104 | **the ruling** — the blob is determinism-clean, so nothing mechanical stops it; it carries `_recovery`, which #1622 ruled DROP. |
+| `(github, issue)` on `wmbt` | 56 | **kind** — those objects are not projected, so the ref has no document to ride in. |
+
+What is admitted is well-shaped: 1,104 `(github, issue)` rows, 0 non-digit `ref_value`s,
+0 objects carrying more than one. The mapping is strictly 1:1, so the subtree needs no
+list and no ordering rule. 304 of the work-item rows belong to `COMPLETE` objects the
+projection archives out — which is why `hydrate` restores and never deletes.
+
+## A note on the integers
+
+The corpus grows as issues are authored, so absolute counts move between runs;
+authoring #2024 and #2025 moved the document count while this lab was being written.
+What does not move is the shape of the answer: the identity count is **zero**, for
+every document, at every reading. Re-run the probes rather than trusting the numbers
+quoted here.
