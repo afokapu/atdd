@@ -35,6 +35,8 @@ from pathlib import Path
 
 import pytest
 
+from typing import Optional
+
 from ._live import atdd_state, make_checkout
 
 _SRC = Path(__file__).resolve().parents[4]
@@ -72,19 +74,27 @@ def _seed_store(repo: Path) -> None:
     assert result.returncode == 0, result.stderr
 
 
-def _stored(repo: Path, uid: str) -> dict:
-    """Read one object's data back out of the temp store."""
+def _stored(repo: Path, key: str) -> Optional[dict]:
+    """The object *key* addresses, or ``None`` — resolved the way the product resolves.
+
+    ``key`` is a display slug, not a uid: it is what an operator types. Reading with a raw
+    ``objects.get`` would assert that the slug is still the primary key, which is the exact
+    thing this issue changes. Resolving here is what lets the test tell "renamed" apart from
+    "vanished" after the slug moves.
+    """
     read = """
 import json, sys
 sys.path.insert(0, {src!r})
 from atdd.state.db import connect, init_state_store
 from atdd.state.store import StateStore
+from atdd.state.work_item_writer import resolve_work_item
 store = StateStore(connect(init_state_store(start={root!r})))
-obj = store.objects.get({uid!r})
-print(json.dumps({{"uid": obj.uid, "kind": obj.kind, "data": obj.data}}))
+obj = resolve_work_item(store, {key!r})
+print(json.dumps(None if obj is None
+                 else {{"uid": obj.uid, "kind": obj.kind, "data": obj.data}}))
 """
     result = subprocess.run(
-        [sys.executable, "-c", read.format(src=str(_SRC), root=str(repo), uid=uid)],
+        [sys.executable, "-c", read.format(src=str(_SRC), root=str(repo), key=key)],
         cwd=str(repo), capture_output=True, text=True, timeout=120,
         env={"HOME": str(repo), "CI": "true", "PATH": ""},
     )
@@ -99,21 +109,40 @@ def test_y002_smoke_001_rename_addressability(tmp_path, uid) -> None:
     assert atdd_state(repo, "init").returncode == 0
     _seed_store(repo)
 
+    # Identity BEFORE the rename, so "identity did not move" can be compared rather
+    # than assumed. Under #1622 this is a minted wi_<ULID>, never the seeded slug.
+    before = _stored(repo, uid)
+    assert before is not None, f"the seeded work item {uid!r} must be addressable by slug"
+    identity = before["uid"]
+
     renamed = atdd_state(
         repo, "object", "rename", uid, "--slug", "new-slug", "--title", "New Heading",
     )
 
-    # The verb that addressed 0 of 822 live objects now exits zero and names the uid.
+    # The verb that addressed 0 of 822 live objects now exits zero.
     assert renamed.returncode == 0, f"stdout={renamed.stdout!r} stderr={renamed.stderr!r}"
-    assert uid in renamed.stdout
     assert "not a work-item uid" not in renamed.stdout
 
-    # Display metadata moved; identity did not (Y001 still holds).
-    obj = _stored(repo, uid)
-    assert obj["uid"] == uid
+    # It echoes the IDENTITY and the NEW name — the two strings that still address the
+    # object afterwards. It must not echo back the key it was passed: `--slug` retires
+    # that name, so returning it would hand the caller a string that no longer resolves.
+    assert identity in renamed.stdout
+    assert "new-slug" in renamed.stdout
+
+    # Display metadata moved.
+    obj = _stored(repo, "new-slug")
+    assert obj is not None, "the work item must be addressable by its NEW slug"
     assert obj["kind"] == "work_item"
     assert obj["data"]["slug"] == "new-slug"
     assert obj["data"]["title"] == "New Heading"
+
+    # Identity did not (Y001 still holds) — now a real before/after, not a restatement
+    # of the old model in which the slug WAS the uid.
+    assert obj["uid"] == identity
+
+    # And the retired name stops addressing it, which is what makes the rename a rename
+    # rather than an alias.
+    assert _stored(repo, uid) is None
 
     # The body's H1 moved with the title — the #1654 interlock, end-to-end.
     assert obj["data"]["body"].startswith("# New Heading\n")

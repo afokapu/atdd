@@ -110,14 +110,23 @@ def _resolve_branch_in_store(store, branch: str) -> Optional[bool]:
     time and ``atdd worktree list`` already reads. Matched on the FULL branch
     name, which is what the binding holds.
 
-    Secondary index: the branch-derived slug as a uid. Retained for records
-    predating the binding — 572 of 876 live work items carry no ``data.branch``
-    at all, so dropping it would newly strand every one of those whose branch
-    name does equal its uid. Both indexes read the ONE store, so unlike the
-    ``.atdd/manifest.yaml`` fallback #1400 CORE-034 retired they cannot disagree
-    about what is registered.
+    Secondary index: the branch-derived slug, resolved through
+    :func:`~atdd.state.work_item_writer.resolve_work_item` (#1622). Retained for
+    records predating the binding — 572 of 876 live work items carry no
+    ``data.branch`` at all, so dropping it would newly strand every one of those
+    whose branch name does equal its uid. Both indexes read the ONE store, so
+    unlike the ``.atdd/manifest.yaml`` fallback #1400 CORE-034 retired they cannot
+    disagree about what is registered.
+
+    The probe goes through the resolver rather than ``objects.get(slug)`` because
+    once #1622 mints ``wi_<ULID>`` uids the slug stops being the key and becomes a
+    display field: ``resolve_work_item`` looks it up via ``data.slug`` and only then
+    falls back to the slug-as-uid read. That is a strict superset of the old probe —
+    it still finds every pre-migration row — plus a ``kind`` check the bare ``get``
+    never made, so a non-work-item sharing the uid can no longer answer this gate.
     """
     from atdd.state.manifest_import import WORK_ITEM_KIND
+    from atdd.state.work_item_writer import resolve_work_item
 
     work_items = store.objects.list(kind=WORK_ITEM_KIND)
     if not work_items:
@@ -125,7 +134,7 @@ def _resolve_branch_in_store(store, branch: str) -> Optional[bool]:
     if any((obj.data or {}).get("branch") == branch for obj in work_items):
         return True
     slug = branch.split("/", 1)[-1] if "/" in branch else branch
-    return store.objects.get(slug) is not None
+    return resolve_work_item(store, slug) is not None
 
 
 class IssueManager:

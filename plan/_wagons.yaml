@@ -145,7 +145,13 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 29
+    total: 31
+    C015: minimize likelihood of lab-scaffold-strings-the-gate-cannot-read by emitting
+      `## Lab` with its four subsections from an exported LAB_SCAFFOLD constant that
+      the gate reads, leaving the emitted body schema-valid and template-compliant
+    E012: minimize likelihood of drift-guard-constants-restating-the-schema-by-hand
+      by deriving the helper's optional-section and required-subsection sets from
+      issue.schema.json, the way the production reader already does
     E011: minimize likelihood of a body-store-divergence for the documentation obligation,
       by projecting the stored declaration into the issue body in one direction only
       and never parsing the rendered row back
@@ -1403,7 +1409,10 @@ wagons:
   - name: commons:code:implementation
     from: wagon:implement-code
   wmbt:
-    total: 144
+    total: 145
+    E083: minimize likelihood of issues-leaving-init-with-no-evidence-their-premise-was-tested
+      by refusing INIT->PLANNED while any `## Lab` subsection is absent, empty, or
+      opens with an unfilled marker read from the generator's exported LAB_SCAFFOLD
     C023: minimize likelihood of the-registry-drift-remediation-prescribing-an-amend-that-appends-mirror-files-to-a-commit-whose-artifacts-declaration-is-already-written-while-saying-nothing-about-the-declaration-it-has-just-invalidated
       by having format_fix_hint() name the consequence of the amend it prescribes
       and the mechanical `git diff --name-only origin/main..HEAD` re-derivation the
@@ -2666,12 +2675,18 @@ wagons:
     C001: 'minimize likelihood of a lossy-migration-write: the migration tool refuses
       before writing any projection file when a manifest entry carries no uid, a duplicate
       uid, or a phase outside the lifecycle vocabulary'
+    C002: maximize likelihood of a first-committed-projection that reproduces itself
+      byte for byte through hydrate and re-projection, and that flips the projection-is-shared-state
+      cutover criterion to met
     D001: maximize likelihood of a migration-runbook that names the cutover steps
       in order, the developer-facing command changes, and the numbered invariant each
       step preserves
     E001: maximize likelihood of a complete manifest-projection-migration that reads
       the legacy manifest, hydrates the store, and emits one deterministic .atdd/state/projection/<uid>.yaml
       per work item keyed by the immutable uid rather than the mutable slug
+    E002: maximize likelihood of a store-projection-migration that mints a uid and
+      an owner_actor for every projectable work item already in the State Store and
+      refuses the whole run before any write when an object cannot be migrated
     K001: maximize likelihood of a clean projection-authority-cutover in which the
       committed projection is the shared source of truth, GitHub is an optional mirror,
       and the legacy manifest no longer acts as a fallback source of truth
@@ -2687,7 +2702,7 @@ wagons:
     Y002: 'minimize likelihood of a manifest-read-fallback: once projection is in
       blocking mode, no core reader consults .atdd/manifest.yaml for shared lifecycle
       state'
-    total: 8
+    total: 10
   total: 0
   manifest: plan/migrate_projection_authority/_migrate_projection_authority.yaml
   path: plan/migrate_projection_authority/

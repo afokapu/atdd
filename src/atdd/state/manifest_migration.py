@@ -1,5 +1,19 @@
 """Legacy manifest → committed projection (#1400 migrate-projection-authority, CORE-031).
 
+.. note::
+
+   **CORE-031 no longer has an input.** ``decommission-manifest`` (CORE-034) deleted
+   ``.atdd/manifest.yaml``, so nothing in this module can run against a real repo. It is kept
+   because it is the manifest's history and its tests still pin the refusal contract it
+   established, not because anything reaches it.
+
+   The live path is :func:`atdd.state.store_migration.migrate_store` (CORE-036, #1622), which
+   mints identity **in the State Store**, that being the only surviving source of truth. It
+   inherits this module's one real idea — refuse the whole run before the first write — and
+   owes it a sharper debt: it mutates the store in place, where the manifest migration only
+   ever wrote a derived tree. ``migrate_store`` and ``inspect_store`` remain reachable as
+   attributes of this module (see :func:`__getattr__`) for callers that predate the split.
+
 The one-way door. ``.atdd/manifest.yaml`` is a hand-editable ledger keyed by a **mutable slug**;
 ``.atdd/state/projection/<uid>.yaml`` is a derived, canonical document keyed by an **immutable
 uid** (spec §10 rule 1). This module walks a repo across that gap: it reads the legacy manifest,
@@ -451,10 +465,34 @@ class _store_or:  # noqa: N801 — a context-manager helper, used as `with _stor
             self._conn.close()
 
 
+#: Names that moved to :mod:`atdd.state.store_migration` in the CORE-036 split, still served
+#: from here for callers written before it.
+_MOVED_TO_STORE_MIGRATION = frozenset({
+    "DEFECT_MISSING_SLUG", "DEFECT_UNPROJECTABLE_FIELD", "StoreMigrationReport",
+    "inspect_store", "migrate_store",
+})
+
+
+def __getattr__(name: str) -> Any:
+    """Serve the moved CORE-036 names from their new home (PEP 562).
+
+    Lazy, not a top-level re-export: ``store_migration`` imports this module's defect
+    vocabulary, so a plain re-export would be an import cycle whose failure depends on which
+    module the caller imported first. ``from … import migrate_store`` falls back here too.
+    """
+    if name in _MOVED_TO_STORE_MIGRATION:
+        from atdd.state import store_migration
+
+        return getattr(store_migration, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 __all__ = [
-    "COMPLETE_PHASE", "DEFECT_DUPLICATE_UID", "DEFECT_MALFORMED_UID", "DEFECT_MISSING_UID",
-    "DEFECT_UNKNOWN_PHASE", "LossyMigrationError", "MANIFEST_RELATIVE", "MigrationDefect",
+    "COMPLETE_PHASE", "DEFECT_DUPLICATE_UID", "DEFECT_MALFORMED_UID",
+    "DEFECT_MISSING_UID", "DEFECT_UNKNOWN_PHASE",
+    "LossyMigrationError", "MANIFEST_RELATIVE", "MigrationDefect",
     "MigrationError", "MigrationReport", "PHASE_KEY", "SESSIONS_KEY", "SLUG_KEY",
-    "UID_KEY", "UNATTRIBUTED_OWNER", "build_document", "build_documents", "hydrate_store",
-    "inspect", "manifest_path", "migrate", "mint_uids", "read_manifest", "sessions_of",
+    "UID_KEY", "UNATTRIBUTED_OWNER", "build_document",
+    "build_documents", "hydrate_store", "inspect", "manifest_path",
+    "migrate", "mint_uids", "read_manifest", "sessions_of",
 ]

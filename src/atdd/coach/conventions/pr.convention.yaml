@@ -203,8 +203,8 @@ rules:
 # Issues with `atdd:BLOCKED` or `atdd:OBSOLETE` are out of scope (no
 # auto-close should target them anyway).
 phase_labels:
-  merge_blocked: ["INIT", "PLANNED", "RED", "GREEN"]
-  merge_allowed: ["SMOKE", "REFACTOR", "COMPLETE"]
+  merge_blocked: ["INIT", "PLANNED", "RED", "GREEN", "SMOKE"]
+  merge_allowed: ["REFACTOR", "COMPLETE"]
   out_of_scope: ["BLOCKED", "OBSOLETE"]
 
 # =============================================================================

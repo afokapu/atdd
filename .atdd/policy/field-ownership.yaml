@@ -45,9 +45,15 @@ fields:
 - field: train
   writer: core_train_ops
   rule: conflict-unless-same-digest
+- field: type
+  writer: core_authoring
+  rule: mutable
 - field: uid
   writer: core_create
   rule: immutable
+- field: wagon
+  writer: core_train_ops
+  rule: conflict-unless-same-digest
 - field: wmbts
   writer: core_test_ops
   rule: policy-merge

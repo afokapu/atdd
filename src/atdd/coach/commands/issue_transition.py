@@ -154,6 +154,7 @@ def run(argv: list[str]) -> int:
     from atdd.coach.gate.registrations import (
         register_approval_checks,
         register_smoke_execution_check,
+        register_lab_evidence_check,
     )
 
     register_approval_checks()
@@ -163,4 +164,7 @@ def run(argv: list[str]) -> int:
     # this is inert until a repo opts in via `.atdd/config.yaml`. Without the call
     # the check could never run at all, opt-in or not.
     register_smoke_execution_check()
+    # #1950: INIT->PLANNED evidence. Available, and inert until the edge
+    # is gated in .atdd/config.yaml — see register_lab_evidence_check.
+    register_lab_evidence_check()
     return apply_transition(ns.issue_number, ns.status, force=ns.force)

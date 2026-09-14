@@ -62,7 +62,23 @@ _VALIDATOR_ID = "pr_merge_blocks_pre_smoke_close"
 # in pr.convention.yaml). INIT/PLANNED are included defensively — those phases
 # should not have a code PR open against them, and if one exists with a
 # Closes #N, the same lifecycle gap applies.
-_BLOCKED_PHASES = frozenset({"INIT", "PLANNED", "RED", "GREEN"})
+#
+# SMOKE JOINED THE SET IN #1999, AND IT IS NOT A SECOND GATE. It is what makes
+# REFACTOR the gate: the operator signs on the way into REFACTOR, and while SMOKE
+# merged, the only route to main skipped that signature entirely. Measured — PR
+# #1991 merged 2026-09-13T09:22:45Z closing issue #1982, which still reads SMOKE in
+# the State Store; `auto-phase` then advanced one step and the code was on main with
+# the issue at REFACTOR and nobody having authorised it. Worse, a signature sited at
+# REFACTOR was not merely absent there but UNMINTABLE: `approve_command` refuses an
+# edge the issue is not standing on (#1735), so that merge could not have been
+# approved even by an operator who wanted to.
+#
+# The constant's NAME reads backwards — these are the phases a merge is blocked IN,
+# so blocking one more phase moves the gate LATER, not earlier. That inversion cost
+# a round of confusion while #1999 was planned; it is recorded as Decision 33 there.
+#
+# REFACTOR and COMPLETE stay out: REFACTOR is the phase a merge is FOR.
+_BLOCKED_PHASES = frozenset({"INIT", "PLANNED", "RED", "GREEN", "SMOKE"})
 
 # Strategies that prove the PR will auto-close the linked issue on merge.
 # These are the four strategies PRManager.resolve_linked_issue tries; only

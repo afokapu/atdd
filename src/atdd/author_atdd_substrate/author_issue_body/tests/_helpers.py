@@ -46,16 +46,94 @@ TEMPLATE_PATH = (
     REPO_ROOT / "src" / "atdd" / "coach" / "templates" / "PARENT-ISSUE-TEMPLATE.md"
 )
 
-# Mirrors atdd.coach.commands.issue_template.REQUIRED_SUBSECTIONS (#682): the two
-# H3 subsections lifted from advisory to mandatory.
-REQUIRED_SUBSECTIONS: tuple[str, ...] = (
-    "### Graph Context",
-    "### Mirror Across Agents",
-)
+# DERIVED, NOT TYPED OUT (#1978). These two names survive with the same values,
+# because a dozen call sites use them — but they are now read from
+# `issue.schema.json` and `PARENT-ISSUE-TEMPLATE.md` rather than restated here.
+#
+# #1901 made exactly this change to the production reader (`issue_template.py`) and
+# recorded why: "they were not policy. They were the drift, written down." It fixed
+# the reader it was looking at and left THIS one — the drift guard's own instrument —
+# still holding a second copy of the same facts. Measured (#1950's lab): adding one
+# section then failed the C011 guard twice, for two different hardcoded reasons, and
+# neither was drift.
+#
+# BOUNDARY: this tree may not import `atdd.coach`
+# (`planner.theme.commons-coach-boundary`, #970), which is why the gate's view is
+# reconstructed here at all. Deriving costs nothing on that front — the schema is
+# already read off disk a few lines above.
 
-# Mirrors atdd.coach.commands.issue_template.OPTIONAL_SECTIONS (#682): present in
-# the template but NOT required for compliance.
-OPTIONAL_SECTIONS: frozenset[str] = frozenset({"## Rule Wiring"})
+
+def required_subsections(schema_path: Path = ISSUE_SCHEMA_PATH) -> tuple[str, ...]:
+    """The schema-required subsection headings, in declaration order.
+
+    Mirrors `issue_template._required_subsections()`: the H3 headings #682 lifted
+    from advisory to mandatory, which the H2-only template scan cannot surface.
+    """
+    if not schema_path.exists():
+        return ()
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    return tuple(h for h in schema.get("required", []) if h.startswith("### "))
+
+
+def optional_sections(
+    schema_path: Path = ISSUE_SCHEMA_PATH,
+    template_path: Path = TEMPLATE_PATH,
+) -> frozenset[str]:
+    """Template H2 headings the schema does not require.
+
+    Mirrors `issue_template._optional_sections()`. A section the human template
+    offers and the contract does not demand is optional — which is a fact about the
+    two artifacts, not a policy to maintain by hand. Falls back to the historical
+    single member when the schema is absent, which is the pre-#1901 behaviour.
+    """
+    required = set(required_sections_from(schema_path))
+    if not required:
+        return frozenset({"## Rule" + " Wiring"})
+    return frozenset(
+        h for h in load_required_sections(template_path) if h not in required
+    )
+
+
+def required_sections_from(schema_path: Path = ISSUE_SCHEMA_PATH) -> tuple[str, ...]:
+    """Every heading `issue.schema.json` declares required (H2 and H3 alike)."""
+    if not schema_path.exists():
+        return ()
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    return tuple(schema.get("required", []))
+
+
+def template_subsections(template_path: Path = TEMPLATE_PATH) -> tuple[str, ...]:
+    """Every H3 heading the human template SHOWS.
+
+    The arm the drift guard never had. Every template scan in the toolkit is written
+    `startswith("## ") and not startswith("### ")` — H3 headings excluded by
+    construction, at all three sites — so the template's subsections have never been
+    compared to anything.
+    """
+    if not template_path.exists():
+        return ()
+    return tuple(
+        line.rstrip()
+        for line in template_path.read_text(encoding="utf-8").splitlines()
+        if line.startswith("### ")
+    )
+
+
+def template_missing_required_subsections(
+    schema_path: Path = ISSUE_SCHEMA_PATH,
+    template_path: Path = TEMPLATE_PATH,
+) -> list[str]:
+    """Schema-required subsections the human template does not show.
+
+    The guard's third surface, for subsections. Measured before this existed: a
+    mandatory H3 declared by the schema, emitted by the generator, and absent from
+    the template was reported as no drift at all — both C011 tests passed in 0.15s.
+    An author working from the template was held to a section it never showed them.
+    """
+    shown = set(template_subsections(template_path))
+    return [h for h in required_subsections(schema_path) if h not in shown]
+
+
 
 # A representative subset of issue_template.PLACEHOLDER_STRINGS — enough to prove a
 # generated/fixture body carries no unfilled-template traps. (Local copy; the
@@ -85,28 +163,38 @@ PHASE_ENUM = (
 )
 
 
-def load_required_sections() -> list[str]:
+def load_required_sections(template_path: Path = TEMPLATE_PATH) -> list[str]:
     """Reconstruct the gate's required H2 sections from the template file.
 
     Mirrors atdd.coach.commands.issue_template.load_required_sections() by
     reading PARENT-ISSUE-TEMPLATE.md (its source of truth) without importing the
     coach package.
     """
-    if not TEMPLATE_PATH.exists():
+    if not template_path.exists():
         return []
     sections: list[str] = []
-    for line in TEMPLATE_PATH.read_text(encoding="utf-8").splitlines():
+    for line in template_path.read_text(encoding="utf-8").splitlines():
         stripped = line.rstrip()
         if stripped.startswith("## ") and not stripped.startswith("### "):
             sections.append(stripped)
     return sections
 
 
-def required_section_set() -> set[str]:
+#: Module-level values for the dozen callers that want today's answer. Derived at
+#: import from the default paths; the functions above are what a test parameterises.
+REQUIRED_SUBSECTIONS: tuple[str, ...] = required_subsections()
+OPTIONAL_SECTIONS: frozenset[str] = optional_sections()
+
+
+def required_section_set(
+    schema_path: Path = ISSUE_SCHEMA_PATH,
+    template_path: Path = TEMPLATE_PATH,
+) -> set[str]:
     """The gate's effective must-be-present set (H2 minus optional, plus H3s)."""
-    return (set(load_required_sections()) - set(OPTIONAL_SECTIONS)) | set(
-        REQUIRED_SUBSECTIONS
-    )
+    return (
+        set(load_required_sections(template_path))
+        - set(optional_sections(schema_path, template_path))
+    ) | set(required_subsections(schema_path))
 
 
 def legacy_missing_sections(body: str) -> list[str]:

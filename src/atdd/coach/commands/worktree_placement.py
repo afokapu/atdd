@@ -301,19 +301,30 @@ def write_worktree_binding(
     Its own seam so relocation's failure mode is injectable: the rollback below
     only means something if this write is genuinely attempted and can genuinely
     fail.
+
+    ``slug`` is resolved rather than fetched at (#1622). Its two callers disagree
+    about what they pass: ``relocate_worktree`` hands over ``_bound_work_item``'s
+    first element, which is ``obj.uid``, while ``worktree prune-bindings`` hands
+    over ``StaleBinding.slug`` — and that comes from ``all_work_items()``, which
+    fills its ``slug`` key from ``_slug_of(obj)``, the object's DISPLAY slug. Once
+    minting moved identity off the slug, the prune path fetched at a key the store
+    no longer holds and every stale binding failed to clear with "no work item to
+    bind". Resolving serves both callers; upserting at ``obj.uid`` keeps the write
+    on the row that was read.
     """
     from atdd.state.db import connect, init_state_store
     from atdd.state.store import StateStore
+    from atdd.state.work_item_writer import resolve_work_item
 
     conn = connect(init_state_store(start=Path(repo_root)))
     try:
         store = StateStore(conn)
-        obj = store.objects.get(slug)
+        obj = resolve_work_item(store, slug)
         if obj is None:
             raise ValueError(f"no work item {slug!r} to bind")
         data = dict(obj.data or {})
         data["worktree_path"] = str(worktree_path)
-        store.objects.upsert(slug, obj.kind, state=obj.state, data=data)
+        store.objects.upsert(obj.uid, obj.kind, state=obj.state, data=data)
         conn.commit()
     finally:
         conn.close()
@@ -367,13 +378,14 @@ def relocate_worktree(repo_root: Path, slug: str, destination: Path) -> Path:
     from atdd.state.db import connect, init_state_store
     from atdd.state.manifest_import import WORK_ITEM_KIND
     from atdd.state.store import StateStore
+    from atdd.state.work_item_writer import resolve_work_item
 
     repo_root = Path(repo_root)
     destination = Path(destination)
 
     conn = connect(init_state_store(start=repo_root))
     try:
-        obj = StateStore(conn).objects.get(slug)
+        obj = resolve_work_item(StateStore(conn), slug)
     finally:
         conn.close()
     if obj is None or not (obj.data or {}).get("worktree_path"):

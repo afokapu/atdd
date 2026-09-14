@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "commons:projection-object",
   "title": "Projection Object v1",
-  "description": "The committed, deterministic per-UID projection document at `.atdd/state/projection/<uid>.yaml`. Authoritative for shared project state (doc section 2.1). Identity is the immutable uid, never the slug; the filename is derived from the uid. Deletion is a tombstone, never file removal (section 10).",
+  "description": "The committed, deterministic per-UID projection document at `.atdd/state/projection/<uid>.yaml`. Authoritative for shared project state (doc section 2.1) — what peers agree the objects are. NOT a store-recovery source: `hydrate` restores objects only and never repopulates `external_refs`, so the projection is the CI round-trip artifact, not a backup (#1622 ruling, docs/1400-findings/1622-projection-authority-ruling.md). Identity is the immutable uid, never the slug; the filename is derived from the uid. Deletion is a tombstone, never file removal (section 10).",
   "version": "1.0.0",
   "type": "object",
   "properties": {
@@ -88,10 +88,24 @@
         "null"
       ]
     },
+    "type": {
+      "description": "The issue Type (implementation, bug, refactor). Mutable authoring metadata. Nullable: live objects carry null and the contract must admit them (#1622).",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "uid": {
       "description": "Immutable, globally unique, never reused (section 10 rule 1).",
       "pattern": "^wi_[0-9A-HJKMNP-TV-Z]{26}$",
       "type": "string"
+    },
+    "wagon": {
+      "description": "The wagon the work item belongs to. Core train ops; conflict unless same digest, as for its sibling `train`. Nullable, and deliberately without a pattern: live values are heterogeneous — full URNs, bare slugs, and one prose value (#1622).",
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "wmbts": {
       "description": "Test-owned; policy-defined merge.",
