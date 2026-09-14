@@ -48,10 +48,7 @@ SNAPSHOT_TABLES = (
     "overlay_events", "inbox", "outbox", "store_metadata",
 )
 
-Snapshot = Dict[str, List[Tuple[Any, ...]]]
-
-
-def snapshot(db: Path) -> Snapshot:
+def snapshot(db: Path) -> Dict[str, List[Tuple[Any, ...]]]:
     """The store's logical content: every row of every content table, order-independent."""
     conn = connect(db)
     try:
