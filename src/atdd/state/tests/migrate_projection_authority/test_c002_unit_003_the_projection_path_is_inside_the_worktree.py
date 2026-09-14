@@ -5,31 +5,40 @@
 # Layer: unit
 # Runtime: python
 # Assertion: behavioral
-# Purpose: In sibling-worktree layout every default resolver of the projection directory names one path inside the git worktree — the writer's --out, the cutover's root, and reconcile's projection_path as used by hydrate and reconcile. Refs #2024.
+# Purpose: The writer's default projection directory must be inside the git worktree in BOTH layouts. reconcile's projection_path needs no change: assert_reconcilable refuses sibling layout outright, so its Control-Root anchoring is unreachable there and already correct in single-repo. Refs #2024.
 """One projection directory, and it is inside git (C002-UNIT-003).
 
 wagon: migrate-projection-authority | feature: migrate-store-projection | phase: RED
 WMBT: wmbt:migrate-projection-authority:C002
 
 ``PROJECTION_RELATIVE`` is a path *relative to something*, and the codebase never settled what.
-The writer anchors it to the **Control Root** (``projection_cli`` -> ``resolve_control_root``);
-the git readers anchor it to the **git repo** (``merge_authority``, ``gitstore``); and
-``reconcile.projection_path`` anchors it to the Control Root again, for ``hydrate`` and
-``reconcile``. Those were one directory in single-repo mode, so the divergence was invisible
-until sibling-worktree layout made the Control Root a deliberately non-git parent.
+The writer anchors it to the **Control Root** (``projection_cli`` -> ``resolve_control_root``)
+while the git readers anchor it to the **git repo** (``merge_authority``, ``gitstore``). Those
+were one directory in single-repo mode, so the divergence stayed invisible until
+sibling-worktree layout made the Control Root a deliberately non-git parent. The projection is
+a **committed** artifact; it cannot live there.
 
-The projection is a **committed** artifact. It cannot live at the Control Root, because in this
-layout the Control Root is not a git repository at all. Refs #2024 / #1622.
+``reconcile.projection_path`` anchors at the Control Root too, and an earlier revision of this
+issue called that a second instance of the same defect. It is not, and this module pins why so
+the claim is not re-derived: ``assert_reconcilable`` (#1580) refuses a Control Root that is not
+itself the git checkout, and it gates **both** call sites — ``hydrate`` at :442 before :444,
+``reconcile`` at :811 before :813. In sibling layout reconciliation therefore *refuses* rather
+than reading the parent path, and in single-repo layout the Control Root **is** the worktree, so
+the path already agrees with the git readers. Changing it would be a no-op in the reachable
+cases. Refs #2024 / #1622 / #1580.
 """
 from __future__ import annotations
 
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from atdd.state import reconcile
 from atdd.state.paths import LayoutMode, resolve_control_root
 from atdd.state.projection import PROJECTION_RELATIVE
 
+from .._fixtures import make_checkout
 from ._helpers import control_root
 
 
@@ -63,27 +72,11 @@ def test_the_control_root_is_not_a_git_repository(tmp_path: Path) -> None:
     )
 
 
-def test_reconcile_projection_path_resolves_inside_the_worktree(tmp_path: Path) -> None:
-    """``hydrate`` (and ``reconcile``) must not read a directory git cannot see.
+def test_the_writer_writes_where_no_commit_can_reach(tmp_path: Path) -> None:
+    """The defect: ``atdd state project``'s default output is outside git in this layout.
 
-    RED: ``reconcile.projection_path`` returns ``<control-root>/.atdd/state/projection``, so
-    ordinary reconciliation reads the non-git parent.
-    """
-    parent, worktree = _sibling_layout(tmp_path)
-
-    resolved = reconcile.projection_path(parent)
-
-    assert resolved == worktree / PROJECTION_RELATIVE, (
-        f"reconcile.projection_path resolved {resolved}, which is outside the git worktree "
-        f"{worktree}; hydrate and reconcile would read a directory no commit can contain"
-    )
-
-
-def test_every_default_resolver_names_the_same_directory(tmp_path: Path) -> None:
-    """The writer's default and reconcile's default must not disagree.
-
-    RED: they disagree by construction — one is anchored at the Control Root and the git
-    readers are anchored at the repo.
+    RED: it anchors at the Control Root, which is not a git repository, so the projection it
+    writes can never be committed and the git readers can never see it.
     """
     from atdd.state import projection_cli
 
@@ -92,13 +85,41 @@ def test_every_default_resolver_names_the_same_directory(tmp_path: Path) -> None
     writer_default = projection_cli._projection_dir(  # noqa: SLF001 — the default under test
         type("Args", (), {"root": str(worktree), "out": None, "from_dir": None})(),
     )
-    reader_default = reconcile.projection_path(parent)
-    git_reader_default = worktree / PROJECTION_RELATIVE
 
-    assert writer_default == git_reader_default, (
-        f"`atdd state project` defaults to {writer_default}, but every git reader looks in "
-        f"{git_reader_default}"
+    assert writer_default.is_relative_to(worktree), (
+        f"`atdd state project` defaults to {writer_default}, which is outside the git worktree "
+        f"{worktree}; no commit can contain it, so the projection can never become shared state"
     )
-    assert reader_default == git_reader_default, (
-        f"reconcile resolves {reader_default}, but every git reader looks in {git_reader_default}"
+    assert writer_default == worktree / PROJECTION_RELATIVE, (
+        f"the writer's default {writer_default} is not the directory every git reader looks in, "
+        f"{worktree / PROJECTION_RELATIVE}"
     )
+
+
+def test_reconcile_refuses_sibling_layout_rather_than_reading_the_parent_path(
+    tmp_path: Path,
+) -> None:
+    """Why ``reconcile.projection_path`` is NOT a second instance of the defect.
+
+    A guard, not a RED driver. ``assert_reconcilable`` gates every call site, so in sibling
+    layout reconciliation refuses outright and the Control-Root-anchored path is never read.
+    If that guard is ever relaxed, this test fails and the path question becomes live — which
+    is exactly when someone needs to be told.
+    """
+    parent, _worktree = _sibling_layout(tmp_path)
+
+    with pytest.raises(reconcile.SharedStoreReconcileRefused):
+        reconcile.assert_reconcilable(parent)
+
+
+def test_single_repo_layout_already_agrees(tmp_path: Path) -> None:
+    """In the layout that ships to consumers, every default resolver already names one path.
+
+    A guard: the fix must not move the case that is already correct.
+    """
+    repo = make_checkout(tmp_path / "solo")
+    (repo / ".atdd" / "state").mkdir(parents=True, exist_ok=True)
+
+    resolution = resolve_control_root(repo)
+    assert resolution.layout_mode is LayoutMode.SINGLE_REPO
+    assert reconcile.projection_path(repo) == repo / PROJECTION_RELATIVE

@@ -196,12 +196,27 @@ Reproduce: `docs/spikes/labs/2024-projection-at-byte-exactness/probe.py` (this b
 
 Two gaps in the obvious repairs, both verified:
 
-**Every default reader moves, not just the writer.** `reconcile.projection_path`
-(`reconcile.py:361`) resolves `<control-root>/.atdd/state/projection` and is used by
-`hydrate` (`:444`) and `reconcile` (`:813`). Moving only `atdd state project`'s default to
-the worktree root would leave ordinary reconciliation reading the old parent path — a split
-worse than today's, because the halves would disagree during normal operation rather than
-only at cutover.
+**Only the writer moves — and that took measuring.** `reconcile.projection_path`
+(`reconcile.py:361`) also resolves `<control-root>/.atdd/state/projection`, and a re-review
+called it a second instance of this defect: move only `atdd state project` and ordinary
+reconciliation would read the old parent path. **That state is not reachable.**
+
+`assert_reconcilable` (#1580) refuses a Control Root that is not itself the git checkout, and
+it gates *both* call sites — `hydrate` at `:442` before `:444`, `reconcile` at `:811` before
+`:813`. Measured in a constructed sibling layout, both raise `SharedStoreReconcileRefused`;
+neither reaches the path. In single-repo layout the Control Root **is** the worktree — `:440`
+literally sets `repo = control_root` — so the path already equals `<repo>/.atdd/state/projection`
+and agrees with the git readers. The only caller outside `reconcile.py` is a
+`reconcile_local_store` test that passes the checkout itself.
+
+Changing it would be a no-op in both layouts. The survey was worth doing and the instruction
+behind it — name every default reader, do not assume — was right; it is the edit that was
+wrong. A guard test now pins the reasoning, and fails if that refusal is ever relaxed.
+
+Worth recording separately, and out of scope here: because of #1580, **sibling-worktree layout
+cannot run `reconcile` or `hydrate` at all**. This repo's own layout therefore cannot exercise
+the reconciliation half of the projection story, which makes "the cutover works here" a larger
+claim than these three defects.
 
 **Fixing the default cutover path is not sufficient.** `_cmd_cutover` forwards
 `args.from_dir` straight into `cutover.check` (`migrate_cli.py:280`) and

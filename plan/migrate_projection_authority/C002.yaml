@@ -78,8 +78,8 @@ acceptances:
 - identity:
     id: AC-UNIT-003
     phase: RED
-    purpose: every default resolver of the projection directory names one path inside the git worktree,
-      so a projection written by one command is the projection read by the next
+    purpose: the WRITER's default projection directory is inside the git worktree in both layouts, so
+      a projection can be committed and the git readers can see it
     urn: acc:migrate-projection-authority:C002-UNIT-003-the-projection-path-is-inside-the-worktree
   harness:
     category: backend
@@ -91,12 +91,16 @@ acceptances:
     abstract: each default projection path is resolved
   then:
     abstract:
-    - The projection directory resolves inside the git worktree root, never the Control Root
-    - The writer's default and the cutover's default name the same directory
-    - reconcile's projection path resolves to that same directory, so hydrate and reconcile do not read
-      a different one
-    - 'RED: the writer anchors at the Control Root while the git readers anchor at the repo, so in sibling-worktree
-      layout the projection is written where no commit can contain it'
+    - The writer's default output directory resolves inside the git worktree root, never the Control Root,
+      and equals the directory every git reader looks in
+    - In single-repo layout every default resolver already names that one directory, and the fix does
+      not move it
+    - 'reconcile''s projection_path is NOT changed: assert_reconcilable (#1580) gates both of its call
+      sites, so in sibling layout reconciliation refuses outright rather than reading the Control-Root
+      path, and in single-repo layout the Control Root IS the worktree — the anchoring is already correct
+      in every reachable state'
+    - 'RED: the writer anchors at the Control Root, which in sibling-worktree layout is not a git repository,
+      so the projection is written where no commit can contain it'
   metadata:
     author: atdd:issue-2024
     created: '2026-09-14'
