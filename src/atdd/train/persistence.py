@@ -27,7 +27,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterator, Protocol, runtime_checkable
+from typing import Any, Dict, Iterator, Protocol, runtime_checkable
 
 import yaml
 
@@ -560,10 +560,19 @@ class JsonlPersistenceStore:
         conn = connect(init_state_store(start=self.repo_root))
         try:
             store = StateStore(conn)
+            from atdd.state.identity import mint_uid
+            from atdd.state.work_item_writer import resolve_work_item
+
             ref = store.external_refs.resolve(GITHUB_PROVIDER, "issue", str(rec.issue_number))
-            uid = ref.object_uid if ref is not None else rec.slug
-            existing = store.objects.get(uid)
-            data = dict(existing.data) if existing is not None else {}
+            existing = resolve_work_item(store, rec.slug, github_number=rec.issue_number)
+            # A brand-new record gets a minted uid, never the slug: keying by slug is what
+            # produced a store the projection contract refuses (#1622).
+            uid = existing.uid if existing is not None else mint_uid()
+            # Annotated: without it the else-branch narrows `data` to dict[str, str] and
+            # the update below (bools, ints) has no matching overload.
+            data: Dict[str, Any] = (
+                dict(existing.data) if existing is not None else {"slug": rec.slug}
+            )
             data.update({
                 "id": rec.id,
                 "type": rec.type.value,

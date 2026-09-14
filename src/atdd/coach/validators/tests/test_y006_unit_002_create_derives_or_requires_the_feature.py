@@ -60,8 +60,16 @@ def _repo(tmp_path):
 
 
 def _stored_feature(root, slug):
+    """The feature recorded for ``slug``, resolved the way production resolves it.
+
+    A work item is keyed by a minted ``wi_<ULID>`` uid, not by its slug (#1622); the slug
+    rides in ``data`` as display metadata. Fetching at ``objects.get(slug)`` finds nothing
+    and reports the feature absent for an object that carries it perfectly well.
+    """
+    from atdd.state.work_item_writer import resolve_work_item
+
     store = open_store(root)
-    obj = store.objects.get(slug)
+    obj = resolve_work_item(store, slug)
     return None if obj is None else (obj.data or {}).get("feature")
 
 

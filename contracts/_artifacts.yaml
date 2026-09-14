@@ -145,10 +145,13 @@ artifacts:
   urn: contract:commons:projection-object
   version: 1.0.0
   title: Projection Object v1
-  description: The committed, deterministic per-UID projection document at `.atdd/state/projection/<uid>.yaml`.
-    Authoritative for shared project state (doc section 2.1). Identity is the immutable
-    uid, never the slug; the filename is derived from the uid. Deletion is a tombstone,
-    never file removal (section 10).
+  description: 'The committed, deterministic per-UID projection document at `.atdd/state/projection/<uid>.yaml`.
+    Authoritative for shared project state (doc section 2.1) — what peers agree the
+    objects are. NOT a store-recovery source: `hydrate` restores objects only and
+    never repopulates `external_refs`, so the projection is the CI round-trip artifact,
+    not a backup (#1622 ruling, docs/1400-findings/1622-projection-authority-ruling.md).
+    Identity is the immutable uid, never the slug; the filename is derived from the
+    uid. Deletion is a tombstone, never file removal (section 10).'
   path: contracts/commons/projection-object.schema.json
   producer: wagon:project-shared-state
   consumers:

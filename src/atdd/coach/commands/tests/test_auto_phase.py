@@ -152,7 +152,14 @@ def test_resolve_pr_returns_noop_when_no_linked_issue():
         result = resolve_pr_to_transition(350)
     assert result.issue_number is None
     assert result.action == "noop"
-    assert "no linked issue" in (result.reason or "").lower()
+    # #2004: the REASON now comes from the reading rather than a literal this
+    # function used to hardcode. `_no_link()` says "no closing reference", which
+    # is what was actually observed; asserting the old string would re-pin the
+    # very substitution the fix removed — a PR refused for not having MERGED was
+    # reported as declaring no closing reference.
+    assert result.reason == "no closing reference", (
+        f"the reading's own reason must survive into the result; got {result.reason!r}"
+    )
 
 
 def test_resolve_pr_returns_noop_when_phase_is_unknown_everywhere():

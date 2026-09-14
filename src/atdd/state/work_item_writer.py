@@ -35,6 +35,55 @@ ISSUE_REF_KIND = "issue"
 #: The phase a freshly minted work item starts in.
 INITIAL_PHASE = "INIT"
 
+#: The data key carrying a work item's *display* slug — its pre-projection identity.
+SLUG_KEY = "slug"
+
+#: The owner a work item has when the caller does not name one. A marker, not an
+#: invented person: "we do not know who" is a fact worth recording, and the contract
+#: requires the field (mirrors ``manifest_migration.UNATTRIBUTED_OWNER``).
+UNATTRIBUTED_OWNER = "unattributed"
+
+
+def resolve_work_item(
+    store: StateStore,
+    slug: str,
+    *,
+    github_number: Optional[int] = None,
+) -> Optional[Object]:
+    """The work item ``slug`` (or ``github_number``) names, or ``None``.
+
+    Identity is the uid, and the uid is a ``wi_<ULID>`` that no caller knows in
+    advance — so every path that used to say ``objects.get(slug)`` has to resolve
+    instead. The ladder is ordered by how durable each answer is:
+
+    1. **the GitHub issue ref**, when the caller has a number. An issue number
+       outlives a rename; the slug does not. Resolving here first is what stops a
+       re-registration under a renamed slug from minting a second object for a work
+       item that already exists.
+    2. **``data.slug``** — the display slug of an already-migrated object.
+    3. **the uid itself** — a store that has not been through
+       :func:`~atdd.state.manifest_migration.migrate_store` still keys its objects by
+       slug, and those rows must stay reachable until it has.
+
+    Step 3 is why this is a ladder and not a single query: during the migration
+    window both shapes exist, and a resolver that knew only one of them would report
+    a live work item as absent — and its caller would then create it again.
+    """
+    if github_number is not None:
+        ref = store.external_refs.resolve(GITHUB_PROVIDER, ISSUE_REF_KIND, str(github_number))
+        if ref is not None:
+            found = store.objects.get(ref.object_uid)
+            if found is not None and found.kind == WORK_ITEM_KIND:
+                return found
+    if slug:
+        matches = store.objects.find_by_field(WORK_ITEM_KIND, SLUG_KEY, slug)
+        if matches:
+            return matches[0]
+        legacy = store.objects.get(slug)
+        if legacy is not None and legacy.kind == WORK_ITEM_KIND:
+            return legacy
+    return None
+
 
 def create_work_item(
     conn: sqlite3.Connection,
@@ -44,30 +93,53 @@ def create_work_item(
     data: Optional[Dict[str, Any]] = None,
     github_number: Optional[int] = None,
     ref_source: str = "atdd-author",
+    owner_actor: str = UNATTRIBUTED_OWNER,
 ) -> Object:
     """Create/register a work item store-first; optionally link its github ref.
 
-    Upserts the ``work_item`` keyed by ``slug``. An existing object keeps its
-    lifecycle ``state`` (only a brand-new object takes the passed ``state``) and
-    has ``data`` merged in, so re-registration is idempotent and never clobbers
-    live phase. When ``github_number`` is given, links exactly one github
-    ``issue`` external_ref (one-per-issue, #1220); the link's ON CONFLICT keeps a
-    single ref, so a re-author with the same number is a no-op update.
+    Identity is a freshly **minted** ``wi_<ULID>`` uid, and the slug rides inside
+    ``data`` as display metadata (spec §10 rule 1). This is the whole of #1622: this
+    function is the path every production caller uses, it used to key the object by
+    its slug, and an object so keyed is one the projection contract refuses — on its
+    uid *and* on its missing ``owner_actor``, both required. A store filled by this
+    writer could therefore never be projected at all, so ``atdd state project``
+    refused on the first object and wrote nothing.
+
+    Re-registration stays idempotent, and that is the delicate part: the object is
+    *resolved* through :func:`resolve_work_item` (github ref → ``data.slug`` → legacy
+    uid) rather than fetched by slug. Minting without resolving would mean every
+    re-author inserted a second row for a work item that already existed — a
+    duplicate corpus, which is worse than the refusal it replaced. An existing object
+    keeps its lifecycle ``state`` (only a brand-new object takes the passed ``state``)
+    and has ``data`` merged in, so live phase is never clobbered.
+
+    ``owner_actor`` is recorded once, at create, and never overwritten by a later
+    re-registration — the field is the *owner*, and a re-author is not a change of
+    ownership. When ``github_number`` is given, links exactly one github ``issue``
+    external_ref (one-per-issue, #1220); the link's ON CONFLICT keeps a single ref,
+    so a re-author with the same number is a no-op update.
 
     Storage APIs only (no raw SQL). Returns the resulting :class:`Object`.
     Raises on a genuine store failure — the caller owns degrade policy.
     """
     store = StateStore(conn)
-    existing = store.objects.get(slug)
+    existing = resolve_work_item(store, slug, github_number=github_number)
+    uid = existing.uid if existing is not None else mint_uid()
     resolved_state = existing.state if existing is not None else state
-    merged = {**(existing.data if existing is not None else {}), **(data or {})}
-    obj = store.objects.upsert(slug, WORK_ITEM_KIND, state=resolved_state, data=merged)
+    merged: Dict[str, Any] = {
+        **(existing.data if existing is not None else {}),
+        **(data or {}),
+        SLUG_KEY: slug,
+    }
+    merged.setdefault("owner_actor", owner_actor)
+    merged.setdefault("state", STATE_ACTIVE)
+    obj = store.objects.upsert(uid, WORK_ITEM_KIND, state=resolved_state, data=merged)
     if github_number is not None:
         store.external_refs.link(
-            slug, GITHUB_PROVIDER, ISSUE_REF_KIND, str(github_number),
+            uid, GITHUB_PROVIDER, ISSUE_REF_KIND, str(github_number),
             data={"source": ref_source},
         )
-        obj = store.objects.get(slug) or obj
+        obj = store.objects.get(uid) or obj
     return obj
 
 
@@ -127,6 +199,21 @@ def update_work_item(
     is a *lookup*. A uid the store does not hold raises :class:`KeyError`, which
     is the honest error for a typo and is also correct for every future uid form.
 
+    The lookup therefore goes through :func:`resolve_work_item`, not
+    ``objects.get`` (#1622). Once minting moved identity to ``wi_<ULID>`` and put
+    the slug in ``data.slug``, a bare ``get`` answered only for callers who
+    already held the minted uid — and every caller addressing by slug, which is
+    what Y002 guarantees keeps working, got ``work item not found`` on a work item
+    the store plainly holds. Writing back under ``existing.uid`` rather than the
+    caller's key is the other half: upserting at the slug would mint a SECOND
+    object for a work item that already exists.
+
+    The raw ``objects.get`` is kept as a fallback, and is not redundant:
+    :func:`resolve_work_item` filters to ``WORK_ITEM_KIND``, so resolving alone
+    would make a foreign-kind object simply *absent* and turn the kind refusal
+    below into a bare ``KeyError`` — losing the guard Y002-UNIT-002 pins, which
+    requires the refusal to name the offending kind.
+
     The kind check is what the shape gate was incidentally providing: this
     function upserts with ``WORK_ITEM_KIND``, so addressing an ``agent_session``,
     ``release`` or ``hub_adapter`` object would have silently rewritten its kind
@@ -134,17 +221,17 @@ def update_work_item(
     :func:`revise_work_item_issue` already carries.
     """
     store = StateStore(conn)
-    existing = store.objects.get(uid)
+    existing = resolve_work_item(store, uid) or store.objects.get(uid)
     if existing is None:
         raise KeyError(f"work item not found: {uid}")
     if existing.kind != WORK_ITEM_KIND:
         raise ValueError(
             f"object {existing.uid!r} is kind {existing.kind!r}, not {WORK_ITEM_KIND!r}"
         )
-    assert_uid_immutable(uid, fields.get("uid"))
+    assert_uid_immutable(existing.uid, fields.get("uid"))
     merged = {**existing.data, **{k: v for k, v in fields.items() if k != "uid"}}
     phase = merged.pop("phase", existing.state)
-    return store.objects.upsert(uid, WORK_ITEM_KIND, state=phase, data=merged)
+    return store.objects.upsert(existing.uid, WORK_ITEM_KIND, state=phase, data=merged)
 
 
 def rename_work_item(
@@ -180,7 +267,7 @@ def rename_work_item(
         fields["slug"] = slug
     if title is not None:
         fields["title"] = title
-        existing = StateStore(conn).objects.get(uid)
+        existing = resolve_work_item(StateStore(conn), uid)
         body = (existing.data.get("body") if existing is not None else None)
         if has_h1(body):
             fields["body"] = retitle_h1(body, title)

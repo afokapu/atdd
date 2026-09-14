@@ -72,8 +72,13 @@ def test_a_pr_with_no_link_reads_as_no_obligation(monkeypatch):
 
 
 def test_a_linked_pr_reads_as_observed(monkeypatch):
+    # `mergedAt` is present because C001's own context_clarifier reads "when
+    # auto-phase resolves a MERGED pull request to its issue" — the fixture was
+    # under-specified against its own acceptance, and #2004 made that visible by
+    # giving `read_linked_issue` the merge premise the sentence already assumed.
     mgr = _mgr(monkeypatch, {"number": 1806, "body": "Closes #1708", "title": "t",
-                             "headRefName": "x",
+                             "headRefName": "x", "state": "MERGED",
+                             "mergedAt": "2026-09-13T09:22:45Z",
                              "closingIssuesReferences": [{"number": 1708}]})
     monkeypatch.setattr(mgr, "_fetch_issue", lambda n: {"number": n, "labels": []})
 
