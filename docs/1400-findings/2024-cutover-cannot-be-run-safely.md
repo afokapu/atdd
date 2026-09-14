@@ -72,10 +72,21 @@ scratch = _scratch_copy(db_path, workdir)  # reconcile.py:877  separate mutable 
 _replace_store(scratch, db_path)           # reconcile.py:936  unlink -wal/-shm, then move
 ```
 
-Measured against that pattern: the scratch migrates 30/30 and re-inspects clean, the live
-store ends fully migrated, and the backup is **byte-identical to the pre-run store**. That
-byte-identity is the assertion to require as a test — it is precisely what the one-copy
-design silently lost.
+Measured against that pattern — **without quiescing the store first**, which an earlier
+revision of the probe did and which masked the real case: the scratch migrates 30/30 and
+re-inspects clean, the live store ends fully migrated, and the backup still holds the pre-run
+store. But it holds it as a **snapshot, not as bytes**:
+
+```
+backup == pre-run BYTES?    False   <- backup_store checkpointed the live file first
+backup == pre-run SNAPSHOT? True    <- the property that actually holds
+```
+
+Byte-identity is not available here for the backup either, and demanding it was the same
+contradiction this document criticises two paragraphs below. The assertion to require is
+**logical snapshot preservation plus restorability**: restore the backup through the same
+`_replace_store` path and the live store's snapshot equals the pre-run store's again. A backup
+nobody can restore from is not an undo.
 
 `_replace_store` also already unlinks the WAL sidecars. That matters: the naive
 `write_bytes` swap over a live WAL store yields **`sqlite3.DatabaseError: database disk
@@ -87,11 +98,13 @@ deleting the old row against `ON DELETE CASCADE`.
 
 ### Two things no copy count fixes
 
-**"Byte-identical" is not well-defined here.** `backup_store` checkpoints the *live* store
-before copying (`reconcile.py:389` → `:365`), so `state.sqlite`'s bytes change merely by
-taking the backup, before any migration runs. A success criterion demanding the live file be
-left byte-identical would fail a correct implementation. Preservation has to be stated over
-the snapshot — the object set and their content. Byte-identity belongs to the *backup*.
+**"Byte-identical" is not well-defined here — for the live file *or* the backup.**
+`backup_store` checkpoints the *live* store before copying (`reconcile.py:389` → `:365`), so
+`state.sqlite`'s bytes change merely by taking the backup, before any migration runs. A
+success criterion demanding byte-identity would fail a correct implementation, and it can only
+be made to pass by quiescing the store first — exactly the kindness that hides the defect.
+Preservation has to be stated over the snapshot, the object set and their content, and paired
+with a restore that is actually exercised.
 
 **A concurrent writer is lost regardless.** The scratch is a snapshot at T0: three objects
 committed to the live store during the migration, **zero** survived the swap, with one copy
@@ -133,7 +146,7 @@ Two functions carry that name:
 | `gitstore.projection_at` (`gitstore.py:63`) | `Dict[str, str]` — text | filename |
 
 This document originally concluded that `gitstore.projection_at` was "the byte-exact
-reader" to reuse. **A probe over eight constructed git repositories refuted that**, and the
+reader" to reuse. **A probe over ten constructed git repositories refuted that**, and the
 correction is recorded here rather than left to be rediscovered.
 
 **What held.** On a repo with no projection at HEAD — never committed, committed then
@@ -169,7 +182,7 @@ reads true bytes, so the two sides are not measured the same way.
 legitimate), and it **silently drops** a committed file carrying no `uid`.
 
 **The reader that works** is neither, as written: the same two git calls on **binary** pipes,
-returning `Dict[str, bytes]`. That cleared all eight repos and was byte-identical to the
+returning `Dict[str, bytes]`. That cleared all ten repos and was byte-identical to the
 committed blob in every case, CRLF and non-UTF-8 included — and it pairs correctly with
 `check_canonicality`'s existing `read_bytes()` side.
 
@@ -195,8 +208,14 @@ only at cutover.
 `_projection_criterion` treats whatever it is handed as authoritative (`cutover.py:120`).
 Measured: a canonical 3-file projection written **outside the repository**, never committed,
 passed through `--from` → the criterion reports **met**, under a claim whose own text reads
-"over the projection at HEAD". `--from` must be constrained to a path inside the worktree
-and resolved at HEAD, or removed.
+"over the projection at HEAD".
+
+**Containment is not the fix.** An implementation that merely constrained `--from` to paths
+inside the worktree would satisfy that case while still reading an **uncommitted in-repo**
+directory — the same bypass wearing a different hat. Both must fail, and the discriminating
+test runs in the other direction too: commit a canonical projection, corrupt the working-tree
+copy, and the criterion must still report **met**. The property is HEAD resolution, not
+containment. `--from` must resolve at HEAD, or be removed.
 
 ## Why these travel together
 

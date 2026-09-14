@@ -30,6 +30,8 @@ Result when this was written, against origin/main @ 5529abf4:
       114+ worktrees WAL exists to serve (db.py:9). That is the cost to weigh, not a free fix.
   R6  _replace_store already unlinks the sidecars; the naive write_bytes swap corrupts.
   R7  the outer-BEGIN alternative measurably does not compose: the write survives rollback().
+  R8  restoring the backup returns the pre-run store — compared over the snapshot, which is
+      the acceptance to write. Byte-identity of the live file is not available (R2, R3).
 """
 import hashlib
 import shutil
@@ -65,6 +67,32 @@ def seed(db, n):
 
 def digest(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()[:16]
+
+
+#: Every table the store's content lives in. schema_migrations and sqlite_sequence are
+#: deliberately excluded: they are bookkeeping, identical across any two stores at the same
+#: schema version, and including them would make the comparison look stronger than it is.
+SNAPSHOT_TABLES = (
+    "objects", "relationships", "events", "external_refs",
+    "overlay_events", "inbox", "outbox", "store_metadata",
+)
+
+
+def snapshot(db):
+    """The store's LOGICAL content: every row of every content table, order-independent.
+
+    This is what "the store was preserved" has to mean on a WAL database. It cannot mean the
+    bytes of state.sqlite: backup_store checkpoints the live file before copying it, so the
+    bytes move before any migration runs (R3).
+    """
+    conn = connect(db)
+    try:
+        return {
+            table: sorted(tuple(row) for row in conn.execute(f"SELECT * FROM {table}"))
+            for table in SNAPSHOT_TABLES
+        }
+    finally:
+        conn.close()
 
 
 def uids(db):
@@ -117,11 +145,24 @@ def r2_two_copies_preserve_the_undo():
     banner("R2 — the repo's actual pattern: backup_store + _scratch_copy + _replace_store")
     _, db = newroot("r2")
     conn, _ = seed(db, 30)
-    conn.close()
-    checkpoint(db)
-    pre_digest, pre = digest(db), uids(db)
+
+    # NO pre-checkpoint. A real store is live: a connection is open and recent commits are
+    # still in the -wal. An earlier revision of this probe checkpointed here before taking
+    # the "pre-run" digest, which quietly made backup_store's own checkpoint a no-op and let
+    # a byte-identity claim pass that cannot hold in the real case.
+    print(f"  sidecars at rest     : {sidecars(db)}  (live connection open)")
+    pre_bytes = digest(db)
+    pre_snapshot = snapshot(db)
+    pre_uids = uids(db)
 
     backup = backup_store(db)                       # immutable undo (reconcile.py:847)
+    print(f"  pre-run state.sqlite digest : {pre_bytes}")
+    print(f"  backup digest               : {digest(backup)}")
+    print(f"  backup == pre-run BYTES?    : {digest(backup) == pre_bytes}"
+          "   <- False: backup_store checkpointed the live file first")
+    print(f"  backup == pre-run SNAPSHOT? : {snapshot(backup) == pre_snapshot}"
+          "   <- the property that actually holds")
+
     with tempfile.TemporaryDirectory() as tmp:
         scratch = _scratch_copy(db, Path(tmp))      # separate mutable copy (:877)
         scratch_conn = connect(scratch)
@@ -129,16 +170,18 @@ def r2_two_copies_preserve_the_undo():
         leftover = inspect_store(StateStore(scratch_conn))
         scratch_conn.close()
         checkpoint(scratch)
-        print(f"  pre-run store      : {len(pre)} objects, all slug-keyed")
-        print(f"  migrated on scratch: {report.migrated} rekeyed, re-inspect="
+        print(f"  migrated on scratch  : {report.migrated} rekeyed, re-inspect="
               f"{'CLEAN' if not leftover else leftover[:1]}")
-        print(f"  live before swap   : {shape(db)}")
+        conn.close()
         _replace_store(scratch, db)                 # unlink sidecars + move (:936)
-    print(f"  live after swap    : {shape(db)}")
-    print(f"  backup             : {shape(backup)}")
-    print(f"  backup == pre-run BYTE FOR BYTE? {digest(backup) == pre_digest}")
-    print("  => the undo survives a successful migration. This is the assertion the")
-    print("     issue must require as a test.")
+
+    print(f"  live after swap      : {shape(db)}")
+    print(f"  backup after swap    : {shape(backup)}")
+    print(f"  backup snapshot still == pre-run? {snapshot(backup) == pre_snapshot}")
+    print(f"  backup uids still == pre-run?     {uids(backup) == pre_uids}")
+    print("  => the undo survives a successful migration — stated over the SNAPSHOT.")
+    print("     Byte-identity of the live file is not available and never was (see R3);")
+    print("     the assertion to require is logical preservation + restorability (R8).")
 
 
 def r3_byte_identical_is_ill_defined():
@@ -297,6 +340,36 @@ def r7_outer_begin_does_not_compose():
     conn.close()
 
 
+def r8_restoring_from_the_backup_returns_the_store():
+    """Preservation is only worth anything if the backup can be restored. Measure that."""
+    banner("R8 — restorability: does restoring from the backup return the pre-run store?")
+    _, db = newroot("r8")
+    conn, _ = seed(db, 25)
+    # again: live connection, un-checkpointed WAL, no kindness to the measurement
+    pre_snapshot = snapshot(db)
+    backup = backup_store(db)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        scratch = _scratch_copy(db, Path(tmp))
+        scratch_conn = connect(scratch)
+        migrate_store(scratch_conn)
+        scratch_conn.close()
+        checkpoint(scratch)
+        conn.close()
+        _replace_store(scratch, db)
+    print(f"  after migration      : {shape(db)}")
+    print(f"  live == pre-run snapshot? {snapshot(db) == pre_snapshot}  (expected False)")
+
+    # the operator's undo: put the backup back the same way the swap puts the scratch back
+    with tempfile.TemporaryDirectory() as tmp:
+        restored = Path(tmp) / "state.sqlite"
+        shutil.copy2(backup, restored)
+        _replace_store(restored, db)
+    print(f"  after restore        : {shape(db)}")
+    print(f"  live == pre-run snapshot? {snapshot(db) == pre_snapshot}  (expected True)")
+    print("  => this is the acceptance to write: restore the backup, compare the SNAPSHOT.")
+
+
 if __name__ == "__main__":
     for probe in (
         r1_one_copy_destroys_the_undo,
@@ -306,5 +379,6 @@ if __name__ == "__main__":
         r5_exclusive_lock_and_its_cost,
         r6_replace_store_vs_naive_swap,
         r7_outer_begin_does_not_compose,
+        r8_restoring_from_the_backup_returns_the_store,
     ):
         probe()
