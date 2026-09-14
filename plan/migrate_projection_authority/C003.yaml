@@ -1,0 +1,138 @@
+urn: wmbt:migrate-projection-authority:C003
+step: confirm
+direction: minimize
+dimension: frequency
+object_of_control: destructive-projection-write
+context_clarifier: when hydrate becomes a real inbound path and every write on the projection path
+  replaces a whole value where it holds only part of one, so the projection's silence reads as deletion
+lens: functional.effectiveness
+statement: minimize frequency of a projection or hydrate write that replaces state it does not speak for,
+  across all four write paths the inbound half touches
+acceptances:
+- given:
+    abstract:
+    - A populated store whose work items carry the stripped keys, and a projection of it
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: an inbound ingest preserves every STRIPPED_AT_PROJECTION key, so the two gates that read
+      them off the store keep answering
+    urn: acc:migrate-projection-authority:C003-UNIT-001-hydrate-preserves-stripped-keys
+  metadata:
+    author: atdd:2025
+    created: '2026-09-14'
+  signal:
+    metric: metric:occurrence_rate
+    threshold: zero stripped-key deletions per hydrate (measured 359 feature and 195 branch deleted per
+      cycle today)
+  then:
+    abstract:
+    - Every branch, feature, worktree, created and id value present before the hydrate is present after it
+    - The registration gate still resolves a branch for every issue it resolved before
+    - The smoke-obligation gate still resolves a feature for every issue it resolved before
+    - 'RED: upsert is data=excluded.data, so one cycle takes both gates from 174/174 to 0/174'
+  when:
+    abstract: the projection is hydrated over the populated store
+- given:
+    abstract:
+    - 'A populated store whose work item carries two bot-written refs the table cannot source: a SECOND
+      REF KIND under the same provider (github.pr) and a different provider (jira.ticket), while the
+      table contributes github.issue'
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: RED
+    purpose: the merge is at the (provider, ref_kind) LEAF, not the provider — a same-provider sibling is
+      the case a foreign-provider-only test cannot see, and it is the one that silently loses github.pr
+    urn: acc:migrate-projection-authority:C003-UNIT-002-every-unsourced-ref-survives
+  metadata:
+    author: atdd:2025
+    created: '2026-09-14'
+  signal:
+    metric: metric:occurrence_rate
+    threshold: zero unsourced refs dropped per project+hydrate cycle (measured github.pr and jira.ticket
+      both destroyed today)
+  then:
+    abstract:
+    - After a full project and hydrate cycle the object still carries github.pr
+    - It still carries jira.ticket
+    - It also carries the github.issue the table sourced
+    - 'RED: the projector rebuilds external_refs from the table alone, so both are destroyed — and a test
+      using only a foreign provider would pass while github.pr is lost'
+  when:
+    abstract: the store is projected and the projection hydrated back over it
+- given:
+    abstract:
+    - A store whose external_refs row carries a non-empty data blob
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-003
+    phase: RED
+    purpose: restoring a ref must not wipe the row's provenance — link() replaces data wholesale, which
+      is the same fault one table over
+    urn: acc:migrate-projection-authority:C003-UNIT-003-restore-preserves-ref-data
+  metadata:
+    author: atdd:2025
+    created: '2026-09-14'
+  signal:
+    metric: metric:occurrence_rate
+    threshold: zero ref data blobs wiped per hydrate (1,103 rows carry one today)
+  then:
+    abstract:
+    - The row's data blob is byte-identical after the restore
+    - The row's object binding is the one the projection named
+  when:
+    abstract: the projection is hydrated over that store
+- given:
+    abstract:
+    - A store binding a GitHub issue to one uid, and a projection binding the same issue to a different uid
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-004
+    phase: RED
+    purpose: a collision against a binding the local store already holds is the object conflict this
+      train exists to resolve, and link() resolves it last-writer-wins with no signal
+    urn: acc:migrate-projection-authority:C003-UNIT-004-a-colliding-ref-is-refused
+  metadata:
+    author: atdd:2025
+    created: '2026-09-14'
+  signal:
+    metric: metric:occurrence_rate
+    threshold: zero silent re-points per hydrate
+  then:
+    abstract:
+    - The hydrate is refused naming the issue number and both uids
+    - No object and no ref was written
+    - 'RED: link() is ON CONFLICT DO UPDATE SET object_uid, so the binding is silently re-pointed'
+  when:
+    abstract: the projection is hydrated over that store
+- given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real populated local State Store
+  harness:
+    category: backend
+    type: integration
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: destructive-projection-write holds against a real repo checkout, the installed
+      atdd CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+    urn: acc:migrate-projection-authority:C003-SMOKE-001-no-destructive-write
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-14'
+  then:
+    abstract:
+    - destructive-projection-write is observed to hold end-to-end against real infrastructure, with no
+      mocks or manual patching
+  when:
+    abstract: the C003 behavior is driven end-to-end through the real CLI

@@ -24,11 +24,13 @@ description: 'CORE-036: the store-native projection migration. The manifest-to-p
   minted directly in the State Store. Emits the first committed projection from the store, refusing before
   any write on an unmigratable object.'
 sizing:
-  footprint_score: 13
-  footprint_size: M
-  wmbts: 2
+  footprint_score: 21
+  footprint_size: L
+  wmbts: 4
 urn: feature:migrate-projection-authority:migrate-store-projection
 wagon: wagon:migrate-projection-authority
 wmbts:
 - wmbt:migrate-projection-authority:E002
 - wmbt:migrate-projection-authority:C002
+- wmbt:migrate-projection-authority:E003
+- wmbt:migrate-projection-authority:C003

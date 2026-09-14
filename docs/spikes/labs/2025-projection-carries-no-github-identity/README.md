@@ -9,6 +9,7 @@ Three hypotheses, each stated so it could be false, each with its own probe.
 | `subtree.py` | the refs table cannot be serialized wholesale, and every excluded row has a stateable reason | **HELD** — three independent exclusion grounds |
 | `adversarial.py` | the proposed fix is itself correct | **REFUTED** — four defects, three of them in the fix |
 | `scope.py` | tightening the contract to `github.issue` is safe | **REFUTED** — it would refuse legal bot writes |
+| `rr2.py` | the two gaps re-review left open are not real | **REFUTED** — both real, and one is a determinism break |
 
 ## Running them
 
@@ -18,6 +19,7 @@ Three hypotheses, each stated so it could be false, each with its own probe.
     PYTHONPATH=../../../../src python3 subtree.py     <control-root>
     PYTHONPATH=../../../../src:. python3 adversarial.py <control-root>
     PYTHONPATH=../../../../src python3 scope.py       # no store needed
+    PYTHONPATH=../../../../src:. python3 rr2.py       <control-root>
 
 All four are **read-only** with respect to the live store: every measurement runs
 against a copy, and `store_migration.migrate_store()` is applied to the copy first,
@@ -101,6 +103,28 @@ types only the `github.issue` leaf.
 
 `apply_updates` also already writes `refs[provider][ref_kind] = value` — the nested shape
 the issue described as a proposal is the shape the sanctioned writer has always emitted.
+
+**6 — the two gaps re-review left open, both confirmed.**
+
+    6a  bot wrote:  {'github': {'pr': '2028'}, 'jira': {'ticket': 'ATDD-17'}}
+        table holds: github.issue = 1004
+        projector emits: {'github': {'issue': '1004'}}
+          github.pr survived: False    jira.ticket survived: False
+
+    6b  store binds wi_…6SD to issues ['1004', '101004']
+        projector emits github.issue = '101004'; the other is dropped
+
+`6a` is the half of probe 4d that a foreign-provider test cannot see. `jira` and `github.pr`
+are both destroyed, but only `github.pr` proves the merge must happen at the
+`(provider, ref_kind)` **leaf** rather than at the provider — a test using `jira` alone
+passes even when the whole `github` subtree is replaced.
+
+`6b` is worse than a dropped row. `UNIQUE (provider, ref_kind, ref_value)`
+(`migrations.py:74`) is not per object, so two GitHub issue refs on one uid is
+representable — and which one a scalar leaf keeps depends on iteration order over
+`store.external_refs.all()`. The same store can project **different bytes on different
+runs**: an I1 determinism break, not merely a loss. The design refuses the object before
+any file is written.
 
 ## A note on the integers
 
