@@ -49,7 +49,7 @@ def _seed(root: Path, *, poison: bool) -> None:
     try:
         store = StateStore(conn)
         for slug, phase, issue in _LEGACY:
-            data = {"title": slug.replace("-", " ")}
+            data: dict[str, object] = {"title": slug.replace("-", " ")}
             if poison and slug == "beta-thing":
                 data[UNDISPOSITIONED_KEY] = 4.2
             store.objects.upsert(slug, "work_item", state=phase, data=data)
