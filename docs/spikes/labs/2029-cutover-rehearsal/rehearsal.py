@@ -114,16 +114,27 @@ def main() -> int:
             r = cutover.check(root)
             return next(c.met for c in r.criteria if "projection" in c.name)
 
+        # (a) at HEAD, absent from the working tree. A criterion that reads HEAD says MET.
         shutil.rmtree(out)
-        committed_only = projection_met(scratch)          # at HEAD, absent from the tree
+        committed_only = projection_met(scratch)
         _git(scratch, "checkout", "--", ".atdd/state/projection")
-        _git(scratch, "rm", "-r", "-q", "--cached", ".atdd/state/projection")
-        tree_only = projection_met(scratch)               # in the tree, not committed
 
-        print(f"committed-not-in-tree   -> {'MET' if committed_only else 'UNMET'}  (expect UNMET)")
-        print(f"in-tree-not-committed   -> {'MET' if tree_only else 'UNMET'}  (expect MET)")
-        if committed_only or not tree_only:
-            print("NOTE: the working-tree/HEAD defect no longer reproduces — #2024 may have landed.")
+        # (b) in the working tree, absent from HEAD. Reset to the pre-projection commit so
+        #     HEAD genuinely carries nothing — `git rm --cached` only unstages, it does not
+        #     remove from HEAD, so the earlier form of this check tested nothing once the
+        #     criterion started reading HEAD.
+        _git(scratch, "reset", "-q", "--soft", "HEAD~1")
+        _git(scratch, "reset", "-q")
+        tree_only = projection_met(scratch)
+
+        reads_head = committed_only and not tree_only
+        print(f"at HEAD, not in tree     -> {'MET' if committed_only else 'UNMET'}"
+              f"   (MET once the criterion reads HEAD)")
+        print(f"in tree, not at HEAD     -> {'MET' if tree_only else 'UNMET'}"
+              f" (UNMET once the criterion reads HEAD)")
+        print(f"criterion reads HEAD     -> {reads_head}")
+        if not reads_head:
+            print("NOTE: the working-tree/HEAD defect still reproduces — #2024 has not landed.")
 
         print("\nREHEARSAL PASSED — 3/3 reachable; live store untouched.")
         return 0
