@@ -87,7 +87,12 @@ def _unmerged_refusal(pr_data: dict, pr_number: int):
         return None
     state = str(pr_data.get("state") or "UNKNOWN").upper()
     return Reading.no_obligation(
-        f"PR #{pr_number} has not merged (state={state}); the advance is "
+        # The PR number is NOT repeated here: `auto_phase.run` prefixes every
+        # no-op line with "PR #N: ", and forwarding a reason that names it again
+        # printed "PR #9002: no-op — PR #9002 has not merged". That is a
+        # regression in the exact operator-facing line this change exists to
+        # improve, introduced by surfacing the reason at all.
+        f"it has not merged (state={state}); the advance is "
         f"authorised by the merge and no merge has happened",
         subject=pr_number,
     )
@@ -377,7 +382,8 @@ class PRManager:
         resolution = self._resolve_from(pr_data, pr_number)
         if resolution is None:
             return Reading.no_obligation(
-                f"PR #{pr_number} declares no closing reference",
+                # Same: the caller prefixes the PR number (see above).
+                "it declares no closing reference",
                 subject=pr_number,
             )
         return Reading.observed(resolution, subject=pr_number)
