@@ -86,8 +86,14 @@ def _produce(ctx: GateContext) -> str:
     )
 
 
-def _content_moved_cause(args, token_data, branch: str, now: str,
-                         head: Optional[str]) -> Optional[str]:
+# Signature on a hanging indent, NOT aligned under the opening paren.
+# `calculate_nesting_depth` measures raw indentation — `relative_indent // 4` —
+# so a continuation aligned at column 25 scores depth 6 against a limit of 4 and
+# trips `coder.refactor.complexity-nesting` on a function that has no nesting at
+# all. Four spaces keeps the metric measuring what it means to measure.
+def _content_moved_cause(
+    args, token_data, branch: str, now: str, head: Optional[str],
+) -> Optional[str]:
     """The refusal sentence when the branch advanced under an intact token (#2005).
 
     Asked before expiry by its caller, because it is the OTHER cause that leaves
