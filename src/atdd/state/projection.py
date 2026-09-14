@@ -44,7 +44,7 @@ import sqlite3
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import FrozenSet, Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from typing import FrozenSet, Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import yaml
 
@@ -823,49 +823,67 @@ def _incoming_refs(
     return incoming
 
 
-def _refuse_ref_collisions(
+@dataclass(frozen=True)
+class _RefRestore:
+    """One projected ref to write back, with the row data it must not destroy."""
+
+    uid: str
+    provider: str
+    ref_kind: str
+    ref_value: str
+    #: The blob the local row already carries, or ``None`` where there is no row yet.
+    data: Optional[Dict[str, Any]]
+
+
+def _plan_ref_restore(
     store: StateStore, incoming: Mapping[Tuple[str, str, str], str],
-) -> None:
-    """Refuse before the first write if an inbound ref is bound elsewhere locally (#2025).
+) -> List[_RefRestore]:
+    """Read each incoming ref ONCE — refusing a collision, and keeping what must survive.
 
-    Checking uniqueness only *within* the incoming set is not enough, and was the first
-    version's mistake: the collision that actually happens on an ingest is against the refs
-    the LOCAL STORE ALREADY HOLDS. ``link`` would resolve it last-writer-wins and re-point a
-    live binding in silence.
+    The two things this has to get right both depend on the same row, so it is read once and
+    both are derived from it rather than resolving twice:
 
-    Runs before any object is written, so a refused hydrate leaves the store exactly as it
-    was — the same refuse-before-any-write discipline :func:`build_documents` keeps.
+    - **Refuse a collision.** Checking uniqueness only *within* the incoming set is not
+      enough, and was the first version's mistake: the collision that actually happens on an
+      ingest is against the refs the LOCAL STORE ALREADY HOLDS. ``link`` would resolve it
+      last-writer-wins and re-point a live binding in silence.
+    - **Keep the row's ``data`` blob.** ``link`` is ``DO UPDATE SET data=excluded.data`` and
+      ``_dumps(None)`` is ``'{}'``, so writing back without it would wipe the provenance on
+      1,103 live rows — the same wholesale-replace fault the hydrate exists to repair, one
+      table over. The projection carries no opinion about that blob, which is exactly why it
+      must not overwrite it.
+
+    Called before the first write, so a refused hydrate leaves the store exactly as it was —
+    the same refuse-before-any-write discipline :func:`build_documents` keeps. The plan stays
+    valid across the object writes that follow: :meth:`ObjectStore.upsert` does not touch the
+    refs table.
     """
+    plan: List[_RefRestore] = []
     for (provider, ref_kind, ref_value), uid in sorted(incoming.items()):
         held = store.external_refs.resolve(provider, ref_kind, ref_value)
         if held is not None and held.object_uid != uid:
             raise ExternalRefConflictError(
                 provider, ref_kind, ref_value, held.object_uid, uid,
             )
+        plan.append(_RefRestore(
+            uid=uid, provider=provider, ref_kind=ref_kind, ref_value=ref_value,
+            data=dict(held.data) if held is not None else None,
+        ))
+    return plan
 
 
-def _restore_external_refs(
-    store: StateStore, incoming: Mapping[Tuple[str, str, str], str],
-) -> None:
-    """Rebuild the projected slice of the refs table from the hydrated documents (#2025).
+def _restore_external_refs(store: StateStore, plan: Sequence[_RefRestore]) -> None:
+    """Write back the projected slice of the refs table (#2025).
 
     Restores, never deletes. A ref the projection does not name is left alone: the projection
     is authoritative for the objects it carries, not for the ones it does not, and 304 of the
     live work-item refs belong to ``COMPLETE`` objects that :data:`ARCHIVED_PHASES` keeps out
     of it. A hydrate that made the table *match* would delete every one of them on first
     ingest.
-
-    The row's ``data`` blob is carried forward rather than reset. ``link`` is
-    ``DO UPDATE SET data=excluded.data`` and ``_dumps(None)`` is ``'{}'``, so passing nothing
-    would wipe the provenance on 1,103 live rows — the same wholesale-replace fault this
-    function exists to repair, one table over. The projection carries no opinion about that
-    blob, which is exactly why it must not overwrite it.
     """
-    for (provider, ref_kind, ref_value), uid in sorted(incoming.items()):
-        held = store.external_refs.resolve(provider, ref_kind, ref_value)
+    for entry in plan:
         store.external_refs.link(  # noqa: N+1 — one link per projected ref, not a query loop
-            uid, provider, ref_kind, ref_value,
-            data=dict(held.data) if held is not None else None,
+            entry.uid, entry.provider, entry.ref_kind, entry.ref_value, data=entry.data,
         )
 
 
@@ -898,7 +916,7 @@ def hydrate(projection_dir: Path, store: StateStore) -> HydrateResult:
     """
     documents = read_projection(projection_dir)
     incoming = _incoming_refs(documents)
-    _refuse_ref_collisions(store, incoming)
+    restore = _plan_ref_restore(store, incoming)
 
     for uid in sorted(documents):
         obj_uid, phase, data = document_to_object(documents[uid])
@@ -916,7 +934,7 @@ def hydrate(projection_dir: Path, store: StateStore) -> HydrateResult:
             obj_uid, WORK_ITEM_KIND, state=phase, data=data,
         )
 
-    _restore_external_refs(store, incoming)
+    _restore_external_refs(store, restore)
     _log.info(
         "projection hydrated",
         extra={"projection_dir": str(projection_dir), "objects": len(documents)},
