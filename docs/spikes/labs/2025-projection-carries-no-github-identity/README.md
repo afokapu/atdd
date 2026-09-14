@@ -7,13 +7,17 @@ Three hypotheses, each stated so it could be false, each with its own probe.
 | `roundtrip.py` | a projection carrying `external_refs` still satisfies `project(hydrate(p)) == p` byte-for-byte and passes `check_canonicality` | **HELD** — and surfaced the str/int contract gap |
 | `hazard.py` | today's wholesale-replace `hydrate` destroys `feature` and `branch`, and the destruction reaches the gates that read them | **HELD** — 174/174 → 0/0 on both gates; the proposed merge restores 174/174 |
 | `subtree.py` | the refs table cannot be serialized wholesale, and every excluded row has a stateable reason | **HELD** — three independent exclusion grounds |
+| `adversarial.py` | the proposed fix is itself correct | **REFUTED** — four defects, three of them in the fix |
+| `scope.py` | tightening the contract to `github.issue` is safe | **REFUTED** — it would refuse legal bot writes |
 
 ## Running them
 
     ./lab.sh                 # the corpus census + the hazard, end to end
     PYTHONPATH=../../../../src python3 roundtrip.py <control-root>
     PYTHONPATH=../../../../src:. python3 hazard.py  <control-root>
-    PYTHONPATH=../../../../src python3 subtree.py   <control-root>
+    PYTHONPATH=../../../../src python3 subtree.py     <control-root>
+    PYTHONPATH=../../../../src:. python3 adversarial.py <control-root>
+    PYTHONPATH=../../../../src python3 scope.py       # no store needed
 
 All four are **read-only** with respect to the live store: every measurement runs
 against a copy, and `store_migration.migrate_store()` is applied to the copy first,
@@ -65,7 +69,46 @@ What is admitted is well-shaped: 1,104 `(github, issue)` rows, 0 non-digit `ref_
 list and no ordering rule. 304 of the work-item rows belong to `COMPLETE` objects the
 projection archives out — which is why `hydrate` restores and never deletes.
 
+**4 — the proposed fix had four defects, and `check_canonicality` saw none of them.**
+
+| case | proposed behaviour | verdict |
+|---|---|---|
+| 4a a malformed nested ref | `'1975'`, `1975`, `{"number":1975}`, `["1975"]` | all four **ADMITTED** — `validate_document` types `external_refs` as `dict` and reaches no deeper |
+| 4b a ref colliding with an existing binding | `link()` is `ON CONFLICT DO UPDATE SET object_uid` | **silently re-pointed**; the proposed hydrate checked uniqueness only *within* the document set |
+| 4c an existing ref row's `data` blob | `link(..., data=None)` → `_dumps(None)` = `'{}'` | **wiped**; 1,103 rows carry a non-empty blob |
+| 4d a bot-written `jira` subtree | `build_document` popped and rebuilt from the table | **destroyed** |
+
+4b, 4c and 4d are faults *in the proposed fix* — each one the same
+replace-where-merge-was-required defect the issue exists to correct. And
+`check_canonicality` reports `projection is canonical (747 object(s))` through all four,
+because it hydrates into an **empty** `MemoryStore` (`projection.py:719-722`): no existing
+object to preserve, no existing ref to collide with, no blob to wipe, no foreign provider
+to destroy. Acceptances that lean on it for the crux pass vacuously.
+
+**5 — the contract must stay open.**
+
+    apply_updates:  github/issue -> ADMITTED   github/pr    -> ADMITTED
+                    jira/ticket  -> ADMITTED   linear/issue -> ADMITTED
+
+    _bot_only:      ours={github, jira}  theirs={github, linear}  base={github}
+                    merged -> {github, jira, linear}    conflict -> None
+
+`validate_update` constrains the uid, the bot namespace, authoritativeness and provider
+*identity* — never the provider or ref-kind vocabulary. `_bot_only` unions disjoint
+providers by design. Narrowing `external_refs` to `github.issue` would refuse three of four
+legal writes and make that merge result unwritable. The contract therefore stays open and
+types only the `github.issue` leaf.
+
+`apply_updates` also already writes `refs[provider][ref_kind] = value` — the nested shape
+the issue described as a proposal is the shape the sanctioned writer has always emitted.
+
 ## A note on the integers
+
+**Where they come from:** the live Control Root store at
+`<control-root>/.atdd/state/state.sqlite` — *not* `main/.atdd/state/state.sqlite`, which
+is a 0-byte placeholder. A second party resolving the Control Root from inside the repo
+will find the empty one and reproduce nothing; that is what happened in review. `lab.sh`
+walks up to the real root, honours `ATDD_CONTROL_ROOT`, and prints which root it used.
 
 The corpus grows as issues are authored, so absolute counts move between runs;
 authoring #2024 and #2025 moved the document count while this lab was being written.
