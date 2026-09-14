@@ -53,6 +53,30 @@ acceptances:
     - The check exits zero
   when:
     abstract: the shadow-mode projection check is run
+- given:
+    abstract:
+    - A store whose documents cannot be projected, so build_documents raises before any source is read
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-003
+    phase: RED
+    purpose: the non-blocking exit code is the invariant on EVERY path, including the store side,
+      which is computed before the per-source loop and outside any handler
+    urn: acc:migrate-projection-authority:M001-UNIT-003-store-side-failure-still-exits-zero
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-09-14'
+  then:
+    abstract:
+    - The run exits SHADOW_EXIT_CODE rather than raising, honouring compare()'s own "never raises to
+      gate"
+    - The failure is reported as an unavailable source, with its reason, on stdout
+    - 'RED: the projection error escapes as a traceback and the command exits 1, through the one
+      constant declared so the CLI, the workflow and the tests cannot drift from it'
+  when:
+    abstract: the shadow-mode projection check is run against that store
 - identity:
     urn: acc:migrate-projection-authority:M001-SMOKE-001-shadow-projection-report
     id: AC-SMOKE-001
