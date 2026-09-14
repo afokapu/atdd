@@ -68,9 +68,9 @@ def run_cli(monkeypatch):
                                                         {"name": f"atdd:{phase}"}]})
         # dry_run so a transition never shells out to `atdd coach transition`.
         out, err = io.StringIO(), io.StringIO()
-        with tempfile.TemporaryDirectory() as tmp:
-            with redirect_stdout(out), redirect_stderr(err):
-                rc = ap.run(PR, dry_run=True, target_dir=Path(tmp))
+        with (tempfile.TemporaryDirectory() as tmp,
+              redirect_stdout(out), redirect_stderr(err)):
+            rc = ap.run(PR, dry_run=True, target_dir=Path(tmp))
         return rc, (out.getvalue() + err.getvalue()).strip()
     return _run
 
@@ -129,9 +129,9 @@ def test_not_merged_is_distinguishable_from_could_not_read(run_cli, monkeypatch)
     monkeypatch.setattr(PRManager, "_read_pr",
                         lambda self, n: (None, "gh pr view exited 1: boom"))
     out, err = io.StringIO(), io.StringIO()
-    with tempfile.TemporaryDirectory() as tmp:
-        with redirect_stdout(out), redirect_stderr(err):
-            rc_unreadable = ap.run(PR, dry_run=True, target_dir=Path(tmp))
+    with (tempfile.TemporaryDirectory() as tmp,
+          redirect_stdout(out), redirect_stderr(err)):
+        rc_unreadable = ap.run(PR, dry_run=True, target_dir=Path(tmp))
     unreadable_text = (out.getvalue() + err.getvalue()).strip()
 
     assert rc_unreadable != 0, "an unreadable PR must still fail the run (#1640)"
