@@ -179,33 +179,59 @@ def _report_store_migration_plan(conn) -> int:
 def _cmd_migrate_store(args) -> int:
     """Mint contract-shaped identity for every work item in the store (CORE-036).
 
-    The operator-facing half of :func:`atdd.state.store_migration.migrate_store`. It exists
-    because a migration nobody can invoke is not shipped — and its sibling ``migrate-manifest``
-    cannot be invoked *usefully*, since ``decommission-manifest`` deleted the file it reads.
+    The operator-facing half of :func:`~atdd.state.store_migration.migrate_store_durably`,
+    and deliberately only that: the durability contract — immutable backup, separate mutable
+    scratch, sidecar-safe swap, all under an exclusive fence — is migration semantics and
+    lives with the migration (#2024). This verb resolves the store, chooses dry-run or live,
+    and turns the three typed refusals into operator-facing exits.
 
     ``--dry-run`` reports the same refusal without touching the store, so an operator can see
     what stands in the way before committing to a write against the only surviving source of
     truth.
     """
     from atdd.state.db import connect, init_state_store
-    from atdd.state.store_migration import migrate_store
+    from atdd.state.store_migration import (
+        MigrationNotCleanError, StoreLockedError, migrate_store_durably,
+    )
 
     root = _root(args)
-    conn = connect(init_state_store(start=root))
-    try:
-        if args.dry_run:
+    db_path = init_state_store(start=root)
+
+    if args.dry_run:
+        conn = connect(db_path)
+        try:
             return _report_store_migration_plan(conn)
-        report = migrate_store(conn, owner_actor=args.owner_actor)
+        finally:
+            conn.close()
+
+    try:
+        result = migrate_store_durably(db_path, owner_actor=args.owner_actor)
+    except StoreLockedError as exc:
+        # Logged at the raise site too, but only with the db path: this is the layer that
+        # knows which command the operator ran and against which root
+        # (coder.logging.coach-silent-swallow — observably react, do not merely return).
+        _log.warning(
+            "migrate-store refused: the store could not be fenced",
+            extra={"command": "migrate-store", "root": str(root), "error": str(exc)},
+        )
+        return _fail(f"refusing to migrate: {exc}")
     except migration.LossyMigrationError as exc:
-        # The refusal IS the feature: the store was not touched, and every offender is named.
+        # The refusal IS the feature: the store was not touched, every offender named.
         _log.warning(
             "refused a lossy store migration; no object was mutated",
             extra={"command": "migrate-store", "root": str(root), "defects": len(exc.defects)},
         )
-        return _fail(str(exc))
-    finally:
-        conn.close()
-    print(report.render())
+        return _fail(f"{exc}\n\nThe store is unchanged.")
+    except MigrationNotCleanError as exc:
+        _log.warning(
+            "migrate-store refused: the migrated copy did not inspect clean, so it was not "
+            "swapped in",
+            extra={"command": "migrate-store", "root": str(root), "defects": len(exc.defects)},
+        )
+        return _fail(f"{exc}\n\nThe store is unchanged.")
+
+    print(result.report.render())
+    print(f"\nBackup (pre-migration store): {result.backup}")
     return 0
 
 

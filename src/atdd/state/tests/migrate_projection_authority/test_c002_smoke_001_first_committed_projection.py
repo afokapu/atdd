@@ -46,6 +46,7 @@ from pathlib import Path
 
 import pytest
 
+from atdd.state.tests._fixtures import commit_all
 from ._live import atdd_state, make_checkout
 
 pytestmark = [pytest.mark.platform]
@@ -160,8 +161,15 @@ class TestTheCutoverCriterionTurnsOver:
         assert "FAIL" in report, f"the unmet criterion must be named as failing:\n{report}"
 
     def test_the_criterion_reports_met_once_the_projection_is_committed(self, repo):
-        """The verdict CORE-036 exists to turn over."""
+        """The verdict CORE-036 exists to turn over.
+
+        The commit is the point, and this test never made one (#2024). Its name always said
+        "once the projection is committed"; the criterion globbed the working tree, so writing
+        the files was enough to satisfy it. Now that the criterion reads HEAD, the fixture has
+        to do what the name claims — which is also what an operator would actually do.
+        """
         assert atdd_state(repo, "project").returncode == 0
+        commit_all(repo, "the first committed projection")
 
         result = atdd_state(repo, "cutover")
         report = result.stdout + result.stderr

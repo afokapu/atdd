@@ -79,3 +79,66 @@ acceptances:
   metadata:
     author: atdd:self-compliance
     created: '2026-07-26'
+- identity:
+    id: AC-UNIT-003
+    phase: RED
+    purpose: after a SUCCESSFUL migration a backup still holds the pre-migration store and can be restored
+      from, so the operator retains a real undo; preservation is stated over the store's logical snapshot,
+      because backup_store checkpoints the live WAL and the file's bytes therefore move before any migration
+      runs
+    urn: acc:migrate-projection-authority:E002-UNIT-003-the-backup-survives-a-successful-migration
+  harness:
+    category: backend
+    type: unit
+  given:
+    abstract:
+    - A live WAL-mode State Store of legacy slug-keyed work items with no owner_actor, with an open connection
+      and recent commits still in the write-ahead log — not a quiesced, pre-checkpointed file
+  when:
+    abstract: the store-native projection migration is run to completion and succeeds
+  then:
+    abstract:
+    - The backup's logical snapshot equals the store's snapshot as it stood before the run — every row
+      of objects, relationships, events, external_refs, overlay_events, inbox, outbox and store_metadata
+    - Restoring the backup returns the live store to that same snapshot
+    - The live store is fully migrated, so its snapshot differs from the backup's
+    - The migration mutates a scratch copy; the backup file is never opened for writing
+    - 'The byte-identity of state.sqlite is NOT asserted: backup_store checkpoints the live file first,
+      so its bytes change before the migration begins and a byte-identical claim would fail a correct
+      implementation'
+    - 'RED: migrate_cli takes no backup at all, and the specified design migrated the backup_store() file
+      itself, leaving no undo even on success'
+  metadata:
+    author: atdd:issue-2024
+    created: '2026-09-14'
+- identity:
+    id: AC-UNIT-004
+    phase: GREEN
+    purpose: 'a GUARD on the repair, not a demonstration of the current defect: these properties hold
+      vacuously today because the migration mutates in place, and the copy/swap fix is what would introduce
+      the loss — so they must hold before AND after'
+    urn: acc:migrate-projection-authority:E002-UNIT-004-the-migration-window-loses-nothing
+  harness:
+    category: backend
+    type: unit
+  given:
+    abstract:
+    - A WAL-mode State Store shared by more than one writer, as the sibling-worktree layout intends
+  when:
+    abstract: a second writer commits to the live store while the migration is in flight, and the migration
+      is separately interrupted part-way
+  then:
+    abstract:
+    - The concurrent write either survives the swap or its writer is refused with an explicit lock error;
+      it is never silently discarded
+    - A concurrent reader is not blocked while the migration holds its fence
+    - After an interruption the live store holds the same objects with the same content as before the
+      run, stated over the snapshot rather than the file's bytes
+    - The swapped store carries no stale -wal or -shm beside it and reopens without error
+    - 'NOT RED: today the migration mutates the live store in place, so there is no snapshot window and
+      a concurrent write survives by accident while a crash destroys the store instead. These assertions
+      pass now and must still pass once copy/swap lands — that is precisely their value, and labelling
+      them RED would misreport it'
+  metadata:
+    author: atdd:issue-2024
+    created: '2026-09-14'
