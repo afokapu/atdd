@@ -107,7 +107,7 @@ def test_the_mint_refuses_when_the_reviewed_head_is_unknown(repo_with_remote, mo
     from atdd.coach.gate import approve_command
     from atdd.coach.gate.mint_head import HeadBinding
 
-    repo, _sha = repo_with_remote
+    _repo, _sha = repo_with_remote
     monkeypatch.setattr(
         approve_command, "resolve_reviewed_head",
         lambda _start, _branch: HeadBinding(branch=_BRANCH, reason="no remote-tracking ref"),

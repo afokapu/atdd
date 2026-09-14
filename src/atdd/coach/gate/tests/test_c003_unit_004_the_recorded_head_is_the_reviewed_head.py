@@ -117,7 +117,7 @@ def test_an_agreeing_ref_is_recorded(repo_with_remote):
     """When local and reviewed agree, the mint records that commit and proceeds."""
     from atdd.coach.gate.mint_head import resolve_reviewed_head
 
-    repo, _local_sha, remote_sha = repo_with_remote
+    repo, _local_sha, _remote_sha = repo_with_remote
     _git(repo, "push", "-q", "origin", _BRANCH)
     pushed = _git(repo, "rev-parse", "HEAD")
 
