@@ -41,7 +41,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from atdd.state import cutover, hot_path, manifest_fallback, rollout, runbook, shadow
+from . import cutover, hot_path, manifest_fallback, rollout, runbook, shadow
 # Kept for UNATTRIBUTED_OWNER alone — the shared default owner, which `store_migration` imports
 # from here too. No manifest READ path remains: #2023 removed the verbs that resolved
 # manifest_path(root). Do not reintroduce one (Y002).

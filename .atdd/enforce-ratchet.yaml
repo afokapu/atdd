@@ -14,7 +14,7 @@ scope:
   - src/atdd
 
 rules:
-  coder.dead-code.reachability:                                   51
+  coder.dead-code.reachability:                                   48
   coder.dead-code.reachability-typescript:                        16
   coder.design.orphan-ui:                                         5
   coder.design.primitives:                                        5
