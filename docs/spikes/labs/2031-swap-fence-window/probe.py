@@ -45,6 +45,59 @@ from atdd.state.store_migration import migrate_store_durably
 MARK = "arrived-in-the-window"
 
 
+def report_target_store() -> None:
+    """Say out loud which store this run reasons about, and refuse a decoy.
+
+    A reviewer of this lab read `main/.atdd/state/state.sqlite` — a 0-byte, 0-table file that
+    `resolve_control_root` does NOT select — and concluded the scope arithmetic was
+    unverifiable. They were reading a decoy beside the real Control Root store. The resolver
+    is right; the ambiguity is in the filesystem, so the probe names the file it opened and
+    refuses to reason from an empty one rather than leaving the next reader to repeat it.
+
+    Every *measurement* below runs against throwaway stores; this is only the store the
+    SCOPE claims (work-item counts, overlay state) are read from.
+    """
+    from atdd.state.paths import ControlRootNotFoundError, resolve_control_root
+
+    print("target store for scope claims")
+    print("-" * 76)
+    try:
+        resolution = resolve_control_root(Path.cwd())
+    except ControlRootNotFoundError as exc:
+        print(f"  no Control Root above {Path.cwd()}: {exc}")
+        print("  scope claims in the issue CANNOT be verified from here.")
+        return
+    store = resolution.state_store_path
+    print(f"  control root : {resolution.control_root}  ({resolution.layout_mode.value})")
+    print(f"  store        : {store}")
+    if not store.is_file():
+        print("  REFUSING: the resolved store does not exist. Scope claims unverifiable here.")
+        return
+    size = store.stat().st_size
+    conn = connect(store)
+    try:
+        tables = conn.execute(
+            "SELECT count(*) FROM sqlite_master WHERE type='table'").fetchone()[0]
+        if not tables:
+            print(f"  REFUSING: {store} is {size} bytes with no tables — an empty decoy, not")
+            print("  the Control Root store. Do not read scope arithmetic out of it.")
+            return
+        items = conn.execute(
+            "SELECT count(*) FROM objects WHERE kind=?", (WORK_ITEM_KIND,)).fetchone()[0]
+        overlay = conn.execute("SELECT count(*) FROM overlay_events").fetchone()[0]
+    finally:
+        conn.close()
+    print(f"  size/tables  : {size} bytes, {tables} tables")
+    print(f"  work items   : {items}")
+    print(f"  overlay events: {overlay}  "
+          f"({'CLEAN — reconcile hydrates and never swaps' if not overlay else 'DIRTY — reconcile would swap'})")
+
+    decoy = resolution.control_root / "main" / ".atdd" / "state" / "state.sqlite"
+    if decoy.is_file() and decoy.stat().st_size == 0:
+        print(f"  NOTE: a 0-byte decoy also exists at {decoy}")
+        print("        resolve_control_root does NOT select it. Do not read it by path.")
+
+
 def control_root(tag: str) -> Path:
     root = Path(tempfile.mkdtemp(prefix=f"2031-{tag}-"))
     (root / ".atdd" / "state").mkdir(parents=True)
@@ -317,6 +370,7 @@ if __name__ == "__main__":
     src = sys.argv[1] if len(sys.argv) > 1 else str(default_src)
     if not Path(src).is_dir():
         raise SystemExit(f"cannot find the atdd source tree at {src}; pass it as argv[1]")
+    report_target_store()
     p1_racing_proves_nothing()
     p2_the_window_loses_a_committed_write()
     p3_how_wide_is_the_window()
