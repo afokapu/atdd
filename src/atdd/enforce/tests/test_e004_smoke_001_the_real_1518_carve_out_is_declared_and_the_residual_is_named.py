@@ -42,12 +42,16 @@ def test_the_real_1518_carve_out_is_declared_and_the_residual_is_named() -> None
 
     # Every finding whose legacy_rule_id the ledger declares retired is gone, and each
     # such declaration carries the issue that retired it.
-    explained = [m for m in without if m.legacy_rule_id in retirements]
+    explained = [
+        (m, retirements[m.legacy_rule_id])
+        for m in without
+        if m.legacy_rule_id is not None and m.legacy_rule_id in retirements
+    ]
     assert explained, "the ledger explains none of the real findings"
     still_reported = {m.extension_rule_id for m in with_ledger}
-    for finding in explained:
+    for finding, retirement in explained:
         assert finding.extension_rule_id not in still_reported
-        assert retirements[finding.legacy_rule_id].retired_in
+        assert retirement.retired_in
 
     # The residual is exactly the nodes that declare no legacy_rule_id at all — named,
     # not absorbed. A finding of any other shape means something went unexplained.
