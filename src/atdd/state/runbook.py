@@ -60,10 +60,8 @@ class MigrationStep:
 #: The migration this wagon ships, in the order it must be performed. The runbook documents
 #: exactly these — no more (a documented step that does not exist misleads), and no fewer.
 MIGRATION_STEPS: Tuple[MigrationStep, ...] = (
-    MigrationStep("mint-uids",
-                  "Backfill an immutable uid into every legacy manifest entry, and commit it."),
-    MigrationStep("migrate-manifest",
-                  "Convert the legacy manifest into the uid-keyed committed projection."),
+    MigrationStep("migrate-store",
+                  "Mint an immutable uid and an owner_actor for every work item in the store."),
     MigrationStep("shadow",
                   "Run the non-blocking shadow projection CI and watch the drift go to zero."),
     MigrationStep("hot-path",

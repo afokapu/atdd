@@ -2,13 +2,10 @@
 
 The operator- and CI-facing surface over M8:
 
-- ``atdd state mint-uids`` — backfill an immutable uid into every legacy manifest entry. Its own
-  recorded step, so :func:`migrate` stays idempotent (E001).
-- ``atdd state migrate-manifest [--mint-uids]`` — the legacy manifest → the uid-keyed committed
-  projection. **Refuses before writing anything** when an entry cannot be faithfully projected,
-  and reports every offending entry, not the first (C001).
-- ``atdd state shadow`` — the drift report against the committed projection AND the
-  manifest-derived one. **Exits 0 always**: shadow mode measures, it does not gate (M001).
+- ``atdd state migrate-store`` — mint identity for every work item **in the store**. The live
+  migration (CORE-036). Refuses the whole run before any write (C001/E002).
+- ``atdd state shadow`` — the drift report against the committed projection. **Exits 0 always**:
+  shadow mode measures, it does not gate (M001).
 - ``atdd state hot-path`` — no lifecycle decision, validator, or gate calls the GitHub API (Y001).
 - ``atdd state manifest-fallback`` — no core reader consults ``.atdd/manifest.yaml`` (Y002).
 - ``atdd state cutover`` — the three M8 exit criteria. Non-zero while any one is unmet (K001).
@@ -22,9 +19,18 @@ Two exit codes here will look wrong at a glance, and both are the invariant rath
 blocking check with a misleading name — it would demand the trust the shadow window exists to earn.
 ``atdd state canonicality`` is the one that blocks.
 
-``migrate-manifest`` **exits non-zero having written nothing.** A migration that half-succeeds
+``migrate-store`` **exits non-zero having written nothing.** A migration that half-succeeds
 leaves a tree that is neither the old truth nor the new one, and the operator's next move depends on
 facts the tool destroyed on its way out.
+
+``mint-uids`` and ``migrate-manifest`` are **gone** (#2023). Both resolved their input through
+``manifest_path(root)``, and ``decommission-manifest`` deleted that file — so both failed with
+``no legacy manifest to migrate`` against any real repo. That runbook step says the readers are
+"removed, not deprecated in place, because a deprecated reader still reads"; a reader that cannot
+even succeed is the same state, louder. ``migrate-store`` is the live replacement. The module
+:mod:`atdd.state.manifest_migration` is kept: its acceptances still pin the refuse-before-write
+contract it established, and :data:`~atdd.state.manifest_migration.UNATTRIBUTED_OWNER` is still the
+shared default owner.
 
 Dependency discipline: stdlib + ``pyyaml`` + ``atdd.state`` (never a provider).
 """
@@ -35,7 +41,10 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from atdd.state import cutover, hot_path, manifest_fallback, rollout, runbook, shadow
+from . import cutover, hot_path, manifest_fallback, rollout, runbook, shadow
+# Kept for UNATTRIBUTED_OWNER alone — the shared default owner, which `store_migration` imports
+# from here too. No manifest READ path remains: #2023 removed the verbs that resolved
+# manifest_path(root). Do not reintroduce one (Y002).
 from atdd.state import manifest_migration as migration
 from atdd.state.cli_support import add_verb, opt
 
@@ -43,7 +52,7 @@ _log = logging.getLogger(__name__)
 
 #: The ``atdd state`` sub-commands this module owns.
 OPS = (
-    "mint-uids", "migrate-manifest", "migrate-store", "shadow", "hot-path",
+    "migrate-store", "shadow", "hot-path",
     "manifest-fallback", "cutover", "runbook-check", "rollout-check",
 )
 
@@ -57,27 +66,10 @@ def add_parsers(sub) -> None:
 def _add_migration_verbs(sub) -> None:
     """The verbs that WRITE: they move a corpus from one identity scheme to the next."""
     add_verb(
-        sub, "mint-uids",
-        "Backfill an immutable uid into every legacy manifest entry (its own recorded step).",
-    )
-
-    add_verb(
-        sub, "migrate-manifest",
-        "Migrate .atdd/manifest.yaml into the uid-keyed committed projection. "
-        "Refuses before writing anything if an entry cannot be projected.",
-        opt("--mint-uids", dest="mint", action="store_true",
-            help="Backfill missing uids into the manifest first (a recorded write)."),
-        opt("--owner-actor", default=migration.UNATTRIBUTED_OWNER,
-            help="The owner a legacy entry does not record "
-                 f"(default: {migration.UNATTRIBUTED_OWNER})."),
-        opt("--out", default=None, help="Projection directory (default: the repo's)."),
-    )
-
-    add_verb(
         sub, "migrate-store",
         "Mint an immutable uid and an owner_actor for every work item IN THE STORE. "
         "Refuses the whole run before any write if an object cannot be migrated. "
-        "This is the live migration: migrate-manifest reads a file that no longer exists.",
+        "This is the live migration; the manifest-era verbs it replaced were removed in #2023.",
         opt("--owner-actor", default=migration.UNATTRIBUTED_OWNER,
             help="The owner an unattributed object takes "
                  f"(default: {migration.UNATTRIBUTED_OWNER})."),
@@ -87,8 +79,8 @@ def _add_migration_verbs(sub) -> None:
 
     add_verb(
         sub, "shadow",
-        "Report projection drift against the committed AND manifest-derived projections. "
-        "NON-BLOCKING: exits 0 even when it finds drift (M001).",
+        "Report projection drift against the committed projection. "
+        "NON-BLOCKING: exits 0 even when it finds drift, or cannot run at all (M001).",
     )
 
 
@@ -140,22 +132,6 @@ def _fail(report: str) -> int:
     return 1
 
 
-def _cmd_mint_uids(args) -> int:
-    try:
-        minted, path = migration.mint_uids(migration.manifest_path(_root(args)))
-    except migration.MigrationError as exc:
-        _log.warning(
-            "uids could not be minted into the legacy manifest",
-            extra={"command": "mint-uids", "error": str(exc)},
-        )
-        return _fail(f"ERROR: {exc}")
-    print(
-        f"minted {minted} uid(s) into {path}" if minted
-        else f"every entry in {path} already carries a uid (nothing to do)"
-    )
-    return 0
-
-
 def _report_store_migration_plan(conn) -> int:
     """``--dry-run``: name what would refuse the run, and write nothing.
 
@@ -184,6 +160,10 @@ def _cmd_migrate_store(args) -> int:
     scratch, sidecar-safe swap, all under an exclusive fence — is migration semantics and
     lives with the migration (#2024). This verb resolves the store, chooses dry-run or live,
     and turns the three typed refusals into operator-facing exits.
+
+    It is the verb that runs. Its predecessor ``migrate-manifest`` could not be invoked at all
+    once ``decommission-manifest`` deleted the file it read, and was removed in #2023 — a migration
+    nobody can invoke is not shipped.
 
     ``--dry-run`` reports the same refusal without touching the store, so an operator can see
     what stands in the way before committing to a write against the only surviving source of
@@ -232,35 +212,6 @@ def _cmd_migrate_store(args) -> int:
 
     print(result.report.render())
     print(f"\nBackup (pre-migration store): {result.backup}")
-    return 0
-
-
-def _cmd_migrate_manifest(args) -> int:
-    root = _root(args)
-    try:
-        if args.mint:
-            minted, path = migration.mint_uids(migration.manifest_path(root))
-            print(f"minted {minted} uid(s) into {path}")
-        report = migration.migrate(
-            root,
-            out_dir=Path(args.out).resolve() if args.out else None,
-            owner_actor=args.owner_actor,
-        )
-    except migration.LossyMigrationError as exc:
-        # The refusal is the feature: nothing was written, and every offending entry is named.
-        _log.warning(
-            "refused a lossy migration; the projection directory is untouched",
-            extra={"command": "migrate-manifest", "root": str(root),
-                "defects": len(exc.defects)},
-        )
-        return _fail(str(exc))
-    except migration.MigrationError as exc:
-        _log.warning(
-            "the manifest could not be migrated",
-            extra={"command": "migrate-manifest", "error": str(exc)},
-        )
-        return _fail(f"ERROR: {exc}")
-    print(report.render())
     return 0
 
 
@@ -346,8 +297,6 @@ def _cmd_rollout_check(args) -> int:
 def dispatch(args) -> int:
     """Run the migration verb named by ``args.op``."""
     handlers = {
-        "mint-uids": _cmd_mint_uids,
-        "migrate-manifest": _cmd_migrate_manifest,
         "migrate-store": _cmd_migrate_store,
         "shadow": _cmd_shadow,
         "hot-path": _cmd_hot_path,

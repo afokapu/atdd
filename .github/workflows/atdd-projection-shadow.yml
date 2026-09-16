@@ -1,7 +1,10 @@
 # Shadow-mode projection CI (#1400 CORE-032, M001).
 #
-# Recomputes project(store) on every push and reports its drift against BOTH the committed
-# projection and the manifest-derived one.
+# Recomputes project(store) on every push and reports its drift against the committed projection.
+#
+# It used to claim a second comparison, against the manifest-derived projection. That input was
+# deleted by `decommission-manifest`, so the comparison could only ever report a skip; it was
+# removed in #2023.
 #
 # THIS JOB IS NON-BLOCKING, AND THAT IS THE POINT. It exits 0 even when it finds drift, and it is
 # deliberately absent from the required-status-check list in `.github/atdd-merge-authority-policy.yaml`.
@@ -15,7 +18,7 @@
 # required — see `.atdd/policy/migration-rollout.yaml`, step `blocking-mode` — and this job's job
 # is done.
 #
-# It needs no GitHub API and no provider: it reads the store, the projection, and the manifest.
+# It needs no GitHub API and no provider: it reads the store and the projection.
 
 name: ATDD Projection Shadow
 
@@ -45,8 +48,11 @@ jobs:
         env:
           CI: "true"
         run: |
-          # Exits 0 by design, drift or no drift (M001). The report is the deliverable.
-          atdd state shadow --root . | tee shadow-report.txt
+          # Exits 0 by design, drift or no drift (M001). The report is the deliverable — so
+          # capture stderr too. Without `pipefail` this step's status is `tee`'s, and a tool that
+          # died would otherwise be laundered into a green job with an empty report (#2023).
+          set -o pipefail
+          atdd state shadow --root . 2>&1 | tee shadow-report.txt
 
       - name: Publish the drift report to the job summary
         if: always()
@@ -57,6 +63,12 @@ jobs:
             echo 'Non-blocking by design — this job reports, it does not gate.'
             echo
             echo '```'
-            cat shadow-report.txt 2>/dev/null || echo '(no report produced)'
+            if [ -s shadow-report.txt ]; then
+              cat shadow-report.txt
+            else
+              # An empty report is NOT a clean one. `cat` on an empty-but-present file succeeds,
+              # so the old `|| echo` fallback never fired and a crash rendered as zero drift.
+              echo '(no report produced — the shadow command wrote nothing; treat as FAILED TO RUN)'
+            fi
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"

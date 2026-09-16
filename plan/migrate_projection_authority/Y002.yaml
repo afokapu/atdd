@@ -50,6 +50,52 @@ acceptances:
     - The removed readers' tests are deleted or retargeted at the projection reader
   when:
     abstract: the source tree is scanned for manifest read paths
+- given:
+    abstract:
+    - The shipped `atdd state` verb surface after the manifest read-fallback is decommissioned
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-003
+    phase: RED
+    purpose: no registered verb resolves .atdd/manifest.yaml as its input, which the module scan cannot
+      see because the read happens inside a declared-exempt module
+    urn: acc:migrate-projection-authority:Y002-UNIT-003-no-registered-verb-reads-the-manifest
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-09-14'
+  then:
+    abstract:
+    - No verb in the `atdd state` parser, OPS tuple, or dispatch map resolves .atdd/manifest.yaml as its
+      input
+    - 'RED: `mint-uids` and `migrate-manifest` are registered today and both fail with "no legacy manifest
+      to migrate" on any real repo'
+    - The three surfaces that register a verb — OPS, add_parsers, dispatch — agree on the same verb set
+  when:
+    abstract: the registered verb surface is enumerated and each verb's input is resolved
+- given:
+    abstract:
+    - The shadow drift report, whose manifest source calls read_manifest(manifest_path(root))
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-004
+    phase: RED
+    purpose: the drift report offers no comparison source that resolves .atdd/manifest.yaml, so a
+      shipped command holds no manifest read path
+    urn: acc:migrate-projection-authority:Y002-UNIT-004-shadow-offers-no-manifest-source
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-09-14'
+  then:
+    abstract:
+    - SOURCES names exactly the sources that can be produced, and the manifest is not among them
+    - No helper remains that resolves the manifest path on behalf of the report
+    - 'RED: SOURCE_MANIFEST is declared today and its helper reads the manifest that CORE-034 deleted'
+  when:
+    abstract: the drift report's comparison sources are enumerated
 - identity:
     urn: acc:migrate-projection-authority:Y002-SMOKE-001-manifest-read-fallback
     id: AC-SMOKE-001
@@ -71,3 +117,26 @@ acceptances:
   metadata:
     author: atdd:self-compliance
     created: '2026-07-10'
+- identity:
+    urn: acc:migrate-projection-authority:Y002-SMOKE-002-shipped-cli-offers-no-manifest-verb
+    id: AC-SMOKE-002
+    phase: SMOKE
+    purpose: 'End-to-end: the real `atdd state` CLI rejects the manifest-era verbs as unknown rather than
+      failing on an input that cannot exist, still offers the live migration, and the doc-integrity checks
+      pass over the reduced surface.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - A real repo checkout and the shipped atdd CLI, with no .atdd/manifest.yaml
+  when:
+    abstract: the retired verbs are typed at the real command surface
+  then:
+    abstract:
+    - Each retired verb is refused as an invalid choice, not run and failed
+    - '`atdd state migrate-store` is still offered — the successor did not go out with them'
+    - '`atdd state runbook-check` and `atdd state rollout-check` pass against this checkout'
+  metadata:
+    author: atdd:state-projection-plan
+    created: '2026-09-14'

@@ -51,8 +51,8 @@ steps:
     repos: [core, github-extension]
     reversible: true
     summary: >-
-      Turn on the non-blocking shadow projection CI. It reports drift against BOTH the committed
-      projection and the manifest-derived one, and exits 0 always. This is the step that buys the
+      Turn on the non-blocking shadow projection CI. It reports drift against the committed
+      projection and exits 0 always — including when it cannot run at all. This is the step that buys the
       evidence every later step spends. Hold here until drift has been zero for long enough that
       the team believes it — that judgement is the point of the window, and it cannot be automated.
     depends_on: [migrate-manifest]

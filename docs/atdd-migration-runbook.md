@@ -16,52 +16,26 @@ checked by `atdd state rollout-check`. Read them *before* you open the door, not
 
 ---
 
-## mint-uids — give every work item an immutable identity
+## migrate-store — mint identity for every work item
 
-The legacy manifest keys work items by **slug**, which is display metadata and mutable. The
-projection keys them by **uid**, which is minted once and never reused. This step backfills a uid
-into every manifest entry that lacks one, and commits it.
+The projection keys work items by **uid**, which is minted once and never reused, and requires an
+`owner_actor` the legacy corpus never recorded. This step mints both, in the store, for every work
+item that lacks them.
 
-- **Command**: `atdd state migrate-manifest --mint-uids --root .` (mints, then migrates), or
-  `atdd state mint-uids --root .` to mint alone.
-- **Precondition**: a clean working tree. This step *writes the manifest*, and you want that write
+It replaces the manifest-era pair (`mint-uids`, then `migrate-manifest`). Those read
+`.atdd/manifest.yaml`, which `decommission-manifest` deletes; once it was gone they could not run at
+all, and they were removed in #2023.
+
+- **Command**: `atdd state migrate-store --root .`
+- **Precondition**: a clean working tree. This step *writes the store*, and you want that write
   reviewable on its own.
-- **Invariant**: **I1** — `project(store)` is byte-identical for the same logical store. The uid is
-  recorded here, in its own committed step, precisely so that it is *not* re-rolled on every
-  migration run. Mint identity inside the migration and the second run emits a second file for the
-  same work item: the tool that promises byte-identical re-runs becomes the tool that doubles the
-  corpus.
+- **Invariant**: **I1** — `project(store)` is byte-identical for the same logical store. Identity is
+  minted in its own recorded step precisely so it is *not* re-rolled on the next run: mint inside the
+  migration and the second run emits a second file for the same work item, and the tool that promises
+  byte-identical re-runs becomes the tool that doubles the corpus.
 
-Idempotent: an entry that already carries a well-formed uid is left exactly as it is.
-
----
-
-## migrate-manifest — emit the uid-keyed projection
-
-Reads the legacy manifest, hydrates the store, and writes one
-`.atdd/state/projection/<uid>.yaml` per work item.
-
-- **Command**: `atdd state migrate-manifest --root .`
-- **Precondition**: every manifest entry carries a uid (run `mint-uids` first). The tool
-  **refuses the whole run, before writing any file**, if an entry has no uid, a duplicate uid, or a
-  phase outside the lifecycle vocabulary — and it reports every offending entry at once, not the
-  first.
-- **Invariant**: **I1** (byte-identical re-runs — run it twice, `git diff` is empty) and **I2**
-  (the projection is derived and gated, never hand-authored: this tool is the deriving, and the
-  canonicality gate is the gating).
-
-Two things it deliberately does not carry across, and both are correct:
-
-- **The GitHub issue number** stays in the *store's* `external_refs` and never enters the
-  projection. `external_refs` is owned by `extension_bot` (see
-  [`.atdd/policy/field-ownership.yaml`](../.atdd/policy/field-ownership.yaml)); a core commit
-  writing it would be the wrong writer, and the field-writer gate would refuse it. That is the
-  external-ref quarantine working, not data being lost.
-- **`COMPLETE` work items** are archived, not projected. `COMPLETE` is *derived* from merge-to-main
-  (spec §18 decision 1) and may never be committed to a projection. Inventing a phase for a
-  completed item ("it was probably SMOKE") is exactly the lossy write this step refuses elsewhere.
-  They are counted and listed in the report; their completion lives in the merge commit that caused
-  it.
+Idempotent: a work item that already carries a well-formed uid and owner is left exactly as it is.
+Refuses the whole run before any write if an object cannot be migrated.
 
 ---
 
@@ -72,7 +46,7 @@ The non-blocking CI job that recomputes `project(store)` on every push and repor
 
 - **Command**: `atdd state shadow --root .` (locally); in CI,
   `.github/workflows/atdd-projection-shadow.yml` runs it on every push.
-- **Precondition**: the projection exists (`migrate-manifest` has run and been committed).
+- **Precondition**: the projection exists (`migrate-store` has run and the projection been committed).
 - **Invariant**: **I2** — the projection is derived and gated. Shadow mode is the *measurement* that
   earns the right to gate: it reports and **exits 0, always**. That is not a bug. A shadow check
   that could fail a build is a blocking check with a misleading name, and it would demand the trust
