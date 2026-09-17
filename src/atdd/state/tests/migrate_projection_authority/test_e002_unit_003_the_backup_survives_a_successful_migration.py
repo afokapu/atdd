@@ -37,6 +37,7 @@ from atdd.state.manifest_import import WORK_ITEM_KIND
 from atdd.state.reconcile import BACKUP_SUFFIX, _replace_store, backup_store
 from atdd.state.manifest_migration import UNATTRIBUTED_OWNER
 from atdd.state.store import StateStore
+from atdd.state.store_migration import _content_tables
 
 from ._helpers import control_root
 
@@ -52,9 +53,13 @@ def snapshot(db: Path) -> Dict[str, List[Tuple[Any, ...]]]:
     """The store's logical content: every row of every content table, order-independent."""
     conn = connect(db)
     try:
+        # Derived the way production derives it, not hardcoded: a table added to the schema
+        # is then covered by this comparison automatically. A frozen list here would be read
+        # as "the store's content" while quietly omitting whatever was added — the same
+        # claim-drifts-from-reality shape this wagon exists to prevent.
         return {
             table: sorted(tuple(row) for row in conn.execute(f"SELECT * FROM {table}"))
-            for table in SNAPSHOT_TABLES
+            for table in _content_tables(conn)
         }
     finally:
         conn.close()

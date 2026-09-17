@@ -470,6 +470,14 @@ def migrate_store_durably(
     means another process wrote in between. Then this **refuses** rather than overwriting —
     :class:`StoreChangedDuringMigrationError`, with the live store untouched.
 
+    **Known residual.** The snapshot and the baseline cannot be made simultaneous: the copy's
+    own checkpoint bumps ``data_version``, so the baseline must follow the copy. A write
+    committed in the gap between them is in neither — not in the snapshot, and already
+    counted in the baseline — and would be overwritten. The gap is one ``PRAGMA`` read and
+    the connection is opened beforehand to keep it that way, but it is not zero. Closing it
+    properly means applying the migration as a delta rather than a wholesale replacement, so
+    an untouched row is never rewritten at all.
+
     Raises :class:`LossyMigrationError` if an object cannot be migrated,
     :class:`MigrationNotCleanError` if the migrated copy does not inspect clean, and
     :class:`StoreChangedDuringMigrationError` if the store moved under us. In every case the
@@ -481,9 +489,14 @@ def migrate_store_durably(
     db_path = Path(db_path)
     backup = backup_store(db_path)  # immutable undo, before anything is written
     with tempfile.TemporaryDirectory() as tmp:
-        scratch = _scratch_copy(db_path, Path(tmp))
+        # Open the live connection BEFORE the copy so that only a single pragma read sits
+        # between the snapshot and the baseline. The baseline cannot be taken any earlier:
+        # `backup_store` and `_scratch_copy` each checkpoint the WAL on their own
+        # connections, and a checkpoint DOES bump `data_version` (measured 2 -> 3 -> 4), so
+        # a baseline read before them would never match and every migration would refuse.
         live = connect(db_path)
         try:
+            scratch = _scratch_copy(db_path, Path(tmp))
             expected = _data_version(live)
             report = _migrate_the_copy(scratch, owner_actor=owner_actor)
             _apply_in_one_transaction(live, scratch, expected_version=expected)

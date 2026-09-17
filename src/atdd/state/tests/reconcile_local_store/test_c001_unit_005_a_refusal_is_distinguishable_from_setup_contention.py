@@ -173,6 +173,57 @@ def test_python_already_applies_a_busy_timeout_before_any_pragma() -> None:
     )
 
 
+def test_journal_mode_before_busy_timeout_never_refuses_spuriously(tmp_path) -> None:
+    """The specific ordering repeatedly reported as a defect. It is not one — pinned here.
+
+    ``db.connect`` applies ``PRAGMA journal_mode = WAL`` before ``PRAGMA busy_timeout``, and
+    I reported that as a gap: the contending pragma running with no timeout, raising
+    ``database is locked`` during setup with the same text as a genuine refusal. Reviewers
+    have echoed it back more than once since. It is false, and this pins why, over the case
+    that would actually contend — a store whose journal mode genuinely has to CHANGE.
+
+    ``sqlite3.connect`` takes ``timeout=5.0`` by default, applied when the connection opens,
+    before any pragma runs. So the explicit pragma is redundant, not a late fix.
+    """
+    def seeded(mode: str) -> Path:
+        db = tmp_path / f"{mode}.sqlite"
+        conn = sqlite3.connect(str(db))
+        try:
+            if mode == "wal":
+                conn.execute("PRAGMA journal_mode = WAL")
+            conn.execute("CREATE TABLE t(x)")
+            conn.commit()
+        finally:
+            conn.close()
+        return db
+
+    # A store already in WAL: the pragma is a no-op and cannot contend at all.
+    already_wal = seeded("wal")
+    with _RawHeldLock(already_wal, seconds=1.2):
+        started = time.time()
+        connect(already_wal).close()
+        assert time.time() - started < 1.0, "an already-WAL store should not contend"
+
+    # A store that is NOT in WAL: the pragma must change the mode, so it really does need
+    # the lock. If the ordering were a defect this would raise immediately. It waits.
+    needs_change = seeded("delete")
+    with _RawHeldLock(needs_change, seconds=1.2):
+        started = time.time()
+        try:
+            connect(needs_change).close()
+        except sqlite3.OperationalError as exc:
+            pytest.fail(
+                f"connect() raised {exc!r} after {time.time() - started:.2f}s on a store "
+                "whose journal mode had to change. That would be the reported defect — but "
+                "it does not happen, because the library's default timeout is already active."
+            )
+        waited = time.time() - started
+    assert waited > 0.5, (
+        f"connect() returned in {waited:.2f}s without waiting for a held lock, so this case "
+        "did not exercise contention and proves nothing"
+    )
+
+
 def test_the_migration_does_not_hold_the_store_past_a_writer_s_patience(tmp_path) -> None:
     """A concurrent writer must not be timed out by the migration. Measured behaviourally.
 

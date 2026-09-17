@@ -38,15 +38,10 @@ import pytest
 from atdd.state.db import connect
 from atdd.state.manifest_import import WORK_ITEM_KIND
 from atdd.state.store import StateStore
+from atdd.state.store_migration import _content_tables
 
 from ._helpers import checkout, store, store_file
 
-#: Every table the store's content lives in. ``schema_migrations``/``sqlite_sequence`` are
-#: excluded: bookkeeping, identical between two stores at the same schema version.
-SNAPSHOT_TABLES = (
-    "objects", "relationships", "events", "external_refs",
-    "overlay_events", "inbox", "outbox", "store_metadata",
-)
 
 
 def _legacy_store(repo: Path, count: int = 30) -> Path:
@@ -69,9 +64,13 @@ def _snapshot(db: Path) -> dict:
     """
     conn = connect(db)
     try:
+        # Derived the way production derives it, not hardcoded: a table added to the schema
+        # is then covered by this comparison automatically. A frozen list here would be read
+        # as "the store's content" while quietly omitting whatever was added — the same
+        # claim-drifts-from-reality shape this wagon exists to prevent.
         return {
             table: sorted(tuple(row) for row in conn.execute(f"SELECT * FROM {table}"))
-            for table in SNAPSHOT_TABLES
+            for table in _content_tables(conn)
         }
     finally:
         conn.close()
