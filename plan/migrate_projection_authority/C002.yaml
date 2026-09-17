@@ -55,6 +55,31 @@ acceptances:
   when:
     abstract: the M8 cutover evaluation is run
 - identity:
+    urn: acc:migrate-projection-authority:C002-SMOKE-002-this-repo-carries-its-projection
+    id: AC-SMOKE-002
+    phase: SMOKE
+    purpose: 'The cutover has actually been performed on THIS repository: HEAD carries a committed
+      projection, and it is byte-identical to a projection built from the live store. Every other
+      C002 acceptance proves the mechanism on a fixture; this one is the only thing that can tell
+      a working mechanism apart from a performed migration, which is the distinction #1622 closed
+      COMPLETE without making.'
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - This repository at HEAD, and the live Control Root State Store it resolves to
+  when:
+    abstract: the committed projection at HEAD is compared against a projection built from that store
+  then:
+    abstract:
+    - HEAD carries a projection directory that is not empty
+    - its bytes equal a projection of the store, uid for uid
+    - the comparison reads HEAD through git, never the working tree
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-17'
+- identity:
     urn: acc:migrate-projection-authority:C002-SMOKE-001-first-committed-projection
     id: AC-SMOKE-001
     phase: SMOKE
