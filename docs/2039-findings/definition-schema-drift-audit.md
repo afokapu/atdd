@@ -8,12 +8,12 @@ against the real `plan/` corpus. Measured 2026-09-17 at `main`.
 | node | schema | verdict |
 |---|---|---|
 | `planner.wmbt.definition` | `wmbt.schema.json` | **drifted** — expands WMBT as "What-Might-Break Test"; "a way an artifact might break" cannot express `maximize` |
-| `planner.feature.definition` | `feature.schema.json` | **drifted** — names `status` and `acceptance`; neither exists. Omits `description`, `sizing`, `components`, all required |
-| `planner.interlocking.definition` | `train-interlocking.schema.json` | **drifted** — "keyed by a produced artifact"; `route` requires `guard_ref` → a guard `expression` over fields |
+| `planner.feature.definition` | `feature.schema.json` | **drifted** — names `status` and `acceptance`, in 0/190 files and in no schema property; omits 4 of 6 required. NOT invalid: no root `additionalProperties` (corrected by tri-review) |
+| `planner.interlocking.definition` | `train-interlocking.schema.json` + `plan/_dispatch.schema.json` | **incomplete, not wrong** — artifact-keying is true of the Declared Dispatch Registry; what is missing is `guard_ref` + `route_resolution.strategy` (corrected by tri-review) |
 | `planner.wagon.definition` | `wagon.schema.json` | clean |
 | `planner.train.definition` | `train.schema.json` | clean |
 | `planner.artifact.definition` | — | clean |
-| `planner.theme.definition` | none exists | not assessable against a schema; internally consistent |
+| `planner.theme.definition` | `_theme_taxonomy.py` (no JSON Schema) | assessable after all — the taxonomy validator owns the digit→theme map and confirms the text (corrected by tri-review) |
 
 ## Acronym expansions in tracked source
 
@@ -55,11 +55,16 @@ to WMBT files". Neither half validates the other.
 
 ## Authority
 
-The schema wins, structurally rather than by preference:
+**corpus > validators > schema > prose.** `plan_unit_schema.py` puts `feature` and `wmbt` on the
+**advise** tier because their schemas reject 134/188 features and 294/468 WMBTs; `wagon`, `train`,
+`interlocking` and `acceptance` are **enforce**. #760 set the precedent by changing the schema to
+match the corpus.
 
-1. `acceptances` is a *property* of a WMBT (`$ref acceptance.schema.json#/definitions/embedded_acceptance`). A thing that has acceptances is not an acceptance criterion.
-2. `planner.wmbt.shape`, a sibling node already correct, calls them "the artifacts that **prove** the statement".
-3. "A way an artifact might break" cannot describe 87 `maximize` WMBTs.
+The surviving arguments (the nesting one was withdrawn under review — containment is not semantic
+category, and `wmbt.schema.json` disclaims its own enforcement):
+
+1. `planner.wmbt.shape`, `status: active`, calls acceptances "the artifacts that **prove** the statement".
+2. "A way an artifact might break" cannot describe 87 `maximize` WMBTs.
 
 ## Corrected definition (proposed)
 
@@ -72,3 +77,10 @@ The schema wins, structurally rather than by preference:
 > A WMBT is **not** itself a test or an acceptance criterion: the `acceptances` it
 > carries are the artifacts that prove it, of which at least one must be a SMOKE
 > acceptance.
+
+## Fourth node, found by tri-review
+
+`planner.feature.shape` — `kind: rule`, **`status: active`** — states verbatim "Feature YAMLs
+declare a urn, a status, and a non-empty acceptance section." It is the source of the feature
+drift; the definition node's `terms` block cites it by name. The `terms:` blocks of the definition
+nodes carry the same claims, and WMBT's says a WMBT "declares its **id**" where the field is `urn`.
