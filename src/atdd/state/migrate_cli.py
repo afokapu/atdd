@@ -171,7 +171,7 @@ def _cmd_migrate_store(args) -> int:
     """
     from atdd.state.db import connect, init_state_store
     from atdd.state.store_migration import (
-        MigrationNotCleanError, StoreLockedError, migrate_store_durably,
+        MigrationNotCleanError, StoreChangedDuringMigrationError, migrate_store_durably,
     )
 
     root = _root(args)
@@ -186,12 +186,12 @@ def _cmd_migrate_store(args) -> int:
 
     try:
         result = migrate_store_durably(db_path, owner_actor=args.owner_actor)
-    except StoreLockedError as exc:
+    except StoreChangedDuringMigrationError as exc:
         # Logged at the raise site too, but only with the db path: this is the layer that
         # knows which command the operator ran and against which root
         # (coder.logging.coach-silent-swallow — observably react, do not merely return).
         _log.warning(
-            "migrate-store refused: the store could not be fenced",
+            "migrate-store refused: the store was written while the migration prepared",
             extra={"command": "migrate-store", "root": str(root), "error": str(exc)},
         )
         return _fail(f"refusing to migrate: {exc}")

@@ -3,12 +3,13 @@ step: confirm
 direction: minimize
 dimension: likelihood
 object_of_control: dirty-store-overwrite
-context_clarifier: when reconcile runs against a store whose overlay_events are non-empty, the gate classifies
-  it dirty, backs up state.sqlite before any mutation, and routes to replay; every plain hydrate-overwrite
-  path raises before touching sqlite
+context_clarifier: when reconcile runs against a store whose overlay_events are non-empty,
+  the gate classifies it dirty, backs up state.sqlite before any mutation, and routes
+  to replay; every plain hydrate-overwrite path raises before touching sqlite
 lens: functional.sustainability
-statement: minimize likelihood of a dirty-store-overwrite by classifying a non-empty overlay as dirty,
-  backing up before any mutation, and raising on every overwrite path
+statement: minimize likelihood of a dirty-store-overwrite by classifying a non-empty
+  overlay as dirty, backing up before any mutation, and raising on every overwrite
+  path
 acceptances:
 - given:
     abstract:
@@ -20,8 +21,8 @@ acceptances:
   identity:
     id: AC-UNIT-001
     phase: GREEN
-    purpose: a store with non-empty overlay_events is classified dirty, backed up before any mutation,
-      and routed to replay rather than overwrite
+    purpose: a store with non-empty overlay_events is classified dirty, backed up
+      before any mutation, and routed to replay rather than overwrite
     urn: acc:reconcile-local-store:C001-UNIT-001-dirty-store-is-backed-up-not-overwritten
   metadata:
     author: atdd:self-compliance
@@ -42,8 +43,8 @@ acceptances:
   identity:
     id: AC-UNIT-002
     phase: RED
-    purpose: any code path that would replace a dirty store with hydrate(incoming) raises before touching
-      sqlite
+    purpose: any code path that would replace a dirty store with hydrate(incoming)
+      raises before touching sqlite
     urn: acc:reconcile-local-store:C001-UNIT-002-overwrite-path-raises-before-mutation
   metadata:
     author: atdd:self-compliance
@@ -59,20 +60,109 @@ acceptances:
     urn: acc:reconcile-local-store:C001-SMOKE-001-dirty-store-overwrite
     id: AC-SMOKE-001
     phase: SMOKE
-    purpose: 'End-to-end: dirty-store-overwrite holds against a real repo checkout, the installed atdd
-      CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+    purpose: "End-to-end: dirty-store-overwrite holds against a real repo checkout,\
+      \ the installed atdd CLI, and a real .atdd/state/state.sqlite \u2014 no manual\
+      \ patching."
   harness:
     type: integration
     category: backend
   given:
     abstract:
-    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising dirty-store-overwrite
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising
+      dirty-store-overwrite
   when:
     abstract: the C001 behavior is driven end-to-end through the real CLI
   then:
     abstract:
-    - dirty-store-overwrite is observed to hold end-to-end against real infrastructure, with no mocks
-      or manual patching
+    - dirty-store-overwrite is observed to hold end-to-end against real infrastructure,
+      with no mocks or manual patching
   metadata:
     author: atdd:self-compliance
     created: '2026-07-10'
+- identity:
+    id: AC-UNIT-003
+    phase: RED
+    purpose: "a write committed by another process while the store migration is in\
+      \ flight is never silently discarded \u2014 the store swap replaces contents\
+      \ inside one transaction, so there is no interval in which a committed write\
+      \ can be overwritten"
+    urn: acc:reconcile-local-store:C001-UNIT-003-a-concurrent-write-is-never-silently-lost
+  harness:
+    category: backend
+    type: unit
+  given:
+    abstract:
+    - A live WAL-mode State Store of legacy work items, shared by more than one writer
+    - A second OS process holding a plain store connection, taking no lock and knowing
+      of none
+  when:
+    abstract: the store migration runs while that second process commits one object
+  then:
+    abstract:
+    - The concurrent write either survives the migration or its author is refused
+      with an explicit lock error; it is never accepted and then discarded
+    - The migration still completes and every work item is contract-shaped afterwards
+    - 'The writer must be a plain store write that takes no lock: a writer that cooperates
+      with a lock proves only that two consenting processes can agree, which was never
+      in doubt'
+    - 'RED: the swap releases its fence and then moves the file, so a write landing
+      in that interval is overwritten with no error and no trace'
+  metadata:
+    author: atdd:issue-2031
+    created: '2026-09-17'
+- identity:
+    id: AC-UNIT-004
+    phase: RED
+    purpose: "a migration killed part-way leaves the store intact and unmigrated rather\
+      \ than half-applied \u2014 the cure must not become the next outage"
+    urn: acc:reconcile-local-store:C001-UNIT-004-a-killed-migration-leaves-the-store-intact
+  harness:
+    category: backend
+    type: unit
+  given:
+    abstract:
+    - A live WAL-mode State Store of legacy work items
+    - A migration process killed after it has begun replacing store contents and before
+      it commits
+  when:
+    abstract: the store is reopened by any other process
+  then:
+    abstract:
+    - The store opens without error and passes an integrity check
+    - "Its logical content equals the pre-migration snapshot \u2014 no object is half-migrated"
+    - No operator cleanup step is required, and no lock or marker file must be cleared
+      by hand
+    - 'RED: this property is what the previously specified Control-Root lockfile would
+      have put at risk, and it is unpinned today'
+  metadata:
+    author: atdd:issue-2031
+    created: '2026-09-17'
+- identity:
+    id: AC-UNIT-005
+    phase: RED
+    purpose: a caller can tell a deliberate refusal from a failure to establish the
+      connection at all, so the serialisation is not blamed for faults it did not
+      cause
+    urn: acc:reconcile-local-store:C001-UNIT-005-a-refusal-is-distinguishable-from-setup-contention
+  harness:
+    category: backend
+    type: unit
+  given:
+    abstract:
+    - A State Store connection helper that applies its pragmas in a fixed order
+    - A concurrent holder of the store's write lock
+  when:
+    abstract: a second caller opens a connection and attempts a write while the lock
+      is held
+  then:
+    abstract:
+    - A refusal caused by the held lock is reported distinguishably from a failure
+      raised while the connection was still being set up
+    - The busy timeout is in force before any pragma that can itself contend, so a
+      configured wait is actually honoured rather than bypassed
+    - "RED: journal_mode is set before busy_timeout, so the contending pragma runs\
+      \ with no timeout and raises the same \"database is locked\" text as a genuine\
+      \ refusal \u2014 measured to masquerade as one"
+  metadata:
+    author: atdd:issue-2031
+    created: '2026-09-17'
