@@ -43,7 +43,6 @@ from atdd.state.store_migration import _content_tables
 from ._helpers import checkout, store, store_file
 
 
-
 def _legacy_store(repo: Path, count: int = 30) -> Path:
     conn = store(repo)
     try:
@@ -64,10 +63,10 @@ def _snapshot(db: Path) -> dict:
     """
     conn = connect(db)
     try:
-        # Derived the way production derives it, not hardcoded: a table added to the schema
-        # is then covered by this comparison automatically. A frozen list here would be read
-        # as "the store's content" while quietly omitting whatever was added — the same
-        # claim-drifts-from-reality shape this wagon exists to prevent.
+        # Derived the way production derives it, never frozen here: a table added to the
+        # schema is then covered by this comparison automatically. A hardcoded list would
+        # read as "the store's content" while quietly omitting whatever was added — the
+        # same claim-drifts-from-reality shape this work exists to prevent.
         return {
             table: sorted(tuple(row) for row in conn.execute(f"SELECT * FROM {table}"))
             for table in _content_tables(conn)

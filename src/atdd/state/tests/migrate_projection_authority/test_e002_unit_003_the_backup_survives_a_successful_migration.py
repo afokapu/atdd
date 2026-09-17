@@ -41,22 +41,15 @@ from atdd.state.store_migration import _content_tables
 
 from ._helpers import control_root
 
-#: Every table the store's content lives in. ``schema_migrations``/``sqlite_sequence`` are
-#: excluded deliberately: they are bookkeeping, identical between any two stores at the same
-#: schema version, and including them would make the comparison look stronger than it is.
-SNAPSHOT_TABLES = (
-    "objects", "relationships", "events", "external_refs",
-    "overlay_events", "inbox", "outbox", "store_metadata",
-)
 
 def snapshot(db: Path) -> Dict[str, List[Tuple[Any, ...]]]:
     """The store's logical content: every row of every content table, order-independent."""
     conn = connect(db)
     try:
-        # Derived the way production derives it, not hardcoded: a table added to the schema
-        # is then covered by this comparison automatically. A frozen list here would be read
-        # as "the store's content" while quietly omitting whatever was added — the same
-        # claim-drifts-from-reality shape this wagon exists to prevent.
+        # Derived the way production derives it, never frozen here: a table added to the
+        # schema is then covered by this comparison automatically. A hardcoded list would
+        # read as "the store's content" while quietly omitting whatever was added — the
+        # same claim-drifts-from-reality shape this work exists to prevent.
         return {
             table: sorted(tuple(row) for row in conn.execute(f"SELECT * FROM {table}"))
             for table in _content_tables(conn)
