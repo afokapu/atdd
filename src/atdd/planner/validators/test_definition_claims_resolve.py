@@ -232,12 +232,26 @@ def all_authority_fields() -> Set[str]:
     return fields
 
 
-def _claimed_fields(node: dict) -> Set[str]:
-    """Field names a node asserts — in the statement and in every term.
+def _claimed_fields(node: dict) -> Tuple[Set[str], Set[str]]:
+    """Field names a node asserts, split by how certain the claim is.
 
-    Read over `terms` as well as `statement` because both carry field claims: the
-    wmbt anchor's `well-shaped` term asserts "id" where the field is `urn`, and the
-    feature anchor's carries the status/acceptance claim verbatim.
+    Returns ``(explicit, inferred)``:
+
+    ``explicit``
+        Backticked identifiers. The repo's own convention for naming a field in
+        prose, so these are unambiguous claims and are trusted as-is — including
+        a name that exists nowhere, which is the invented-field case. Putting
+        these through the union filter below would swallow exactly the drift the
+        rule is for (the seeded-drift SMOKE caught this).
+
+    ``inferred``
+        Un-backticked nouns mined from a "declares …" clause. Needed because the
+        legacy phrasing carries no backticks ("declares a urn, a status, and a
+        non-empty acceptance section"), but noisy, so the caller filters these
+        against the union of every authority's fields.
+
+    Read over the `terms` block as well as `statement`: both carry claims — the
+    wmbt anchor's `well-shaped` term asserted "id" where the field is `urn`.
     """
     blobs = [str(node.get("statement") or "")]
     for term in node.get("terms") or []:
@@ -245,15 +259,15 @@ def _claimed_fields(node: dict) -> Set[str]:
         for value in (term.get("values") or {}).values():
             blobs.append(str(value))
 
-    claimed: Set[str] = set()
+    explicit: Set[str] = set()
+    inferred: Set[str] = set()
     for blob in blobs:
-        claimed |= set(re.findall(r"`([a-z][a-z0-9_.]{2,})`", blob))
-        # "declares a urn, a status, and a non-empty acceptance section" — the list
-        # continues past the verb, so take the whole clause and mine every noun.
+        explicit |= set(re.findall(r"`([a-z][a-z0-9_.]{2,})`", blob))
         for m in re.finditer(r"\b(?:declares?|carries|carrying)\b([^.;]{0,160})", blob):
-            for word in re.findall(r"[a-z][a-z0-9_]{2,}", m.group(1)):
-                claimed.add(word)
-    return {c.split(".")[0] for c in claimed}
+            clause = re.sub(r"`[^`]*`", " ", m.group(1))  # backticked handled above
+            inferred |= set(re.findall(r"[a-z][a-z0-9_]{2,}", clause))
+    strip = lambda s: {c.split(".")[0] for c in s}
+    return strip(explicit), strip(inferred)
 
 
 def scan_field_claims() -> List[Violation]:
@@ -287,13 +301,23 @@ def scan_field_claims() -> List[Violation]:
             )
             continue
         known = all_authority_fields()
-        candidates = _claimed_fields(node) - supported
-        # Keep only words that ARE a field somewhere — a word that names no field
-        # anywhere is prose. Singular/plural are the same claim.
-        drifted = {
-            c for c in candidates - _PROSE_NOUNS
-            if (c in known or f"{c}s" in known)
-            and not (f"{c}s" in supported or c.rstrip("s") in supported)
+        explicit, inferred = _claimed_fields(node)
+
+        def unsupported(candidate: str) -> bool:
+            return not (
+                candidate in supported
+                or f"{candidate}s" in supported
+                or candidate.rstrip("s") in supported
+            )
+
+        # A backticked name is an unambiguous claim: trust it, including one that
+        # names no field anywhere — that is an invented field, not prose.
+        drifted = {c for c in explicit if unsupported(c)}
+        # An un-backticked noun is only a claim if it IS a field somewhere; this is
+        # what rejects "exactly" and "smallest" while catching "status".
+        drifted |= {
+            c for c in (inferred - _PROSE_NOUNS)
+            if (c in known or f"{c}s" in known) and unsupported(c)
         }
         for field in sorted(drifted):
             violations.append(
