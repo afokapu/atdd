@@ -10,7 +10,7 @@ Four defects, one chain — each with its own owner and its own guard.
 
 ---
 
-## D1 — the gate cannot express the rule it documents  *(fix first)*
+## D1a — the gate cannot express the rule it documents  *(fixed)*
 
 `src/atdd/tester/validators/test_contract_schema_compliance.py`
 (`test_contract_id_format_follows_convention`, SPEC-PLATFORM-CONTRACTS-0011) lists
@@ -18,11 +18,42 @@ Four defects, one chain — each with its own owner and its own guard.
 `^[a-z][a-z0-9\-]+(:[a-z][a-z0-9\-]+)+(\.[a-z][a-z0-9\-]+)*$`. Measured: it scans
 the file, reads the prefixed `$id`, and passes.
 
-**Change:** reject an `$id` whose first segment is the `contract` family name.
-**Guard:** fault-inject — point the validator at a fixture carrying
-`$id: contract:match:result` and watch it go **red**, then green after the fix. A
-guard never seen red is a guard you are guessing about.
-**Why first:** every other fix below is unenforceable while this one is blind.
+**Change:** `CONTRACT_ID_PATTERN` now excludes a leading `contract:` *and* a
+leading `urn:` — both spellings `planner.artifact-naming.schema-identifier`
+forbids by name ("the clean artifact name ... with NO `urn:contract:` prefix").
+**Guard:** three detection proofs, deliberately **not** `platform`-marked so they
+run wherever the module does. Fault-injected: restoring the old pattern turns
+both rejection proofs red and leaves the acceptance proof green.
+**Measured before implementing:** red on `contract:match:result`, 0/21
+regressions across this repo's committed contracts.
+
+## D1b — even fixed, that gate never runs where violations happen
+
+`test_contract_id_format_follows_convention` is `@pytest.mark.platform`, and
+`test_runner.py:283-285` sets `consumer_mode = not is_atdd_source_repo()`, which
+appends `-m 'not platform'`. Measured against the lab world:
+
+```
+is_atdd_source_repo: False  =>  consumer_mode: True  =>  adds: not platform
+pytest …test_contract_schema_compliance.py -m "not platform"
+  no tests collected (9 deselected)
+```
+
+So the `$id` rule has **zero enforcement in exactly the repos that can violate
+it**. The validator reads consumer artifacts — `CONTRACTS_DIR = REPO_ROOT /
+"contracts"`, under a comment that literally says "Consumer repo artifacts" —
+while carrying a marker that confines it to the toolkit. D1a makes the toolkit's
+own gate honest; it does not protect a consumer repo, and would not have caught
+the reported defect.
+
+**This is a disposition decision, not a patch.** Dropping the `platform` marker
+would start the scan in every consumer repo and go red on whatever `$id` debt is
+already there — which is the point, but it is a ratchet someone owns. The repo
+has the machinery for this (advisory → strict); choosing the entry disposition is
+the decision. Deliberately not taken here.
+
+**Why D1 came first:** every other fix is unenforceable while the gate is blind —
+and D1b says it is still blind for consumers even now.
 
 ## D2 — `create_contract` writes the forbidden spelling
 
@@ -161,9 +192,12 @@ source. Anything not in the registry is reported, not guessed.
 
 ## Sequencing
 
-D6 first if it is cheap (it is a docs reconciliation, and every other fix cites
-the rule it settles) → D1 → (D2 + D4 + D5) → D3 as the planner decision that
-unblocks D2's acceptance → consumer migration.
+**Landed:** D4, then D1a. Both are unambiguously bug fixes rather than convention
+choices, both measured, both with fault-injected guards.
+
+**Remaining:** D6 next if it is cheap (a docs reconciliation, and every other fix
+cites the rule it settles) → D1b's disposition decision → (D2 + D5) → D3 as the
+planner decision that unblocks D2's acceptance → consumer migration.
 
 D4 can land independently and immediately: self-contained, measured zero blast
 radius, and correct under either end-state — both reviewers said ship it on its

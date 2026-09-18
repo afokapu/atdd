@@ -283,13 +283,46 @@ is "fix the writer" is that no heuristic over `$id` can be correct while two
 spellings exist.
 
 
+## Measurement 10 — the gate is blind twice, and the second one is worse
+
+Measurement 3 showed the validator's regex cannot express its own rule. Fixing the
+regex raises the obvious question: would the fixed gate have caught the reported
+defect? Measured against the lab world:
+
+```
+is_atdd_source_repo : False
+=> consumer_mode    : True   => test_runner.py:283-285 appends  -m 'not platform'
+
+pytest …test_contract_schema_compliance.py -m "not platform"
+  no tests collected (9 deselected)
+```
+
+**No.** `test_contract_id_format_follows_convention` carries
+`@pytest.mark.platform`, so every consumer repo deselects it — along with the
+other eight contract-compliance checks. The rule has zero enforcement in exactly
+the repos that can violate it.
+
+The mark contradicts what the test reads: `CONTRACTS_DIR = REPO_ROOT /
+"contracts"` resolves through `ATDD_REPO_ROOT` to the *consumer's* contracts, and
+sits under a comment reading "Consumer repo artifacts". A validator that reads
+consumer artifacts is confined to the toolkit.
+
+So the causal chain in the conclusion needs one more link, and it is the load-
+bearing one: the rule was not merely unenforceable because of a loose regex — it
+was **unreachable**. Tightening the regex (landed) makes the toolkit's own gate
+honest and changes nothing for consumers. That second half is a disposition
+decision, not a patch, and is recorded as D1b in the plan.
+
+
 ## Conclusion
 
 Six defects, one causal chain:
 
 1. `test_contract_id_format_follows_convention` documents the bare-`$id` rule but
    its regex cannot detect a violation — a check that cannot establish its answer
-   reports the clean answer.
+   reports the clean answer. Worse, it is `platform`-marked, so it is deselected
+   in every consumer repo: the rule was unreachable, not just loosely written
+   (measurement 10).
 2. `create_contract` (`author.py:1097`) therefore shipped writing a forbidden
    prefixed `$id`, while writing the registry identity bare.
 3. E008-UNIT-001 froze that violation into a GREEN acceptance.
