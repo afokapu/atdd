@@ -145,10 +145,12 @@ wagons:
     to: external
   consume: []
   wmbt:
-    total: 31
+    total: 32
     C015: minimize likelihood of lab-scaffold-strings-the-gate-cannot-read by emitting
       `## Lab` with its four subsections from an exported LAB_SCAFFOLD constant that
       the gate reads, leaving the emitted body schema-valid and template-compliant
+    C016: 'minimize likelihood of definition-node-drift: no definition node asserts
+      a field, vocabulary or semantic its governing authority does not support'
     E012: minimize likelihood of drift-guard-constants-restating-the-schema-by-hand
       by deriving the helper's optional-section and required-subsection sets from
       issue.schema.json, the way the production reader already does
