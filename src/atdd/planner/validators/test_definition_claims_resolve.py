@@ -180,7 +180,10 @@ def _corpus_fields(which: str) -> Set[str]:
 
 def _validator_fields(module: str) -> Set[str]:
     """Field/vocabulary names a validator module owns, read from its source."""
-    hits = list((REPO / "src" / "atdd" / "planner" / "validators").rglob(f"{module}*.py"))
+    # Package-relative: this validator lives in the directory it scans, so anchor on
+    # __file__ rather than assuming a source checkout at <repo>/src/atdd
+    # (coach.code-roots.no-hardcoded-toolkit-root).
+    hits = list(Path(__file__).resolve().parent.rglob(f"{module}*.py"))
     fields: Set[str] = set()
     for path in hits:
         text = path.read_text(encoding="utf-8", errors="replace")

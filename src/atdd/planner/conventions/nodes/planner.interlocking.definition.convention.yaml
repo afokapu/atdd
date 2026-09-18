@@ -3,15 +3,17 @@ rule_id: planner.interlocking.definition
 kind: family
 status: draft
 name: Interlocking — advisory semantic anchor
-statement: An interlocking is the domain-decomposition artifact for a diverging journey
-  — it declares WHICH train is selected next when a journey branches, keyed by a produced
-  artifact (the divergence signal), composing multiple strictly-linear trains into a
-  branching journey-of-journeys. It is a declared routing registry (artifact_urn ->
-  train_id), not an imperative map. This names the routing DECISION; the runtime that
-  resolves and executes it (the route-control runner and its dispatcher) is a coder/tester
-  concern. This node is an advisory semantic anchor — it enforces nothing directly;
-  the enforceable parts of this meaning are decomposed into the constraint/rule nodes
-  that require it.
+statement: >-
+  An interlocking is the domain-decomposition artifact for a diverging journey — it
+  declares WHICH train is selected next when a journey branches, composing multiple
+  strictly-linear trains into a branching journey-of-journeys. Selection is declared two
+  ways, and both are the domain's — each route references a declared `guard` expression
+  (`guard_ref` into `fragments[].guards[]`) resolved under an explicit
+  `route_resolution.strategy`, while the declared dispatch registry maps a produced
+  divergence artifact_urn to the train that resolves it. Both are declared registries, not
+  imperative maps. This names the routing DECISION; the runtime that resolves and executes
+  it (the route-control runner and its dispatcher) is a coder/tester concern. This node is
+  an advisory semantic anchor — it enforces nothing directly;
 terms:
 - term_id: semantic_anchor
   label: Advisory semantic anchor
@@ -20,10 +22,13 @@ terms:
     nodes that require it.
 - term_id: interlocking
   label: Interlocking
-  text: interlocking -> {routing-decision, artifact-keyed, declared-registry, train-composing}.
+  text: interlocking -> {routing-decision, guard-selected, artifact-keyed, declared-registry,
+    train-composing}.
   values:
     routing-decision: selects the next train when a journey diverges, rather than branching
       inside a train (trains stay linear, see planner.train.linearity).
+    guard-selected: each route references a declared guard expression by `guard_ref`,
+      resolved under an explicit `route_resolution.strategy` — never by implicit order.
     artifact-keyed: dispatch is keyed by a produced artifact URN; a composite (urn,
       discriminant) key is exceptional (see planner.train.dispatch-map-is-registry,
       planner.train.dispatch-composite-key-exceptional).

@@ -91,7 +91,7 @@
                 { "properties": { "name": { "const": "archetype:be" },         "color": { "const": "D4C5F9" }, "description": { "const": "Python FastAPI 4-layer" } } },
                 { "properties": { "name": { "const": "archetype:fe" },         "color": { "const": "D4C5F9" }, "description": { "const": "TypeScript/Preact 4-layer" } } },
                 { "properties": { "name": { "const": "archetype:contracts" },  "color": { "const": "D4C5F9" }, "description": { "const": "JSON Schema contracts" } } },
-                { "properties": { "name": { "const": "archetype:wmbt" },       "color": { "const": "D4C5F9" }, "description": { "const": "What Must Be True criteria" } } },
+                { "properties": { "name": { "const": "archetype:wmbt" },       "color": { "const": "D4C5F9" }, "description": { "const": "What Must Be True — directional outcome statements" } } },
                 { "properties": { "name": { "const": "archetype:wagon" },      "color": { "const": "D4C5F9" }, "description": { "const": "Bounded context module" } } },
                 { "properties": { "name": { "const": "archetype:train" },      "color": { "const": "D4C5F9" }, "description": { "const": "Journey orchestration" } } },
                 { "properties": { "name": { "const": "archetype:telemetry" },  "color": { "const": "D4C5F9" }, "description": { "const": "Observability artifacts" } } },

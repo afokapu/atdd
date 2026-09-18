@@ -3,7 +3,8 @@ rule_id: planner.feature.shape
 kind: rule
 status: active
 name: Feature shape
-statement: Feature YAMLs declare a urn, a status, and a non-empty acceptance section.
+statement: Feature YAMLs declare a `urn`, a `wagon`, a `description`, the `wmbts` they
+  cover, `sizing`, and `components`.
 source:
   legacy_path: src/atdd/planner/conventions/feature.convention.yaml
   legacy_section: rules
@@ -24,4 +25,4 @@ parity:
   reviewed_at: '2026-06-16'
 terms:
 - term_id: required_fields
-  text: urn, status, and a non-empty acceptance section.
+  text: urn, wagon, description, wmbts, sizing, and components.

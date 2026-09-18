@@ -4,7 +4,7 @@ Generate comprehensive repository inventory.
 
 Catalogs all artifacts across the ATDD lifecycle:
 - Platform: .claude/ infrastructure (conventions, schemas, commands, agents, utils, actions)
-- Planning: Trains, wagons, features, WMBT acceptance (C/L/E/P patterns)
+- Planning: Trains, wagons, features, WMBTs (D/L/P/C/E/M/Y/R/K step codes)
 - Testing: Contracts, telemetry, test files (meta + feature tests)
 - Coding: Implementation files (Python, Dart, TypeScript)
 - Tracking: Facts/logs, ATDD documentation
@@ -510,29 +510,41 @@ class RepositoryInventory:
             "by_wagon": dict(by_wagon)
         }
 
-    def scan_wmbt_acceptance(self) -> Dict[str, Any]:
-        """Scan for WMBT (Write Meaningful Before Tests) acceptance files."""
+    def scan_wmbts(self) -> Dict[str, Any]:
+        """Scan for WMBT (What Must Be True) files — one per step-coded outcome.
+
+        The step codes are the JTBD decomposition steps from `wmbt.schema.json`'s
+        `step` enum, and there are nine. This scanner previously declared four of
+        its own invention (C=Contract, L=Logic, E=Edge, P=Performance) and globbed
+        on them, so it counted 334 of 484 WMBTs and mislabelled every code it did
+        know. `issue.convention.yaml` already carried the right nine (#2039).
+        """
         plan_dir = self.repo_root / "plan"
 
         if not plan_dir.exists():
             return {"total": 0, "by_category": {}, "by_wagon": {}}
 
-        # WMBT categories: C (Contract), L (Logic), E (Edge), P (Performance)
+        # The nine JTBD steps, as wmbt.schema.json's `step` enum declares them.
         wmbt_patterns = {
-            "contract": "C",
-            "logic": "L",
-            "edge": "E",
-            "performance": "P"
+            "define": "D",
+            "locate": "L",
+            "prepare": "P",
+            "confirm": "C",
+            "execute": "E",
+            "monitor": "M",
+            "modify": "Y",
+            "resolve": "R",
+            "conclude": "K",
         }
 
-        by_category = defaultdict(int)
+        by_step = defaultdict(int)
         by_wagon = defaultdict(lambda: defaultdict(int))
         total = 0
 
         for category, prefix in wmbt_patterns.items():
             # Find files matching pattern like C001.yaml, L001.yaml, etc.
             category_files = list(plan_dir.glob(f"**/{prefix}[0-9]*.yaml"))
-            by_category[category] = len(category_files)
+            by_step[category] = len(category_files)
             total += len(category_files)
 
             # Count by wagon
@@ -543,7 +555,7 @@ class RepositoryInventory:
 
         return {
             "total": total,
-            "by_category": dict(by_category),
+            "by_step": dict(by_step),
             "by_wagon": {
                 wagon: dict(categories)
                 for wagon, categories in by_wagon.items()
@@ -679,8 +691,8 @@ class RepositoryInventory:
         print(f"  ✓ Found {self.inventory['inventory']['features']['total']} features")
 
         # Acceptance criteria (both traditional and WMBT)
-        self.inventory["inventory"]["wmbt_acceptance"] = self.scan_wmbt_acceptance()
-        print(f"  ✓ Found {self.inventory['inventory']['wmbt_acceptance']['total']} WMBT acceptance files")
+        self.inventory["inventory"]["wmbts"] = self.scan_wmbts()
+        print(f"  ✓ Found {self.inventory['inventory']['wmbts']['total']} WMBT files")
 
         self.inventory["inventory"]["acceptance_criteria"] = self.scan_acceptance_criteria()
         print(f"  ✓ Found {self.inventory['inventory']['acceptance_criteria']['total']} traditional acceptance criteria")
