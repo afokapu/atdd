@@ -38,7 +38,7 @@ import pytest
 from atdd.state.db import connect
 from atdd.state.manifest_import import WORK_ITEM_KIND
 from atdd.state.store import StateStore
-from atdd.state.store_migration import _content_tables
+from atdd.state.store_contents import _content_tables
 
 from ._helpers import checkout, store, store_file
 

@@ -53,6 +53,7 @@ from atdd.state.db import connect
 from atdd.state.manifest_import import WORK_ITEM_KIND
 from atdd.state.manifest_migration import UNATTRIBUTED_OWNER
 from atdd.state.store import StateStore
+from atdd.state.store_contents import UnknownStoreTableError
 from atdd.state.store_migration import (
     StoreChangedDuringMigrationError,
     migrate_store_durably,
@@ -230,4 +231,48 @@ def test_a_concurrent_reader_is_not_blocked(tmp_path) -> None:
     assert "seconds" in latency, "a concurrent reader was refused outright"
     assert latency["seconds"] < 5.0, (
         f"a concurrent read took {latency['seconds']:.2f}s during the migration"
+    )
+
+
+def test_a_table_the_replacement_cannot_move_refuses_rather_than_dropping_it(
+    tmp_path,
+) -> None:
+    """The same invariant one level up: rows are never accepted-then-discarded either.
+
+    The replacement's statements are static text (``atdd.state.store_contents``) because
+    ``coder.security.sql-injection`` is strict and table names cannot be bound as
+    parameters. That trades a generated statement for a declared one, and the risk it
+    buys is a schema migration adding a table nobody taught the replacement about — whose
+    rows would then be deleted and never refilled. So the table list is still read from
+    the *live* store, and a table with no statement pair stops the run.
+
+    Lives here rather than in its own module because it is the same defect this acceptance
+    exists for — a write that was committed and is then silently gone — reached by a
+    different route.
+    """
+    repo = checkout(tmp_path / "repo")
+    db = _legacy_store(repo)
+
+    conn = connect(db)
+    try:
+        conn.execute("CREATE TABLE side_car (uid TEXT PRIMARY KEY, note TEXT)")
+        conn.execute("INSERT INTO side_car (uid, note) VALUES (?, ?)", (MARK, "keep me"))
+        conn.commit()
+    finally:
+        conn.close()
+
+    with pytest.raises(UnknownStoreTableError) as caught:
+        migrate_store_durably(db, owner_actor=UNATTRIBUTED_OWNER)
+
+    assert "side_car" in str(caught.value), caught.value
+
+    conn = connect(db)
+    try:
+        surviving = conn.execute("SELECT note FROM side_car WHERE uid=?", (MARK,)).fetchone()
+    finally:
+        conn.close()
+    assert surviving is not None, "the refusal dropped the rows it refused to move"
+
+    assert any(uid.startswith("legacy-slug-") for uid in _uids(db)), (
+        "the refusal left a half-migrated store rather than the one it started with"
     )

@@ -37,7 +37,7 @@ from atdd.state.manifest_import import WORK_ITEM_KIND
 from atdd.state.reconcile import BACKUP_SUFFIX, _replace_store, backup_store
 from atdd.state.manifest_migration import UNATTRIBUTED_OWNER
 from atdd.state.store import StateStore
-from atdd.state.store_migration import _content_tables
+from atdd.state.store_contents import _content_tables
 
 from ._helpers import control_root
 
