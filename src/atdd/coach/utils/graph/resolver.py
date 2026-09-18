@@ -734,6 +734,11 @@ class SecurityResolver(BaseResolver):
         return None
 
 
+#: The `contract:` URN family prefix. Named so the strip in `resolve` is a
+#: prefix removal of a known length rather than a substring substitution (#2043).
+_CONTRACT_PREFIX = "contract:"
+
+
 class ContractResolver(BaseResolver):
     """
     Resolver for contract: URNs.
@@ -753,7 +758,15 @@ class ContractResolver(BaseResolver):
         if error:
             return URNResolution(urn=urn, family=self.family, error=error)
 
-        contract_id = urn.replace("contract:", "")
+        # Strip the FAMILY PREFIX, not every occurrence of it. `str.replace`
+        # removes the prefix again wherever it recurs inside the identity, so a
+        # contract whose own theme is named `contract` resolved to the wrong id
+        # and was reported as a missing schema (#2043). The identity is whatever
+        # follows the one leading `contract:`. Two other sites in this codebase
+        # already strip this way — `planner.interlocking.contract_resolution
+        # .normalize_identity` and the #1332 registry-coherence validator; this
+        # one was the outlier.
+        contract_id = urn[len(_CONTRACT_PREFIX):] if urn.startswith(_CONTRACT_PREFIX) else urn
         paths = self._find_contract_files(contract_id)
 
         return URNResolution(
