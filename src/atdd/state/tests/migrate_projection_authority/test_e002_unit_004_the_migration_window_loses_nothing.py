@@ -74,6 +74,13 @@ def sidecars(db: Path) -> list[str]:
 
 
 def run_migrate_store(root: Path) -> int:
+    """Drive the shipped verb. A refusal is a legitimate exit, not an error here.
+
+    #2031 gave the migration a third outcome: rather than applying a snapshot over somebody
+    else's write, it refuses and changes nothing. The verb turns that into a non-zero exit
+    with a retry message, which is what this returns — the assertions below judge the
+    *write's* fate, and a refusal that leaves it in place satisfies them.
+    """
     return migrate_cli.dispatch(SimpleNamespace(
         op="migrate-store", root=str(root), dry_run=False,
         owner_actor=UNATTRIBUTED_OWNER, package=None,
@@ -114,6 +121,10 @@ def test_a_concurrent_write_is_never_silently_discarded(tmp_path: Path) -> None:
         "a write was committed to the live store during the migration, its author was told it "
         "succeeded, and the swap then discarded it — no error, no warning, no trace"
     )
+    # Since #2031 there is a third, better outcome: the migration refuses and the write is
+    # simply still there. Widened deliberately — the invariant was always "never accepted
+    # then discarded", and a refusal that preserves the write satisfies it more fully than
+    # refusing the writer did.
 
 
 def test_a_concurrent_reader_is_not_blocked(tmp_path: Path) -> None:

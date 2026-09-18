@@ -152,6 +152,31 @@ def _report_store_migration_plan(conn) -> int:
     return 0
 
 
+def _store_refusal(exc: Exception) -> tuple[str, dict]:
+    """Render one of ``migrate-store``'s typed refusals: operator text + structured detail.
+
+    Only rendering. The log call stays at the handler, which is the layer that knows which
+    verb the operator ran and against which root — and where
+    ``coder.logging.coach-silent-swallow`` looks for the observable reaction.
+
+    Every refusal here leaves the store unchanged and the backup standing; that is the
+    feature, not a fallback.
+    """
+    from atdd.state.store_contents import (
+        StoreChangedDuringMigrationError,
+        UnknownStoreTableError,
+    )
+
+    unchanged = f"{exc}\n\nThe store is unchanged."
+    if isinstance(exc, StoreChangedDuringMigrationError):
+        return f"refusing to migrate: {exc}", {"observed": exc.observed}
+    if isinstance(exc, UnknownStoreTableError):
+        # A schema migration added a table and nobody taught the replacement to move it.
+        # Refusing is the point: applying anyway would drop that table's rows.
+        return unchanged, {"table": exc.table}
+    return unchanged, {"defects": len(getattr(exc, "defects", ()))}
+
+
 def _cmd_migrate_store(args) -> int:
     """Mint contract-shaped identity for every work item in the store (CORE-036).
 
@@ -159,7 +184,7 @@ def _cmd_migrate_store(args) -> int:
     and deliberately only that: the durability contract — immutable backup, separate mutable
     scratch, sidecar-safe swap, all under an exclusive fence — is migration semantics and
     lives with the migration (#2024). This verb resolves the store, chooses dry-run or live,
-    and turns the three typed refusals into operator-facing exits.
+    and turns each typed refusal into an operator-facing exit.
 
     It is the verb that runs. Its predecessor ``migrate-manifest`` could not be invoked at all
     once ``decommission-manifest`` deleted the file it read, and was removed in #2023 — a migration
@@ -170,8 +195,9 @@ def _cmd_migrate_store(args) -> int:
     truth.
     """
     from atdd.state.db import connect, init_state_store
+    from atdd.state.store_contents import UnknownStoreTableError
     from atdd.state.store_migration import (
-        MigrationNotCleanError, StoreLockedError, migrate_store_durably,
+        MigrationNotCleanError, StoreChangedDuringMigrationError, migrate_store_durably,
     )
 
     root = _root(args)
@@ -186,29 +212,19 @@ def _cmd_migrate_store(args) -> int:
 
     try:
         result = migrate_store_durably(db_path, owner_actor=args.owner_actor)
-    except StoreLockedError as exc:
-        # Logged at the raise site too, but only with the db path: this is the layer that
-        # knows which command the operator ran and against which root
-        # (coder.logging.coach-silent-swallow — observably react, do not merely return).
+    except (
+        MigrationNotCleanError,
+        StoreChangedDuringMigrationError,
+        UnknownStoreTableError,
+        migration.LossyMigrationError,
+    ) as exc:
+        message, detail = _store_refusal(exc)
         _log.warning(
-            "migrate-store refused: the store could not be fenced",
-            extra={"command": "migrate-store", "root": str(root), "error": str(exc)},
+            "migrate-store refused; nothing was written and the backup stands",
+            extra={"command": "migrate-store", "root": str(root),
+                   "refusal": type(exc).__name__, **detail},
         )
-        return _fail(f"refusing to migrate: {exc}")
-    except migration.LossyMigrationError as exc:
-        # The refusal IS the feature: the store was not touched, every offender named.
-        _log.warning(
-            "refused a lossy store migration; no object was mutated",
-            extra={"command": "migrate-store", "root": str(root), "defects": len(exc.defects)},
-        )
-        return _fail(f"{exc}\n\nThe store is unchanged.")
-    except MigrationNotCleanError as exc:
-        _log.warning(
-            "migrate-store refused: the migrated copy did not inspect clean, so it was not "
-            "swapped in",
-            extra={"command": "migrate-store", "root": str(root), "defects": len(exc.defects)},
-        )
-        return _fail(f"{exc}\n\nThe store is unchanged.")
+        return _fail(message)
 
     print(result.report.render())
     print(f"\nBackup (pre-migration store): {result.backup}")

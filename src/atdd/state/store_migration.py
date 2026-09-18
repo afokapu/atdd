@@ -47,6 +47,11 @@ from atdd.state.manifest_migration import (
     LossyMigrationError,
     MigrationDefect,
 )
+from atdd.state.store_contents import (
+    StoreChangedDuringMigrationError,
+    _data_version,
+    replace_store_contents,
+)
 from atdd.state.projection import (
     ARCHIVED_PHASES,
     FIELD_TYPES,
@@ -303,6 +308,7 @@ __all__ = [
     "DEFECT_MISSING_SLUG",
     "DEFECT_UNPROJECTABLE_FIELD",
     "DROPPED_FROM_STORE",
+    "StoreChangedDuringMigrationError",
     "StoreMigrationReport",
     "inspect_store",
     "migrate_store",
@@ -310,16 +316,8 @@ __all__ = [
 
 
 # --------------------------------------------------------------------------- #
-# The durable run — backup, scratch, swap (#2024)
+# The durable run — backup, scratch, replace the contents (#2024, #2031)
 # --------------------------------------------------------------------------- #
-class StoreLockedError(Exception):
-    """The live store could not be fenced, so the migration window cannot be held.
-
-    Not a failure of the migration — a refusal to start one. Another worktree is writing,
-    and starting anyway would mean copy-and-swapping over its committed work.
-    """
-
-
 class MigrationNotCleanError(Exception):
     """The migrated copy still does not inspect clean, so it was not swapped in."""
 
@@ -339,42 +337,13 @@ class DurableMigrationResult:
     backup: Path
 
 
-def _fence_store(db_path: Path):
-    """Hold the live store for the whole backup → migrate → swap window.
+def _migrate_the_copy(scratch: Path, *, owner_actor: str) -> StoreMigrationReport:
+    """Migrate the working copy and judge the **result**, not merely the input.
 
-    The scratch is a snapshot at T0, so without this a write committed between the copy and
-    the swap is overwritten silently — no error, no trace. Under the fence such a writer is
-    refused loudly with ``database is locked`` after the ``busy_timeout``
-    :func:`~atdd.state.db.connect` already sets, and **readers are unaffected** — which
-    matters, because WAL is configured for "concurrent readers + a writer (sibling
-    worktrees)" and every worktree under the Control Root shares this store.
+    A migration that produced an unmigratable store must not be applied on the strength of
+    having run, so ``inspect_store`` runs again over what came out.
     """
     from atdd.state.db import connect
-
-    conn = connect(Path(db_path))
-    try:
-        conn.execute("BEGIN EXCLUSIVE")
-    except sqlite3.OperationalError as exc:
-        conn.close()
-        _log.warning(
-            "could not fence the store for migration",
-            extra={"db_path": str(db_path), "error": str(exc)},
-        )
-        raise StoreLockedError(
-            f"the State Store is in use and could not be locked ({exc}). Another worktree "
-            "is writing to it — retry when it is idle."
-        ) from exc
-    return conn
-
-
-def _migrate_onto_scratch(scratch: Path, *, owner_actor: str) -> StoreMigrationReport:
-    """Migrate the scratch copy and judge the **result**, not merely the input.
-
-    A migration that produced an unmigratable store must not be swapped in on the strength
-    of having run, so ``inspect_store`` runs again over what came out.
-    """
-    from atdd.state.db import connect
-    from atdd.state.reconcile import checkpoint
 
     conn = connect(scratch)
     try:
@@ -388,7 +357,6 @@ def _migrate_onto_scratch(scratch: Path, *, owner_actor: str) -> StoreMigrationR
             extra={"scratch": str(scratch), "defects": len(leftover)},
         )
         raise MigrationNotCleanError(leftover)
-    checkpoint(scratch)
     return report
 
 
@@ -398,61 +366,65 @@ def migrate_store_durably(
     """Run :func:`migrate_store` so that a failure cannot cost the operator the store (#2024).
 
     :func:`migrate_store` writes per object — ``upsert`` and ``rekey`` each open their own
-    ``with self._conn:`` — so there is no enclosing transaction and dying mid-run would leave
-    a half-migrated store that cannot be told apart from an unmigrated one. Wrapping the loop
+    ``with self._conn:`` — so there is no enclosing transaction, and dying mid-run would
+    leave a half-migrated store indistinguishable from an unmigrated one. Wrapping the loop
     in an outer ``BEGIN`` does not compose: ``sqlite3``'s ``with conn:`` commits the
     *outermost* transaction, so the per-call managers commit it out from under the loop.
 
-    So this runs the pattern :mod:`~atdd.state.reconcile` already ships, and reuses its
-    helpers rather than re-deriving them:
+    So the work happens on a copy and the result is applied in one transaction (#2031):
 
-    - :func:`~atdd.state.reconcile.backup_store` — the **immutable** undo, never written to.
-      Migrating *it* is the tempting shortcut and it destroys the undo: ``backup_store``
-      returns the sole copy, so the "backup" ends up migrated too and nothing on disk holds
-      the pre-migration store, even on success.
-    - :func:`~atdd.state.reconcile._scratch_copy` — a **separate** mutable copy, which is what
-      gets migrated. A crash leaves it half-done and it is simply discarded.
-    - :func:`~atdd.state.reconcile._replace_store` — the swap, which unlinks ``-wal``/``-shm``
-      before moving. Replacing ``state.sqlite`` alone while those remain makes the store
-      unopenable (``database disk image is malformed``).
+    1. :func:`~atdd.state.reconcile.backup_store` — the **immutable** undo, never written to.
+       Migrating *it* is the tempting shortcut and it destroys the undo: ``backup_store``
+       returns the sole copy, so the "backup" ends up migrated and nothing holds the
+       pre-migration store even on success.
+    2. :func:`~atdd.state.reconcile._scratch_copy` — the working copy, which is what gets
+       migrated. A crash leaves it half-done and it is simply discarded.
+    3. the result is re-inspected, then applied to the live store by
+       :func:`~atdd.state.store_contents.replace_store_contents`.
 
-    The window is held under ``BEGIN EXCLUSIVE``. The scratch is a snapshot at T0, so without
-    a fence a write committed between the copy and the swap is overwritten silently. Under it
-    such a writer is refused loudly with ``database is locked`` after the ``busy_timeout``
-    :func:`~atdd.state.db.connect` already sets, and **readers are unaffected** — which
-    matters, because WAL is configured for "concurrent readers + a writer (sibling
-    worktrees)" and every worktree under the Control Root shares this store.
+    **Both copies are taken before the exclusive lock, deliberately.** They checkpoint the
+    WAL on their own connections, and a checkpoint that contends with a fence this same
+    process is holding waits out its full ``busy_timeout`` — twice, which held the lock for
+    ~10.5s regardless of store size and timed out every concurrent writer by construction.
+    The lock is now taken only for the replacement.
 
-    Preservation is a property of the **snapshot**, not of the file's bytes: ``backup_store``
-    checkpoints the live store before copying it, so ``state.sqlite``'s bytes move before any
-    migration runs. The backup holds the pre-run store's *content*, and restoring it returns
-    that content.
+    That leaves the copy as a snapshot, so the apply is a compare-and-swap:
+    ``PRAGMA data_version`` is read after the copy and again under the lock, and a change
+    means another process wrote in between. Then this **refuses** rather than overwriting —
+    :class:`StoreChangedDuringMigrationError`, with the live store untouched.
 
-    Raises :class:`StoreLockedError` if the store cannot be fenced, :class:`LossyMigrationError`
-    if an object cannot be migrated, and :class:`MigrationNotCleanError` if the migrated copy
-    does not inspect clean. In every case the live store is untouched and the backup stands.
+    **Known residual.** The snapshot and the baseline cannot be made simultaneous: the copy's
+    own checkpoint bumps ``data_version``, so the baseline must follow the copy. A write
+    committed in the gap between them is in neither — not in the snapshot, and already
+    counted in the baseline — and would be overwritten. The gap is one ``PRAGMA`` read and
+    the connection is opened beforehand to keep it that way, but it is not zero. Closing it
+    properly means applying the migration as a delta rather than a wholesale replacement, so
+    an untouched row is never rewritten at all.
+
+    Raises :class:`LossyMigrationError` if an object cannot be migrated,
+    :class:`MigrationNotCleanError` if the migrated copy does not inspect clean, and
+    :class:`StoreChangedDuringMigrationError` if the store moved under us. In every case the
+    live store is unchanged and the backup stands.
     """
-    from atdd.state.reconcile import _replace_store, _scratch_copy, backup_store
+    from atdd.state.db import connect
+    from atdd.state.reconcile import _scratch_copy, backup_store
 
     db_path = Path(db_path)
-    fence = _fence_store(db_path)
-    try:
-        backup = backup_store(db_path)  # immutable undo, before anything is written
-        with tempfile.TemporaryDirectory() as tmp:
+    backup = backup_store(db_path)  # immutable undo, before anything is written
+    with tempfile.TemporaryDirectory() as tmp:
+        # Open the live connection BEFORE the copy so that only a single pragma read sits
+        # between the snapshot and the baseline. The baseline cannot be taken any earlier:
+        # `backup_store` and `_scratch_copy` each checkpoint the WAL on their own
+        # connections, and a checkpoint DOES bump `data_version` (measured 2 -> 3 -> 4), so
+        # a baseline read before them would never match and every migration would refuse.
+        live = connect(db_path)
+        try:
             scratch = _scratch_copy(db_path, Path(tmp))
-            report = _migrate_onto_scratch(scratch, owner_actor=owner_actor)
-            # Release BEFORE the file moves out from under the connection: holding it open
-            # across the move is what strands the WAL side files.
-            fence.rollback()
-            fence.close()
-            fence = None
-            _replace_store(scratch, db_path)
-    finally:
-        if fence is not None:
-            try:
-                fence.rollback()
-            finally:
-                fence.close()
+            expected = _data_version(live)
+            report = _migrate_the_copy(scratch, owner_actor=owner_actor)
+            replace_store_contents(live, scratch, expected_version=expected)
+        finally:
+            live.close()
 
     _log.info(
         "state store migrated durably",
