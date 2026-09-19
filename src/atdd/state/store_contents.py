@@ -30,12 +30,13 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
-from typing import List
+from typing import List, NamedTuple
 
 __all__ = [
     "StoreChangedDuringMigrationError",
     "UnknownStoreTableError",
     "replace_store_contents",
+    "statements_for",
 ]
 
 
@@ -59,7 +60,7 @@ class UnknownStoreTableError(Exception):
     """The live store carries a table this module has no replacement statement for.
 
     Raised *before* anything is written. A schema migration that adds a table has to add
-    its pair to :data:`_REPLACE_SQL`; until it does, the durable migration refuses rather
+    its pair to :data:`_TABLE_SQL`; until it does, the durable migration refuses rather
     than silently leaving the new table's rows behind.
     """
 
@@ -68,52 +69,74 @@ class UnknownStoreTableError(Exception):
         super().__init__(
             f"the State Store has a table this migration does not know how to move: "
             f"{table!r}. Nothing was changed. Add its statements to "
-            "atdd.state.store_contents._REPLACE_SQL."
+            "atdd.state.store_contents._TABLE_SQL."
         )
 
 
-#: ``table -> (clear main, refill main from the attached copy)``. Static text, one pair per
-#: table in the core schema (``atdd.state.migrations`` plus ``schema_migrations`` itself).
-#: The keys are not the source of truth for *which* tables exist — the live store is; see
-#: :func:`_replacement_for`.
-_REPLACE_SQL = {
-    "events": (
-        "DELETE FROM main.events",
-        "INSERT INTO main.events SELECT * FROM migrated.events",
+class _TableSQL(NamedTuple):
+    """The three static statements this module needs for one table.
+
+    ``rows`` reads whichever file the connection has open as ``main``, so one statement
+    serves both sides of a comparison: point one connection at the live store and another
+    at a backup and the same text reads each.
+    """
+
+    clear: str
+    refill: str
+    rows: str
+
+
+#: ``table -> its statements``. Static text, one entry per table in the core schema
+#: (``atdd.state.migrations`` plus ``schema_migrations`` itself). The keys are not the
+#: source of truth for *which* tables exist — the live store is; see :func:`statements_for`.
+_TABLE_SQL = {
+    "events": _TableSQL(
+        clear="DELETE FROM main.events",
+        refill="INSERT INTO main.events SELECT * FROM migrated.events",
+        rows="SELECT * FROM main.events",
     ),
-    "external_refs": (
-        "DELETE FROM main.external_refs",
-        "INSERT INTO main.external_refs SELECT * FROM migrated.external_refs",
+    "external_refs": _TableSQL(
+        clear="DELETE FROM main.external_refs",
+        refill="INSERT INTO main.external_refs SELECT * FROM migrated.external_refs",
+        rows="SELECT * FROM main.external_refs",
     ),
-    "inbox": (
-        "DELETE FROM main.inbox",
-        "INSERT INTO main.inbox SELECT * FROM migrated.inbox",
+    "inbox": _TableSQL(
+        clear="DELETE FROM main.inbox",
+        refill="INSERT INTO main.inbox SELECT * FROM migrated.inbox",
+        rows="SELECT * FROM main.inbox",
     ),
-    "objects": (
-        "DELETE FROM main.objects",
-        "INSERT INTO main.objects SELECT * FROM migrated.objects",
+    "objects": _TableSQL(
+        clear="DELETE FROM main.objects",
+        refill="INSERT INTO main.objects SELECT * FROM migrated.objects",
+        rows="SELECT * FROM main.objects",
     ),
-    "outbox": (
-        "DELETE FROM main.outbox",
-        "INSERT INTO main.outbox SELECT * FROM migrated.outbox",
+    "outbox": _TableSQL(
+        clear="DELETE FROM main.outbox",
+        refill="INSERT INTO main.outbox SELECT * FROM migrated.outbox",
+        rows="SELECT * FROM main.outbox",
     ),
-    "overlay_events": (
-        "DELETE FROM main.overlay_events",
-        "INSERT INTO main.overlay_events SELECT * FROM migrated.overlay_events",
+    "overlay_events": _TableSQL(
+        clear="DELETE FROM main.overlay_events",
+        refill="INSERT INTO main.overlay_events SELECT * FROM migrated.overlay_events",
+        rows="SELECT * FROM main.overlay_events",
     ),
-    "relationships": (
-        "DELETE FROM main.relationships",
-        "INSERT INTO main.relationships SELECT * FROM migrated.relationships",
+    "relationships": _TableSQL(
+        clear="DELETE FROM main.relationships",
+        refill="INSERT INTO main.relationships SELECT * FROM migrated.relationships",
+        rows="SELECT * FROM main.relationships",
     ),
-    "schema_migrations": (
-        "DELETE FROM main.schema_migrations",
-        "INSERT INTO main.schema_migrations SELECT * FROM migrated.schema_migrations",
+    "schema_migrations": _TableSQL(
+        clear="DELETE FROM main.schema_migrations",
+        refill="INSERT INTO main.schema_migrations SELECT * FROM migrated.schema_migrations",
+        rows="SELECT * FROM main.schema_migrations",
     ),
-    "store_metadata": (
-        "DELETE FROM main.store_metadata",
-        "INSERT INTO main.store_metadata SELECT * FROM migrated.store_metadata",
+    "store_metadata": _TableSQL(
+        clear="DELETE FROM main.store_metadata",
+        refill="INSERT INTO main.store_metadata SELECT * FROM migrated.store_metadata",
+        rows="SELECT * FROM main.store_metadata",
     ),
 }
+
 
 _MAIN_TABLES = (
     "SELECT name FROM main.sqlite_master WHERE type='table' "
@@ -132,17 +155,22 @@ _MIGRATED_SCHEMA = (
 def _content_tables(conn: sqlite3.Connection) -> List[str]:
     """The live store's content tables, read from it rather than declared.
 
-    This is what keeps :data:`_REPLACE_SQL` honest: the replacement iterates what the store
+    This is what keeps :data:`_TABLE_SQL` honest: the replacement iterates what the store
     actually has, so a table that is gone is not looked for and a table that is new is
-    caught by :func:`_replacement_for`.
+    caught by :func:`statements_for`.
     """
     rows = conn.execute(_MAIN_TABLES)
     return [row[0] for row in rows]
 
 
-def _replacement_for(table: str) -> tuple[str, str]:
+def statements_for(table: str) -> _TableSQL:
+    """The static statements for ``table``, or a refusal naming it.
+
+    Every use of :data:`_TABLE_SQL` goes through here, so a table the store carries and this
+    module does not know about is caught once, in one place, whichever operation asked.
+    """
     try:
-        return _REPLACE_SQL[table]
+        return _TABLE_SQL[table]
     except KeyError:
         raise UnknownStoreTableError(table) from None
 
@@ -212,9 +240,9 @@ def replace_store_contents(
             # statement count is O(tables) and independent of how much data the store
             # holds. That is the opposite of the pattern this rule exists to catch.
             for table in _content_tables(live):
-                clear, refill = _replacement_for(table)
-                live.execute(clear)  # noqa: N+1 — see above
-                live.execute(refill)  # noqa: N+1 — see above
+                sql = statements_for(table)
+                live.execute(sql.clear)  # noqa: N+1 — see above
+                live.execute(sql.refill)  # noqa: N+1 — see above
             broken = list(live.execute("PRAGMA main.foreign_key_check"))
             if broken:  # pragma: no cover - defensive
                 live.execute("ROLLBACK")
