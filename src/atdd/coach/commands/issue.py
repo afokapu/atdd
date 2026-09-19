@@ -1673,7 +1673,8 @@ class IssueManager:
         # Status transition with validation
         if status:
             status = status.upper()
-            current_labels, current_status = self._read_phase_labels(issue)
+            current_labels, label_phase = self._read_phase_labels(issue)
+            current_status = self._current_phase(issue_number, label_phase)
             issue_body = issue.get("body", "") or ""
 
             if not self._transition_gates_pass(
@@ -1893,6 +1894,33 @@ class IssueManager:
     # -------------------------------------------------------------------------
     # Transition gates (each prints its own diagnosis; False blocks the write)
     # -------------------------------------------------------------------------
+
+    def _current_phase(self, issue_number: int, label_phase: str) -> str:
+        """The phase to transition FROM: the store first, the label only if it is silent.
+
+        #1452 made objects.state authoritative for the lifecycle — a label race had
+        silently no-opped a transition — and migrated every reader it listed. This one was
+        missed, because it is a pure function over the fetched GitHub payload and the two
+        sources agree for as long as a human drives both.
+
+        CI is the first actor that can move one without the other (#2011). atdd
+        auto-phase runs in GitHub Actions, which can swap the label and cannot write a
+        developer's SQLite, so after a merge the label advances and the store does not.
+        Reading the label then produced two distinct defects on the same line: a transition
+        the operator ran to reconcile the store was refused as COMPLETE -> COMPLETE
+        while the store still said REFACTOR, and — in the other direction — a label running
+        ahead of the store bought a phase the store had never reached.
+
+        A SILENT STORE IS NOT A CONTRADICTORY ONE. read_store_phase answers None
+        when the store has never seen the issue, which is an un-imported work item or a
+        consumer repo rather than a disagreement, so the label still answers there. That is
+        the same store_phase or label_phase shape auto_phase.resolve_pr_to_transition
+        already uses on the other side of this lifecycle; one source of truth, one fallback,
+        spelled once per reader rather than differently.
+        """
+        from atdd.coach.commands.auto_phase import read_store_phase
+
+        return read_store_phase(issue_number, target_dir=self.target_dir) or label_phase
 
     @staticmethod
     def _read_phase_labels(issue: dict) -> Tuple[List[str], str]:
