@@ -2691,6 +2691,9 @@ wagons:
       cutover criterion to met
     C003: minimize frequency of a destructive-projection-write that replaces state
       it does not speak for, across all four write paths the inbound half touches
+    C004: minimize likelihood of a projection-coverage-gap that the cutover certifies
+      as met, by comparing the committed uid set against the store's obligation in
+      both directions rather than comparing the projection to itself
     D001: maximize likelihood of a migration-runbook that names the cutover steps
       in order, the developer-facing command changes, and the numbered invariant each
       step preserves
@@ -2718,7 +2721,7 @@ wagons:
     Y002: 'minimize likelihood of a manifest-read-fallback: once projection is in
       blocking mode, no core reader consults .atdd/manifest.yaml for shared lifecycle
       state'
-    total: 12
+    total: 13
   total: 0
   manifest: plan/migrate_projection_authority/_migrate_projection_authority.yaml
   path: plan/migrate_projection_authority/

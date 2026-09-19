@@ -31,6 +31,41 @@ UID_B = "wi_01HF7YAT00M78607F000000002"
 UID_C = "wi_01HF7YAT00M78607F000000003"
 
 
+@contextmanager
+def disk_store(root: Path) -> Iterator[Any]:
+    """A real :class:`StateStore` backed by the file at ``<root>/.atdd/state/state.sqlite``.
+
+    The on-disk sibling of :func:`memory_store`, and #2042 is why it exists. The cutover's
+    projection criterion now compares the committed projection against the store *of that
+    control root*, so a fixture that projects out of an in-memory store builds a repo whose
+    projection describes objects nothing on disk holds — a control root that could not exist.
+
+    The givens that used it were not wrong about what they were testing; they were incomplete
+    in a way nothing read until coverage did.
+    """
+    from atdd.state.db import connect, init_state_store
+    from atdd.state.store import StateStore
+
+    conn = connect(init_state_store(start=Path(root)))
+    try:
+        yield conn, StateStore(conn)
+    finally:
+        conn.close()
+
+
+def seed_disk_work_items(root: Path, items: Sequence[Tuple[str, str]]) -> None:
+    """Upsert ``(uid, phase)`` work items into the on-disk store at ``root``.
+
+    Coverage compares uid SETS, so only identity and phase matter here — the data bag is
+    whatever keeps the object legible in a failure message.
+    """
+    from atdd.state.manifest_import import WORK_ITEM_KIND
+
+    with disk_store(root) as (_conn, store):
+        for uid, phase in items:
+            store.objects.upsert(uid, WORK_ITEM_KIND, state=phase, data={"title": uid})
+
+
 def entry(
     slug: str,
     *,
