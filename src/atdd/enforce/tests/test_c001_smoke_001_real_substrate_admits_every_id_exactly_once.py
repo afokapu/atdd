@@ -102,7 +102,7 @@ def test_real_substrate_admits_every_id_exactly_once() -> None:
     for rule_id in extension_only:
         try:
             meta = bind_rule(rule_id)
-        except Exception as exc:  # noqa: BLE001 - the failure IS the assertion
+        except Exception as exc:  # the failure IS the assertion
             unbindable.append(f"{rule_id}: {type(exc).__name__}")
             continue
         if str(meta.source_path).startswith(str(_ATDD_PKG_DIR)):
