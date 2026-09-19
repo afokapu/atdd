@@ -1,0 +1,50 @@
+urn: feature:verify-validation-receipt:untracked-pass-receipt
+wagon: wagon:verify-validation-receipt
+description: 'Redesign the validation pass-receipt so concurrent PRs stop conflicting
+  on it (#1566). The receipt becomes a local, gitignored dev cache instead of committed
+  whole-tree state (#E001); verify-on-read recomputes the source hash and rejects
+  a receipt whose recorded key does not match the tree it is read against, so a stale
+  or hand-edited receipt fails rather than being trusted (#C001); and the source hash
+  is computed over toolkit source files only, excluding installed __pycache__/*.pyc
+  bytecode, so the recorded key is reproducible across environments (#E002). Writer/verifier
+  live in src/atdd/coach/commands/validation_baseline.py; the only reader is src/atdd/cli.py.
+  Does not touch the enforce-ratchet (.atdd/enforce-ratchet.yaml, #1428). DELIBERATE,
+  REVERSIBLE TRADEOFF (issue Decision 4, not cosmetic): cli.py:567 defines --verify-baseline
+  as a built-yet-unwired <10s CI fast-path (SPEC-COACH-BASELINE-0002); Option A forecloses
+  ever wiring it, because a fresh clone would have no committed baseline to verify. It is
+  still the right call now — reversible, unblocks #1530/#1538, and kills the force-push
+  treadmill at the root. Reversal path: if the fast-path is ever wired, reintroduce committed
+  receipts with a per-source-unit key (the old Option B) as a clean future PR that does not
+  resurrect the whole-tree key.
+
+  '
+sizing:
+  wmbts: 3
+  footprint_score: 6
+  footprint_size: S
+wmbts:
+- wmbt:verify-validation-receipt:E001
+- wmbt:verify-validation-receipt:C001
+- wmbt:verify-validation-receipt:E002
+components:
+  backend:
+    presentation:
+    - type: controllers
+      count: 0
+      rationale: No new CLI/HTTP surface; the existing `atdd validate [--verify-baseline]`
+        flags in cli.py are reused, their reader semantics adjusted
+    application:
+    - type: use_cases
+      count: 2
+      rationale: "write-untracked-receipt (local, gitignored) and verify-on-read (recompute-and-reject)\
+        \ \u2014 the two behaviours of validation_baseline.py"
+    domain:
+    - type: value_objects
+      count: 1
+      rationale: "SourceContentHash \u2014 a deterministic hash over toolkit source\
+        \ files excluding __pycache__/*.pyc, reproducible across environments"
+    integration:
+    - type: artifact_writers
+      count: 1
+      rationale: "The local gitignored receipt writer under .atdd/baselines/validation/\
+        \ \u2014 no longer a tracked artifact"

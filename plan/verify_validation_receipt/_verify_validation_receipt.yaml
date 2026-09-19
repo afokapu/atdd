@@ -1,0 +1,49 @@
+wagon: verify-validation-receipt
+name: Verify Validation Receipt
+description: "Proof-of-validation that does not serialise concurrent work. After `atdd\
+  \ validate <phase>` passes locally, the toolkit must be able to prove it ran without\
+  \ committing a whole-tree pass-receipt (`.atdd/baselines/validation/*.yaml`) keyed\
+  \ on a single source_hash \u2014 a key that makes every two concurrent branches\
+  \ conflict on one line of YAML regardless of whether their real changes overlap\
+  \ (issue #1566). This wagon redesigns the receipt's identity along three axes: (1)\
+  \ the receipt is a local, gitignored dev cache, never tracked, so disjoint branches\
+  \ never contend on it; (2) verify-on-read recomputes the source hash and rejects\
+  \ a receipt whose recorded key does not match the tree it is read against, so a\
+  \ stale or hand-edited receipt fails instead of being trusted; (3) the source hash\
+  \ is computed over toolkit *source* files only, excluding installed __pycache__/*.pyc\
+  \ bytecode, so the recorded key is reproducible across environments. No CI gate\
+  \ reads these receipts (verified: only cli.py), so removing them from the tree loses\
+  \ no merge-time assurance. Distinct from the enforce-ratchet (`.atdd/enforce-ratchet.yaml`,\
+  \ #1428), which this wagon does not touch.\n"
+theme: commons
+subject: agent:coach
+context: when-atdd-validate-passes-locally-and-must-leave-proof-of-validation-that-does-not-collide-across-concurrently-merged-prs
+action: records a local, gitignored proof-of-validation keyed on toolkit source content,
+  and on read recomputes that key to reject a receipt that does not describe the tree
+  it is read against
+goal: prove validation ran and passed without committing a whole-tree pass-receipt
+  that serialises every concurrent branch through one line of YAML
+outcome: two branches validating disjoint work merge without a receipt conflict; a
+  receipt whose recorded key does not match the tree it is read against is rejected
+  rather than trusted; and the recorded key is reproducible across environments
+features:
+- urn: feature:verify-validation-receipt:untracked-pass-receipt
+produce:
+- name: commons:coach:untracked-validation-receipt
+  contract: null
+  telemetry: null
+  to: external
+- name: commons:coach:verify-on-read-hash-rejection
+  contract: null
+  telemetry: null
+  to: external
+- name: commons:coach:reproducible-source-content-hash
+  contract: null
+  telemetry: null
+  to: external
+consume: []
+wmbt:
+  total: 3
+  E001: minimize likelihood of committed-pass-receipts-that-collide-across-concurrent-branches
+  C001: minimize likelihood of forged-pass-receipts-read-as-a-valid-pass
+  E002: minimize likelihood of environment-nonreproducible-source-hashes
