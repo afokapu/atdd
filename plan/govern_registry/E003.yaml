@@ -1,0 +1,147 @@
+urn: wmbt:govern-registry:E003
+step: execute
+direction: minimize
+dimension: quantity
+object_of_control: core-coder-tester-obligations-carrying-neither-an-extension-twin-nor-a-declared-why-not
+context_clarifier: 'when a core convention declaration is moved out of core, because the wagon already
+  governs two directions of the core/extension rule relation and not the third — D001 measures both
+  sets, E001 resolves every extension node''s source.legacy_rule_id against the live core registry,
+  E002 raises on any id declared in both — while nothing measures the CORE to EXTENSION direction,
+  so a core rule that no extension node mirrors is invisible to the registry governance; measured
+  2026-09-13 through the shipped loader on origin/main with an empty diff, 96 of core''s 128 coder/tester
+  rule_ids have no extension twin at all, and evaluate_core_deletion opens with "if not node_twins
+  - continue - no mirror so no twin enforcement to lose", so it permits deleting every one of those
+  96 while refusing only 2 of 128, which inverts the guard - the twinless rule is the one whose obligation
+  exists in core and nowhere else, so deleting it is maximal loss and it is the case the guard waves
+  through; the two readers that produce the number are both load-bearing and both easy to get wrong
+  - source.legacy_rule_id must be read off the raw node document because single_node_rule_dict projects
+  a node onto the flat monolith rule shape and drops the source key, so provenance keyed off that
+  projection reads as absent on all 67 installed nodes rather than present on 50, and the core surface
+  must be walked by extract_rules because a depth-1 YAML reader cannot see a nested rules list such
+  as canonical_rules.rules in coder/conventions/logging.convention.yaml, which is the omission that
+  understated the corpus in #1969'
+lens: functional.sustainability
+statement: minimize quantity of core-coder-tester-obligations-carrying-neither-an-extension-twin-nor-a-declared-why-not
+  when a core convention declaration is moved out of core, by measuring twin coverage for every core
+  coder/tester rule_id through the shipped loader on both surfaces and refusing to certify the surface
+  move-ready while any rule is neither mirrored by an extension node nor recorded with a why-not
+  verdict in a classification record, so a carve-out cannot report success while the obligation it
+  moved has silently disappeared
+acceptances:
+- identity:
+    urn: acc:govern-registry:E003-UNIT-001-twinless-and-unclassified-core-rule-is-reported-uncovered
+    id: AC-UNIT-001
+    purpose: a core rule is covered by an extension twin OR by a why-not verdict in the classification
+      record, and a rule with neither is reported uncovered by name — the disjunction that makes
+      a silent drop impossible
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - an injected core rule set of three coder/tester rule_ids, an extension tree whose single node
+      declares source.legacy_rule_id naming the first of them, and a classification record carrying
+      a why-not verdict for the second
+  when:
+    abstract: twin coverage is measured over the injected core set against the extension tree and
+      the classification record
+  then:
+    abstract:
+    - the rule an extension node mirrors is reported covered, and is attributed to its twin rather
+      than to the record
+    - the rule carrying a why-not verdict is reported covered, and is attributed to the record rather
+      than to a twin
+    - the third rule, which has neither, is the only one reported uncovered, and the report names
+      that rule_id
+    - the same rule is never counted as covered twice, so the partition of the core set is exact
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-13'
+- identity:
+    urn: acc:govern-registry:E003-UNIT-002-provenance-is-read-from-the-node-document-not-the-flat-rule
+    id: AC-UNIT-002
+    purpose: twin detection reads source.legacy_rule_id from the extension node document, because
+      the flat rule projection drops the source key — a coverage measure built on the projection
+      sees no mirror at all and reports every core rule uncovered
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - an extension convention node document declaring a top-level rule_id and a source block whose
+      legacy_rule_id names a live core rule
+  when:
+    abstract: the node is read both as a node document and through the flat single-node rule projection
+      the monolith consumers expect, and twin coverage is measured from each
+  then:
+    abstract:
+    - read as a node document the legacy_rule_id is present, so the core rule it names is reported
+      covered by its twin
+    - read through the flat rule projection the source key is absent entirely, so no provenance is
+      recoverable from it
+    - coverage measured through the flat projection therefore reports the mirrored core rule as uncovered,
+      proving the projection cannot carry twin detection
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-13'
+- identity:
+    urn: acc:govern-registry:E003-UNIT-003-a-rule-nested-in-a-monolith-is-part-of-the-measured-surface
+    id: AC-UNIT-003
+    purpose: the core surface is walked by the shipped rule walker, so a rule declared in a nested
+      rules list inside a monolith is measured for coverage like any other — a depth-1 reader silently
+      shrinks the surface and reports coverage over a subset
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a core monolith convention file declaring one rule in its top-level rules list and another
+      in a nested rules list one level deeper, with no extension node mirroring either
+  when:
+    abstract: the measured core surface is enumerated and twin coverage is measured over it
+  then:
+    abstract:
+    - both rule_ids are members of the measured core surface, so the nested declaration is not invisible
+    - both are reported uncovered, so the nested rule is held to the same coverage obligation as
+      the top-level one
+    - the reported core surface size counts the nested rule, so a shortfall cannot be understated
+      by omitting it
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-13'
+- identity:
+    urn: acc:govern-registry:E003-SMOKE-001-real-core-surface-is-not-move-ready-and-every-shortfall-is-named
+    id: AC-SMOKE-001
+    purpose: over the toolkit's real substrate the measure reports the actual core coder/tester surface,
+      refuses to certify it move-ready, and names every uncovered rule — the verdict a carve-out
+      consumes instead of measuring for itself
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - the toolkit's real src/atdd coder and tester convention trees, its real vendored .atdd/extensions
+      nodes, and its committed classification record
+  when:
+    abstract: twin coverage is measured over the real surfaces and asked whether the core coder/tester
+      surface is move-ready
+  then:
+    abstract:
+    - the measured core surface is the whole coder/tester declaration set, counting rules nested
+      inside the monoliths as well as the atomized nodes
+    - it reports NOT move-ready, because at least one core rule is neither mirrored nor classified
+    - every rule it names as uncovered is genuinely absent from both surfaces — no extension node
+      declares it as a legacy_rule_id and no why-not verdict records it — so the shortfall carries
+      no false positive
+    - every core rule an extension node does mirror is absent from the uncovered set, so a rule already
+      carved out is not re-reported as work
+    - it certifies the surface move-ready only when the uncovered count reaches 0 — the bar this
+      WMBT drives to — so the verdict is a measured refusal today and becomes a certification without
+      a code change once every obligation is mirrored or classified
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-13'

@@ -180,17 +180,28 @@ class MirrorIncoherence:
 def find_mirror_incoherences(
     substrate_home: str | Path,
     core_ids: Optional[Iterable[str]] = None,
+    *,
+    retirements: Optional[Iterable[str]] = None,
 ) -> list[MirrorIncoherence]:
     """Every extension node whose ``legacy_rule_id`` names no live core rule.
 
     ``core_ids`` is injectable so unit tests stay hermetic; when omitted the live
     core registry (:func:`core_rule_ids`) is read. A node with no ``legacy_rule_id``
     at all is a drifted mirror too — it claims to mirror nothing.
+
+    ``retirements`` (#1714 E004) names the core rule_ids whose removal from core was
+    DECLARED — a completed carve-out, where the extension node superseded the core
+    rule and core deleted it on purpose. Such a node's legacy id naming nothing live
+    is the correct end state, not drift, and the two are indistinguishable from the
+    node alone (see :mod:`atdd.enforce.retirements`). It defaults to none declared, so
+    a caller that does not pass it gets exactly the previous behaviour: a rule is
+    forgiven only by an explicit declaration, never by omission.
     """
     known = set(core_ids) if core_ids is not None else core_rule_ids()
+    retired = set(retirements or ())
     out: list[MirrorIncoherence] = []
     for node in iter_extension_nodes(substrate_home):
-        if node.legacy_rule_id not in known:
+        if node.legacy_rule_id not in known and node.legacy_rule_id not in retired:
             out.append(
                 MirrorIncoherence(
                     extension_rule_id=node.rule_id,
