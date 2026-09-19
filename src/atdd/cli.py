@@ -1474,7 +1474,7 @@ Phase descriptions:
     # atdd repo broken
     repo_broken_parser = repo_subparsers.add_parser(
         "broken",
-        help="Find broken URN references"
+        help="Find broken (unresolvable) and undeclared URN references"
     )
     repo_broken_parser.add_argument(
         "--family",
