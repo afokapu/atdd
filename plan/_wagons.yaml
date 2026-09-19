@@ -2134,7 +2134,7 @@ wagons:
     to: internal
   consume: []
   wmbt:
-    total: 4
+    total: 5
     C001: minimize likelihood of mirror-double-declaration by admitting an extension
       convention node into the rule registry only when its source.legacy_rule_id names
       no live core rule, so a node that mirrors a live core rule never becomes a second
@@ -2151,6 +2151,11 @@ wagons:
       on any rule_id declared in both the core registry and the extension mirror set,
       stating the CORE-precedes-extension precedence, so a cross-registry collision
       fails loudly instead of silently shadowing the core rule
+    D002: minimize likelihood of registry-guard-self-neutralization by pinning the
+      enforce-side registry helpers to the core root set rather than the registry's
+      current search roots, so a guard that polices the core/extension boundary cannot
+      be redefined by the roots it polices, and by recording the evidence that supersedes
+      the core-only premise of D001
   total: 0
   manifest: plan/govern_registry/_govern_registry.yaml
   path: plan/govern_registry/

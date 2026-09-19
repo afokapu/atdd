@@ -1,0 +1,92 @@
+urn: wmbt:govern-registry:D002
+step: define
+direction: minimize
+dimension: likelihood
+object_of_control: registry-guard-self-neutralization
+context_clarifier: 'the enforce-side registry guards (core_convention_files, core_rule_ids, and find_mirror_incoherences''
+  default reference set) resolve core through find_convention_files() with no roots, so they follow _default_roots();
+  widening those roots to admit the extension tree — the change #1992 makes — silently redefines what
+  these guards call core, and they then measure the extension tree against a core set that contains it:
+  new_rules_from_extensions falls 35 to 0 and find_mirror_incoherences falls 35 to 17, neither by repair;
+  #1973''s provenance filter does not cover them because core_rule_ids reaches extract_rules directly
+  and never passes through _load_registry'
+lens: functional.sustainability
+statement: minimize likelihood of registry-guard-self-neutralization by pinning the enforce-side registry
+  helpers to the core root set rather than the registry's current search roots, so a guard that polices
+  the core/extension boundary cannot be redefined by the roots it polices, and by recording the evidence
+  that supersedes the core-only premise of D001
+acceptances:
+- identity:
+    urn: acc:govern-registry:D002-UNIT-001-core-helpers-are-pinned-not-root-following
+    id: AC-UNIT-001
+    purpose: the enforce-side core helpers return the same core rule_id set whether or not the registry's
+      default search roots have been widened to admit the extension tree — the guard is pinned, not root-following
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a core convention tree and an extension convention tree
+    - a registry whose default search roots can be widened to include the extension tree
+  when:
+    abstract: the core rule_id set is computed with the narrow roots and again with the widened roots
+  then:
+    abstract:
+    - both computations return the identical core rule_id set
+    - no file under the extension tree is admitted into the core convention file set in either computation
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-13'
+- identity:
+    urn: acc:govern-registry:D002-UNIT-002-mirror-coherence-is-invariant-under-widening
+    id: AC-UNIT-002
+    purpose: the mirror-coherence guard reports the same incoherence count whether or not the roots have
+      been widened, so widening cannot quiet it by self-inclusion
+    phase: RED
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - an extension set whose nodes declare mirror provenance, some naming a live core rule and some naming
+      none
+  when:
+    abstract: mirror coherence is computed with the narrow roots and again with the widened roots
+  then:
+    abstract:
+    - the SET of incoherent extension rule_ids is identical under both root sets, compared by id and not
+      merely by count
+    - a node that mirrors nothing is not reported as coherent merely because the widened roots admitted
+      it into core
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-13'
+- identity:
+    urn: acc:govern-registry:D002-SMOKE-001-admitting-extensions-adds-thirty-five-rules
+    id: AC-SMOKE-001
+    purpose: over the toolkit's real substrate, admitting the extension tree contributes exactly 35 NEW
+      rule_ids and zero additional duplicates — the explicit superseded evidence retiring D001's premise
+      that admitting extensions adds no new rule. D001 recorded that premise on 2026-07-10 when it held
+      (50 extension ids, all mirrors of 373 core ids); commit 47c4d414 on 2026-07-18 ("stop declaring
+      TypeScript and frontend rule_ids in core") falsified it by removing 18 TypeScript and frontend rule_ids
+      from core while the extension nodes mirroring them remained, and 17 train-interlocking nodes mirroring
+      nothing were added after. 18 + 17 = the 35.
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - the toolkit's real core convention tree and its vendored extension convention nodes
+  when:
+    abstract: the new-rule set and the duplicate set that admitting the extensions would produce are computed
+      over the real substrate
+  then:
+    abstract:
+    - the set of new rule_ids contributed by the extensions is non-empty and numbers exactly 35
+    - every one of those 35 mirrors no live core rule, so admitting them creates no additional duplicate
+    - the superseded premise of D001 is recorded as expired with this evidence
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-13'
