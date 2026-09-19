@@ -29,15 +29,15 @@ workflow:
         wagon:
           description: "Bounded context definition"
           location: "plan/{wagon}/_{wagon}.yaml"
-          convention: "atdd/planner/conventions/wagon.convention.yaml"
+          convention: "atdd/planner/conventions/nodes/planner.wagon.*.convention.yaml"
         feature:
           description: "Feature specification with sizing"
           location: "plan/{wagon}/features/{feature}.yaml"
-          convention: "atdd/planner/conventions/feature.convention.yaml"
+          convention: "atdd/planner/conventions/nodes/planner.feature.*.convention.yaml"
         wmbt:
-          description: "What Must Be True acceptance criteria"
-          location: "plan/{wagon}/features/{feature}.yaml (wmbt section)"
-          convention: "atdd/planner/conventions/wmbt.convention.yaml"
+          description: "What Must Be True — the directional outcome statements this issue lands"
+          location: "plan/{wagon}/{STEP_CODE}{NNN}.yaml"
+          convention: "atdd/planner/conventions/nodes/planner.wmbt.*.convention.yaml"
       validators:
         - "atdd/planner/validators/test_train_validation.py"
         - "atdd/planner/validators/test_wagon_urn_chain.py"
@@ -194,7 +194,7 @@ github_issue_tracking:
       - { name: "archetype:be",      color: "D4C5F9", applies_to: "parent",    description: "Python FastAPI 4-layer" }
       - { name: "archetype:fe",      color: "D4C5F9", applies_to: "parent",    description: "TypeScript/Preact 4-layer" }
       - { name: "archetype:contracts", color: "D4C5F9", applies_to: "parent",  description: "JSON Schema contracts" }
-      - { name: "archetype:wmbt",    color: "D4C5F9", applies_to: "parent",    description: "What Must Be True criteria" }
+      - { name: "archetype:wmbt",    color: "D4C5F9", applies_to: "parent",    description: "What Must Be True — directional outcome statements" }
       - { name: "archetype:wagon",   color: "D4C5F9", applies_to: "parent",    description: "Bounded context module" }
       - { name: "archetype:train",   color: "D4C5F9", applies_to: "parent",    description: "Journey orchestration" }
       - { name: "archetype:telemetry", color: "D4C5F9", applies_to: "parent",  description: "Observability artifacts" }
@@ -598,7 +598,7 @@ archetypes:
 
   wmbt:
     id: "wmbt"
-    description: "What Must Be True acceptance criteria"
+    description: "What Must Be True — the directional outcome statements this issue lands"
     artifacts:
       - "plan/{wagon}/*.yaml"
     patterns:

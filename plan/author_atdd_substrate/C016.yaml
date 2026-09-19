@@ -1,0 +1,91 @@
+urn: "wmbt:author-atdd-substrate:C016"
+step: "confirm"
+direction: "minimize"
+dimension: "likelihood"
+object_of_control: "definition-node-drift"
+context_clarifier: "when a definition node names the shape of a plan artifact, every field, vocabulary and semantic it asserts must be supported by the authority that governs that artifact — the corpus, the owning validator, or the schema, in that order"
+lens: "functional.effectiveness"
+statement: "minimize likelihood of definition-node-drift: no definition node asserts a field, vocabulary or semantic its governing authority does not support"
+acceptances:
+  - identity:
+      urn: "acc:author-atdd-substrate:C016-UNIT-001-acronym-has-one-expansion"
+      id: "AC-UNIT-001"
+      purpose: "Exactly one expansion of an artifact acronym survives in tracked source — the class the field-claim check cannot see, because a wrong acronym names no field"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "The tracked source tree, excluding generated output"
+    when:
+      abstract: "every expansion of the WMBT acronym is collected"
+    then:
+      abstract:
+        - "Exactly one expansion is present, and it is 'What Must Be True'"
+        - "RED: three expansions ship today — 'What-Might-Break Test' in the definition node itself and 'Write Meaningful Before Tests' in the inventory scanner"
+    metadata:
+      author: "atdd:state-projection-plan"
+      created: "2026-09-17"
+  - identity:
+      urn: "acc:author-atdd-substrate:C016-UNIT-002-no-unsupported-field-claim"
+      id: "AC-UNIT-002"
+      purpose: "No definition node names a field its governing authority does not declare — checked over the statement AND the terms block, because both carry field claims"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "Every definition node enumerated by planner.definition.anchor-required"
+    when:
+      abstract: "each field name asserted in the statement and in the terms block is resolved against the artifact's authority"
+    then:
+      abstract:
+        - "Every asserted field is declared by the schema, the owning validator, or present in the corpus"
+        - "A kind with no JSON Schema resolves to its owning validator rather than being skipped"
+        - "RED: the feature definition asserts 'status' and 'acceptance', absent from the schema and from 190 of 190 feature files; the WMBT definition's terms assert 'id' where the field is 'urn'"
+    metadata:
+      author: "atdd:state-projection-plan"
+      created: "2026-09-17"
+  - identity:
+      urn: "acc:author-atdd-substrate:C016-UNIT-003-semantic-claim-matches-its-validator"
+      id: "AC-UNIT-003"
+      purpose: "A definition's mechanism claim agrees with the artifact that implements it — the class that carries no field name at all"
+      phase: "RED"
+    harness:
+      type: "unit"
+      category: "backend"
+    given:
+      abstract:
+        - "A definition node asserting how its artifact is keyed, selected or resolved"
+    when:
+      abstract: "the claim is checked against every authority that governs the artifact"
+    then:
+      abstract:
+        - "The claim holds against at least one governing authority and contradicts none"
+        - "An artifact governed by two authorities must have both named, not one substituted for the other"
+        - "RED: the interlocking definition names only the dispatch registry's artifact keying and omits guard_ref plus route_resolution.strategy"
+    metadata:
+      author: "atdd:state-projection-plan"
+      created: "2026-09-17"
+  - identity:
+      urn: "acc:author-atdd-substrate:C016-SMOKE-001-definition-drift-is-caught-live"
+      id: "AC-SMOKE-001"
+      purpose: "End-to-end through the real validator suite: a definition node that asserts an unsupported field fails the shipped gate, and the corrected corpus passes it"
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "A real checkout and the shipped planner validator suite"
+    when:
+      abstract: "the definition-anchor validator is run, then re-run against a node seeded with an unsupported field claim"
+    then:
+      abstract:
+        - "The real corpus passes"
+        - "The seeded drift is refused, naming the node and the unsupported claim"
+    metadata:
+      author: "atdd:state-projection-plan"
+      created: "2026-09-17"

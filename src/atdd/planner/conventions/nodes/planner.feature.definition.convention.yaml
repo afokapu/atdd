@@ -3,12 +3,14 @@ rule_id: planner.feature.definition
 kind: family
 status: draft
 name: Feature — advisory semantic anchor
-statement: A feature is the smallest independently-verifiable slice of a wagon's behavior
-  — a bounded capability that declares a URN, a status, and a non-empty acceptance
-  section, links to exactly one wagon, closes a feedback loop, and stays within its
-  size limits. This node is an advisory semantic anchor — it enforces nothing directly;
-  the enforceable parts of this meaning are decomposed into the constraint/rule nodes
-  that require it.
+statement: >-
+  A feature is the smallest independently-verifiable slice of a wagon's behavior — a
+  bounded capability that declares a `urn`, links to exactly one `wagon`, carries a
+  `description`, declares the `wmbts` it covers, and enumerates its `components`; its
+  `sizing` stays within the feature size limits, and a feature marked as a feedback-loop
+  feature closes that loop through its SMOKE evidence. This node is an advisory semantic
+  anchor — it enforces nothing directly; the enforceable parts of this meaning are
+  decomposed into the constraint/rule nodes that require it.
 terms:
 - term_id: semantic_anchor
   label: Advisory semantic anchor
@@ -19,9 +21,10 @@ terms:
   label: Feature
   text: feature -> {well-shaped, wagon-linked, feedback-closing, size-bounded}.
   values:
-    well-shaped: declares a urn, a status, and a non-empty acceptance section (see
-      planner.feature.shape).
+    well-shaped: declares a `urn`, a `wagon`, a `description`, the `wmbts` it covers,
+      `sizing`, and `components` (see planner.feature.shape).
     wagon-linked: belongs to exactly one wagon (see planner.feature.wagon-link).
-    feedback-closing: closes the loop it opens (see planner.feature.feedback-loop-close-the-loop).
+    feedback-closing: where marked as a feedback-loop feature, closes the loop it opens (see
+      planner.feature.feedback-loop-close-the-loop).
     size-bounded: respects hard limits and the size-max rule (see planner.feature.hard-limits,
       planner.feature.size-max-rule).

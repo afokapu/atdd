@@ -142,7 +142,7 @@ class RuleMetadata:
     populate them on construction.
 
         acceptance_urn: Acceptance criterion this rule enforces.
-        wmbt_urn: WMBT (What Must Be True) criterion linkage.
+        wmbt_urn: WMBT (What Must Be True) outcome-statement linkage.
         train_urn: Train (release journey) the rule belongs to.
         security_urn: Security control / policy the rule enforces.
         feature_urn: Feature the rule scopes to.

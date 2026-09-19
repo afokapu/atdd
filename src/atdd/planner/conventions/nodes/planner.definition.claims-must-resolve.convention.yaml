@@ -1,0 +1,57 @@
+schema_version: 1.1.0
+rule_id: planner.definition.claims-must-resolve
+kind: rule
+status: active
+name: A definition anchor's claims resolve against its artifact's authority
+statement: >-
+  Every claim a `planner.<artifact>.definition` anchor makes about its artifact — in its
+  `statement` AND in its `terms` block — MUST resolve against the authority that governs
+  that artifact. A named field must be declared by the artifact's schema, by the validator
+  that owns it, or present in the corpus; a named mechanism must hold against at least one
+  governing authority and contradict none; and an artifact acronym must carry exactly one
+  expansion across tracked source. A claim that resolves against nothing is refused.
+source:
+  legacy_path: src/atdd/planner/conventions/definition.convention.yaml
+  legacy_section: rules
+  extraction_mode: high_fidelity
+  legacy_rule_id: planner.definition.claims-must-resolve
+content:
+  fix_hint: >-
+    Correct the anchor's prose against the authority, not the authority against the prose.
+    The precedence is corpus > owning validator > schema > prose: a field present in no real
+    artifact is wrong however the schema is written, and `plan_unit_schema.py` puts `feature`
+    and `wmbt` on the advise tier precisely because their schemas reject most real files.
+    Patch the `terms` block in the same edit — it carries field claims too.
+  exceptions:
+    - >-
+      A claim about intent the authority cannot encode (a norm over a declared field, or a
+      conditional keyed on a field) is permitted, provided it names the rule node that
+      enforces it and does not universalize a conditional.
+operational_guidance: >-
+  Pairs with planner.definition.anchor-required, which requires the anchor to EXIST and be
+  graph-connected. This rule is about what the anchor SAYS. The two are deliberately separate
+  rules: an anchor can be present, family-kinded and graph-connected while describing a
+  different artifact — which is how four spellings of one acronym and a definition naming two
+  fields that exist in no schema and no corpus file survived undetected (#2039).
+metadata:
+  severity: 3
+  disposition: strict
+  introduced_in: 4.94.1
+parity:
+  source_fragments_preserved: true
+terms:
+  - term_id: governing_authority
+    text: >-
+      the artifact that decides a claim, in precedence order — the corpus of real artifacts,
+      then the validator that owns the vocabulary, then the JSON Schema, then prose.
+  - term_id: field_claim
+    text: a definition's assertion that its artifact declares a named field.
+  - term_id: mechanism_claim
+    text: >-
+      a definition's assertion about how its artifact is keyed, selected or resolved; it names
+      no field, so a field-only check cannot see it.
+  - term_id: acronym_canon
+    text: the single expansion of an artifact acronym that tracked source is permitted to carry.
+implementation:
+  type: validator
+  ref: test_definition_claims_resolve::test_c016_unit_002_no_unsupported_field_claim

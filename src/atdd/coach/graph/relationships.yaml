@@ -1805,6 +1805,51 @@ edges:
 - confidence: 1.0
   constraint: mandatory
   control: internal
+  foundation: finish_to_finish
+  reason: the wmbt anchor's claims must resolve against the wmbt authority
+  source_ref: planner.definition.claims-must-resolve
+  strength: critical
+  target_ref: planner.wmbt.definition
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: the feature anchor's claims must resolve against the feature authority
+  source_ref: planner.definition.claims-must-resolve
+  strength: critical
+  target_ref: planner.feature.definition
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: the interlocking anchor's claims must resolve against both routing authorities
+  source_ref: planner.definition.claims-must-resolve
+  strength: critical
+  target_ref: planner.interlocking.definition
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: the active feature shape rule states field claims and is checked with the anchors
+  source_ref: planner.definition.claims-must-resolve
+  strength: critical
+  target_ref: planner.feature.shape
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
+  foundation: finish_to_finish
+  reason: claims-must-resolve governs what an anchor SAYS; anchor-required governs that it EXISTS
+  source_ref: planner.definition.claims-must-resolve
+  strength: critical
+  target_ref: planner.definition.anchor-required
+  type: requires
+- confidence: 1.0
+  constraint: mandatory
+  control: internal
   foundation: finish_to_start
   reason: seeds come from wagon produce/consume artifact names
   source_ref: planner.feature.artifact-seeded-naming
