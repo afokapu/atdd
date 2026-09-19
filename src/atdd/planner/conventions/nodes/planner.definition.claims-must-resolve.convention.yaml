@@ -54,4 +54,4 @@ terms:
     text: the single expansion of an artifact acronym that tracked source is permitted to carry.
 implementation:
   type: validator
-  ref: test_definition_claims_resolve::test_definition_claims_resolve_against_authority
+  ref: test_definition_claims_resolve::test_c016_unit_002_no_unsupported_field_claim

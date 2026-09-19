@@ -1,5 +1,7 @@
 # URN: test:author-atdd-substrate:definition-anchor:C016-RED-001-claims-resolve
+# Acceptance: acc:author-atdd-substrate:C016-UNIT-001-acronym-has-one-expansion
 # Acceptance: acc:author-atdd-substrate:C016-UNIT-002-no-unsupported-field-claim
+# Acceptance: acc:author-atdd-substrate:C016-UNIT-003-semantic-claim-matches-its-validator
 # WMBT: wmbt:author-atdd-substrate:C016
 # Phase: RED
 # Layer: integration
@@ -266,8 +268,10 @@ def _claimed_fields(node: dict) -> Tuple[Set[str], Set[str]]:
         for m in re.finditer(r"\b(?:declares?|carries|carrying)\b([^.;]{0,160})", blob):
             clause = re.sub(r"`[^`]*`", " ", m.group(1))  # backticked handled above
             inferred |= set(re.findall(r"[a-z][a-z0-9_]{2,}", clause))
-    strip = lambda s: {c.split(".")[0] for c in s}
-    return strip(explicit), strip(inferred)
+    def _head(names: Set[str]) -> Set[str]:
+        return {c.split(".")[0] for c in names}
+
+    return _head(explicit), _head(inferred)
 
 
 def scan_field_claims() -> List[Violation]:
@@ -303,11 +307,14 @@ def scan_field_claims() -> List[Violation]:
         known = all_authority_fields()
         explicit, inferred = _claimed_fields(node)
 
-        def unsupported(candidate: str) -> bool:
+        def unsupported(candidate: str, _supported: Set[str] = supported) -> bool:
+            # `_supported` is bound at definition time on purpose: this closure is
+            # created inside the per-artifact loop, so a late-bound reference would
+            # read whichever artifact happened to be last (B023).
             return not (
-                candidate in supported
-                or f"{candidate}s" in supported
-                or candidate.rstrip("s") in supported
+                candidate in _supported
+                or f"{candidate}s" in _supported
+                or candidate.rstrip("s") in _supported
             )
 
         # A backticked name is an unambiguous claim: trust it, including one that
@@ -382,9 +389,31 @@ def scan_mechanism_claims() -> List[Violation]:
 
 
 def scan_all() -> List[Violation]:
+    """Every class at once — kept for callers that want one verdict."""
     return scan_acronym_canon() + scan_field_claims() + scan_mechanism_claims()
 
 
-def test_definition_claims_resolve_against_authority() -> None:
-    """Live corpus: every anchor's claims resolve against a governing authority."""
-    assert_disposition_satisfied(validator_id=_VALIDATOR_ID, violations=scan_all())
+def test_c016_unit_001_acronym_has_one_expansion() -> None:
+    """Exactly one expansion of an artifact acronym survives in tracked source.
+
+    Its own acceptance because a wrong acronym names no field, so the field check
+    below is structurally blind to it.
+    """
+    assert_disposition_satisfied(validator_id=_VALIDATOR_ID, violations=scan_acronym_canon())
+
+
+def test_c016_unit_002_no_unsupported_field_claim() -> None:
+    """No definition anchor names a field its governing authority does not declare.
+
+    Read over the `terms` block as well as the statement, because both carry claims.
+    """
+    assert_disposition_satisfied(validator_id=_VALIDATOR_ID, violations=scan_field_claims())
+
+
+def test_c016_unit_003_semantic_claim_matches_its_validator() -> None:
+    """A mechanism claim agrees with every authority that governs the artifact.
+
+    Its own acceptance because such a claim carries no field name at all, so the
+    field check cannot see it either.
+    """
+    assert_disposition_satisfied(validator_id=_VALIDATOR_ID, violations=scan_mechanism_claims())

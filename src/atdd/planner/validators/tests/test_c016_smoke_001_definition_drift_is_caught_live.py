@@ -25,10 +25,8 @@ letter re-drift silently.
 """
 from __future__ import annotations
 
-import re
 import subprocess
 import sys
-from pathlib import Path
 
 import pytest
 
@@ -107,7 +105,7 @@ def test_c016_smoke_001_seeded_drift_is_refused(tmp_path) -> None:
 @pytest.mark.smoke
 def test_c016_smoke_001_inventory_counts_every_step_code() -> None:
     """The corrected scanner knows all nine steps, not the four it used to invent."""
-    from atdd.coach.commands.inventory import RepositoryInventory  # noqa: PLC0415
+    from atdd.coach.commands.inventory import RepositoryInventory
 
     result = RepositoryInventory(REPO).scan_wmbts()
 
