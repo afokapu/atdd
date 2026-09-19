@@ -1219,9 +1219,13 @@ def _mirrored_core_rule_id(file_path: Path) -> Optional[str]:
     try:
         with open(file_path) as fh:
             data = yaml.safe_load(fh)
-    except (OSError, yaml.YAMLError):  # atdd:suppress(coder.logging.coach-silent-swallow)
+    except (OSError, yaml.YAMLError) as exc:
         # Unreadable / malformed YAML is policed by test_rule_id_uniqueness; treat it
         # as carrying no provenance so the existing walk decides its fate.
+        _log.warning(
+            "_mirrored_core_rule_id: (OSError, yaml.YAMLError) handled, returning None",
+            extra={"error": str(exc)[:200]},
+        )
         return None
     if not isinstance(data, dict) or not data.get("rule_id") or data.get("rules"):
         return None
