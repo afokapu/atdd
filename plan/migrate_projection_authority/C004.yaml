@@ -1,0 +1,125 @@
+urn: wmbt:migrate-projection-authority:C004
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: projection-coverage-gap
+context_clarifier: when every check the cutover has compares the projection to itself or to a
+  projection of the same snapshot, so nothing in the chain ever consults the store it claims to cover
+lens: functional.effectiveness
+statement: minimize likelihood of a projection-coverage-gap that the cutover certifies as met, by
+  comparing the committed uid set against the store's obligation in both directions rather than
+  comparing the projection to itself
+acceptances:
+- given:
+    abstract:
+    - A committed projection from which one document has been deliberately removed, and the store
+      that still holds the object it named
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-001
+    phase: RED
+    purpose: the bar this issue is judged on — a projection with an object removed must fail the
+      check, because a check that passes on a truncation is the same non-test in a new place
+    urn: acc:migrate-projection-authority:C004-UNIT-001-a-removed-object-is-caught
+  metadata:
+    author: atdd:2042
+    created: '2026-09-19'
+  then:
+    abstract:
+    - The projection criterion reports UNMET
+    - The blocker names the uid the projection is missing
+    - 'RED: byte-identity and self-canonicality both pass on the truncated tree and the criterion
+      reports MET, because nothing compares the projection against the store'
+  when:
+    abstract: the cutover's projection criterion is evaluated against the store
+- given:
+    abstract:
+    - An intact committed projection and the store it was projected from
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-002
+    phase: RED
+    purpose: the check discriminates rather than always failing — a coverage check that refuses
+      every projection is as useless as one that accepts every projection, and much more annoying
+    urn: acc:migrate-projection-authority:C004-UNIT-002-an-intact-projection-is-met
+  metadata:
+    author: atdd:2042
+    created: '2026-09-19'
+  then:
+    abstract:
+    - The projection criterion reports MET
+    - The coverage report carries no missing and no unexpected uid
+  when:
+    abstract: the cutover's projection criterion is evaluated against the store
+- given:
+    abstract:
+    - A store holding a COMPLETE work item and a non-work_item object, neither of which the
+      projection carries
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-003
+    phase: RED
+    purpose: an object excluded by a declared rule is not a coverage gap, and the exclusion census
+      must account for every stored object so the residual is provably empty rather than merely
+      explained
+    urn: acc:migrate-projection-authority:C004-UNIT-003-a-declared-exclusion-is-not-a-gap
+  metadata:
+    author: atdd:2042
+    created: '2026-09-19'
+  then:
+    abstract:
+    - The projection criterion reports MET despite both objects being absent
+    - The census assigns every stored object to exactly one bucket and sums to the store's population
+    - The obligation is derived from the same rules the projector applies, so a filter change moves
+      both together
+  when:
+    abstract: the cutover's projection criterion is evaluated against the store
+- given:
+    abstract:
+    - A committed projection carrying a document for a uid the store does not oblige
+  harness:
+    category: backend
+    type: unit
+  identity:
+    id: AC-UNIT-004
+    phase: RED
+    purpose: coverage is a set comparison in both directions — equal counts with different members
+      is exactly the corruption a count check cannot see
+    urn: acc:migrate-projection-authority:C004-UNIT-004-an-unobliged-document-is-caught
+  metadata:
+    author: atdd:2042
+    created: '2026-09-19'
+  then:
+    abstract:
+    - The projection criterion reports UNMET
+    - The blocker names the unobliged uid and distinguishes it from a missing one
+  when:
+    abstract: the cutover's projection criterion is evaluated against the store
+- given:
+    abstract:
+    - A real repo checkout, the installed atdd CLI, and a real on-disk .atdd/state/state.sqlite
+      whose committed projection has had one document removed
+  harness:
+    category: backend
+    type: integration
+  identity:
+    id: AC-SMOKE-001
+    phase: SMOKE
+    purpose: 'End-to-end: the shipped `atdd state cutover` refuses a truncated committed projection
+      against a real repo checkout, the installed CLI and a real store — no mocks, no patching.'
+    urn: acc:migrate-projection-authority:C004-SMOKE-001-the-shipped-cutover-catches-a-truncation
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-19'
+  then:
+    abstract:
+    - projection-coverage-gap is observed to be caught end-to-end against real infrastructure, with
+      no mocks or manual patching
+  when:
+    abstract: the C004 behavior is driven end-to-end through the real CLI
