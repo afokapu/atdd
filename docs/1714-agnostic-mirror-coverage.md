@@ -210,6 +210,59 @@ The evidence is the scan surface, read from the validator each node binds.
 | `coder.train.acceptance-commit-idempotent` | ATDD-INTERNAL | unset | "An **Acceptance Authority** commit MUST be idempotent — the same `idempotency_key` returns the original receipt … a receipt is recoverable across the commit/receive" — ATDD's own acceptance-commit runtime; binds no validator (`implementation.ref` is absent) |
 | `coder.train.station-master-owns-child-train-fanout` | ATDD-INTERNAL | unset | "fan-out is owned by the **Station Master** … suspend/resume state lives in the durable **run-log**, not in TrainRunner" — ATDD's interlocking runtime; binds no validator |
 
+### SUBSTRATE-SPEC — the 44 documentation-only nodes, second pass (18 rules)
+
+Same discriminator as the enforcing batch: does the obligation need a per-stack
+realization over the consumer's own code, or does it govern an ATDD artifact
+identically in every language? These 18 govern `contracts/`, `plan/`, the test header
+block, the train harness, or ATDD's own telemetry. The artifact is the same in every
+stack, so there is no detector to delegate and no agnostic parent to author.
+
+| rule_id | verdict | Quoted evidence |
+|---|---|---|
+| `tester.contract.bidirectional-wagon-linkage` | SUBSTRATE-SPEC | "a wagon's `produce[].urn` resolves to a contract `$id`, and that contract's producer references an existing wagon" |
+| `tester.contract.core-fields-only-no-ui` | SUBSTRATE-SPEC | "Contract schemas MUST contain only core domain fields and remain UI-agnostic" |
+| `tester.contract.planner-defines-what-tester-implements-how` | SUBSTRATE-SPEC | "The planner defines WHAT … the tester implements HOW via contract schemas — the two stay separated by role" — an ATDD role boundary |
+| `tester.contract.schema-is-source-of-truth` | SUBSTRATE-SPEC | "MUST carry its identity, semantic version, type, and complete artifact metadata (producer, consumers, dependencies…)" |
+| `tester.contract.semver-governs-compatibility` | SUBSTRATE-SPEC | "across a draft to active to deprecated to retired lifecycle" — ATDD's contract lifecycle |
+| `tester.coverage.bidirectional-coverage-between-contracts` | SUBSTRATE-SPEC | "Bidirectional coverage between contracts and wagon produce/consume" |
+| `tester.coverage.bidirectional-coverage-between-telemetry` | SUBSTRATE-SPEC | "Bidirectional coverage between telemetry signals and wagon produce" |
+| `tester.coverage.every-acceptance-criterion-must` | SUBSTRATE-SPEC | "Every acceptance criterion must have corresponding test(s)" — a `plan/` ↔ test relation |
+| `tester.filename.test-carries-urn-identity` | SUBSTRATE-SPEC | "its explicit URN header (a `test:` URN, with `Acceptance:`/`WMBT:` lines…)" — ATDD's header block |
+| `tester.filename.test-placed-in-owning-feature` | SUBSTRATE-SPEC | "Each acceptance belongs to exactly one feature, and its test is colocated with that feature" — ATDD's layout |
+| `tester.red.test-must-fail-first` | SUBSTRATE-SPEC | "A RED-phase test MUST fail on its first run" — an ATDD phase obligation, not a property of the code |
+| `tester.routing.layer-keyword-taxonomy` | SUBSTRATE-SPEC | "routed … by matching acceptance-criteria keywords" — reads `plan/` |
+| `tester.smoke.harness-subprocess-failed-crash` | SUBSTRATE-SPEC | "Harness subprocess failed (crash, timeout, or schema-invalid stdout) when mounting the train" — ATDD's train harness. **Also malformed as a rule**: it states an error condition, not an obligation; flagged for its owner |
+| `tester.telemetry.emit` | SUBSTRATE-SPEC | "Telemetry tests assert that **the validator** emits the expected events" — ATDD's own validator telemetry |
+| `tester.train.coverage` | SUBSTRATE-SPEC | "Each train wagon has a smoke test exercising its composition root" — ATDD's train |
+| `coder.technology.new-components-default-to` | SUBSTRATE-SPEC | "default to the `technology.<layer>.default` for their layer" — reads the wagon's declared technology block |
+| `coder.technology.approved-alternatives-are-taken` | SUBSTRATE-SPEC | "only when the `use_when` criteria are met; tradeoff is documented in the wagon" — the obligation is on the declaration |
+| `coder.technology.unapproved-technology-choices-require` | SUBSTRATE-SPEC | "require a SPEC edit before they can ship" — an ATDD SPEC artifact |
+
+### AGNOSTIC-CONSUMER — the other 26 documentation-only nodes, queued to mirror
+
+Each states an obligation on the consumer's own source, with a realization that differs
+per stack (package layout, import syntax, DOM API, test-double mechanism). Under the
+**Option A** decision these are mirrored **at their existing `documentation-only`
+disposition** — the obligation moves out of core, and whether any of them earns a
+detector is separate work commissioned per family, not a precondition for the carve-out.
+
+| family | rules | the agnostic obligation |
+|---|---|---|
+| `coder.backend` | 2 | four-layer organisation and the allowed import edges between them |
+| `coder.boundaries` | 1 | no direct cross-wagon imports; collaboration goes through contract artifacts |
+| `coder.commons` | 2 | domain-layer purity ("in any stack" — already agnostic in its own words) and the `commons` naming |
+| `coder.composition` | 2 | every file has a consumer; the composition root reaches every layer |
+| `coder.design` | 3 | design-system layering, token purity, and import direction |
+| `coder.dto` | 3 | DTO placement, mapper layer, and domain-model containment |
+| `coder.duplication` | 1 | no structurally identical fragments within a layer |
+| `coder.presentation` | 3 | thin presentation, no controller→domain calls, response models in `contract_dto` |
+| `coder.security` | 1 | no unsafe HTML injection (`innerHTML` / `dangerouslySetInnerHTML` are one stack's spelling) |
+| `coder.train` | 1 | production composition root, cargo-only communication — **route to `atdd.extension.coder.train-interlocking`**, which already owns the train family, not to `coder.base` |
+| `tester.red` | 3 | behavioural assertion for presentation components, schema-first assertion, spec-enforced test doubles ("autospec" is Python's spelling) |
+| `tester.security` | 2 | auth/authorization coverage, adversarial input rejection |
+| `tester.smoke` | 2 | cross-component handoff exercised in one test; operator-observable assertions |
+
 ### AGNOSTIC-CONSUMER — mirror these 9
 
 The other half of the enforcing batch. Each states an obligation on the consumer's own
