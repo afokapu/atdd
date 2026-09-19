@@ -67,3 +67,70 @@ rejected with a non-zero exit code.
 Every PR ends with a version bump in `pyproject.toml` and a
 `v{version}` tag on the merge commit. See `docs/version-source-of-truth-design.md`
 for the end-to-end protocol.
+
+## Running tests
+
+```bash
+PYTHONPATH=src python3 -m pytest src/atdd/ -v
+PYTHONPATH=src python3 -m pytest src/atdd/coder/validators/ -v
+PYTHONPATH=src python3 -m pytest --cov=atdd --cov-report=html
+```
+
+## Adding a validator
+
+1. Create `src/atdd/<role>/validators/test_<name>.py`.
+2. Bind a canonical rule ID at module import. Failing loudly at import is
+   deliberate (SPEC-COACH-RULEID-0007) — do not make `bind_rule` lazy.
+3. Declare the rule in the matching convention YAML.
+4. Emit normalized validator reports.
+
+## Adding a convention
+
+1. Create `src/atdd/<role>/conventions/<name>.convention.yaml`, or a flat node
+   under `src/atdd/<role>/conventions/nodes/`.
+2. Declare `id`, `severity`, `disposition`, `description`, and optional
+   `fix_hint`. See [`docs/validators.md`](docs/validators.md) for dispositions.
+3. Reference it from validators and planning briefs.
+
+Prefer `atdd author convention-node`, which produces a schema-valid node by
+construction. See [`docs/extensions.md`](docs/extensions.md).
+
+## Adding a lifecycle phase
+
+Edit `src/atdd/coach/conventions/phase_machine.convention.yaml` — the single
+source of truth — plus **exactly one** Python line: a member of
+`atdd.coach.core.types.Phase`. Everything else is projected from that file.
+
+Forgetting the enum line fails closed and immediately:
+`atdd.coach.handlers.state_machine` builds its table at import via
+`Phase(name)`, so a phase declared in YAML and missing from the enum raises
+`ValueError` and the coach runtime does not load at all. Three tests guard
+this, all from #1946:
+
+- `D004-UNIT-005::test_the_core_phase_enum_is_pinned_to_the_convention`
+- `D004-UNIT-001::test_adding_a_phase_costs_exactly_one_python_edit`
+- `D004-SMOKE-001::test_every_declared_phase_is_nameable_by_the_shipped_runtime`
+
+## Worker model selection
+
+Worker agents can run on any wrapper. Configure defaults in
+`.atdd/config.yaml`; override per invocation:
+
+```bash
+atdd coach <N> --persona-llm tester=glm-5.1,coder=claude-sonnet-4-6
+```
+
+| Class | When to use |
+|---|---|
+| compliant | lifecycle work with structured prompts and fixed states |
+| frontier | ambiguous design, novel planning, hard refactors |
+
+See [`docs/MODELS.md`](docs/MODELS.md).
+
+## Environment variables
+
+| Var | Effect |
+|---|---|
+| `ATDD_MAX_UNCOMMITTED` | pre-push micro-commit warning threshold |
+| `ATDD_MAX_STAGED` | pre-commit micro-commit warning threshold |
+| `ATDD_SKIP_PREPUSH_VALIDATE` | bypass pre-push validator hook when needed |
