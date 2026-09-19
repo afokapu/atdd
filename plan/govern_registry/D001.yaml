@@ -47,3 +47,23 @@ acceptances:
     metadata:
       author: "atdd:self-compliance"
       created: "2026-07-10"
+  - identity:
+      urn: "acc:govern-registry:D001-SMOKE-001-real-registry-roots-at-core-only"
+      id: "AC-SMOKE-001"
+      purpose: "over the toolkit's real substrate the core rule registry admits zero files from the extension tree, so the core-only ROOTING holds live. Re-premised by #2002: this acceptance originally also asserted that every extension rule_id was already a core rule_id, which commit 47c4d414 (2026-07-18) falsified by removing 18 TypeScript and frontend rule_ids from core while their extension mirrors remained. That half is superseded by acc:govern-registry:D002-SMOKE-001, which measures the real extension-only set at 35. The rooting half survives, and is now GUARANTEED by D002's pin of core_convention_files to the core root."
+      phase: "SMOKE"
+    harness:
+      type: "integration"
+      category: "backend"
+    given:
+      abstract:
+        - "the toolkit's real core convention tree and its vendored extension convention nodes"
+    when:
+      abstract: "the set of convention files admitted into the core rule registry is computed over the real substrate"
+    then:
+      abstract:
+        - "the core registry is non-empty"
+        - "no file admitted into the core registry lives under the extension tree"
+    metadata:
+      author: "atdd:self-compliance"
+      created: "2026-07-10"
