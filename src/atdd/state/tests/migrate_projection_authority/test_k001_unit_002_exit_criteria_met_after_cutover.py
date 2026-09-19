@@ -29,7 +29,7 @@ from atdd.state.manifest_import import WORK_ITEM_KIND
 from atdd.state.projection import project
 
 from atdd.state.tests._fixtures import checkout, commit_all
-from ._helpers import UID_A, UID_B, memory_store
+from ._helpers import UID_A, UID_B, disk_store
 
 #: This repo's own `atdd` package — the source tree the claim is actually about.
 CORE = Path(__file__).resolve().parents[3]
@@ -43,7 +43,10 @@ def test_k001_unit_002_exit_criteria_met_after_cutover(tmp_path) -> None:
 
     repo = checkout(tmp_path / "migrated")
     projection = repo / ".atdd" / "state" / "projection"
-    with memory_store() as (_conn, store):
+    # The store lives ON DISK at the repo's Control Root: the criterion now compares the
+    # committed projection against that store (#2042), and a repo projecting out of an
+    # in-memory store is a control root that could not exist.
+    with disk_store(repo) as (_conn, store):
         store.objects.upsert(UID_A, WORK_ITEM_KIND, state="PLANNED", data=dict(_BASE))
         store.objects.upsert(UID_B, WORK_ITEM_KIND, state="GREEN",
                              data={**_BASE, "slug": "beta"})

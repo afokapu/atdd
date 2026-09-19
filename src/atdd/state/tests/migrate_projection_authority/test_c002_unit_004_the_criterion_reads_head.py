@@ -35,7 +35,7 @@ from atdd.state.projection import PROJECTION_RELATIVE
 from atdd.state.projection import canonical_bytes
 
 from atdd.state.tests._fixtures import checkout, commit_all, git
-from ._helpers import UID_A
+from ._helpers import UID_A, seed_disk_work_items
 
 CRITERION = "projection-is-shared-state"
 
@@ -53,6 +53,19 @@ def _verdict(root: Path, **kwargs) -> cutover.Criterion:
     return next(c for c in report.criteria if c.name == CRITERION)
 
 
+def _repo(tmp_path: Path) -> Path:
+    """A Control Root whose ON-DISK store holds the object the projection describes.
+
+    The store is part of the given now: since #2042 the criterion compares the committed
+    projection against the store of that control root, so a repo with a projection and no
+    store describes objects nothing holds. These cases are about *which commit* the verdict
+    reads, and the store keeps that the only thing under test.
+    """
+    repo = checkout(tmp_path / "repo", gitignore="")
+    seed_disk_work_items(repo, [(UID_A, "PLANNED")])
+    return repo
+
+
 def _write(repo: Path, blob: bytes, *, into: Path | None = None) -> Path:
     directory = Path(into) if into is not None else repo / PROJECTION_RELATIVE
     directory.mkdir(parents=True, exist_ok=True)
@@ -65,7 +78,7 @@ def test_an_uncommitted_projection_does_not_satisfy_the_criterion(tmp_path: Path
 
     RED: ``_projection_criterion`` globs the working tree, so it does.
     """
-    repo = checkout(tmp_path / "repo", gitignore="")
+    repo = _repo(tmp_path)
     _write(repo, _CANONICAL)  # written, deliberately NOT committed
 
     assert not _verdict(repo).met, (
@@ -76,7 +89,7 @@ def test_an_uncommitted_projection_does_not_satisfy_the_criterion(tmp_path: Path
 
 def test_committing_the_same_bytes_flips_it(tmp_path: Path) -> None:
     """The other half: the fix must not simply make the criterion unsatisfiable."""
-    repo = checkout(tmp_path / "repo", gitignore="")
+    repo = _repo(tmp_path)
     _write(repo, _CANONICAL)
     commit_all(repo, "commit the projection")
 
@@ -97,7 +110,7 @@ def test_the_verdict_follows_head_not_the_working_tree(tmp_path: Path) -> None:
     ``test_an_uncommitted_projection_does_not_satisfy_the_criterion`` this pins the verdict to
     HEAD in both directions, so an implementation cannot satisfy one by breaking the other.
     """
-    repo = checkout(tmp_path / "repo", gitignore="")
+    repo = _repo(tmp_path)
     _write(repo, _CANONICAL)
     commit_all(repo, "commit a canonical projection")
     (repo / PROJECTION_RELATIVE / f"{UID_A}.yaml").write_bytes(b"corrupted in the working tree\n")
@@ -114,7 +127,7 @@ def test_a_crlf_projection_is_not_canonical(tmp_path: Path) -> None:
     RED: reading HEAD through a text-mode pipe normalises ``\\r\\n`` to ``\\n``, so a commit the
     projector would never produce compares equal to canonical output and passes.
     """
-    repo = checkout(tmp_path / "repo", gitignore="")
+    repo = _repo(tmp_path)
     git(repo, "config", "core.autocrlf", "false")
     _write(repo, _CANONICAL.replace(b"\n", b"\r\n"))
     commit_all(repo, "commit a CRLF projection")
@@ -127,7 +140,7 @@ def test_a_crlf_projection_is_not_canonical(tmp_path: Path) -> None:
 
 def test_non_utf8_bytes_yield_a_verdict_not_an_exception(tmp_path: Path) -> None:
     """A corrupt projection is an unmet criterion, not a crash."""
-    repo = checkout(tmp_path / "repo", gitignore="")
+    repo = _repo(tmp_path)
     _write(repo, b"uid: " + UID_A.encode() + b"\nslug: \xff\xfe\n")
     commit_all(repo, "commit a non-utf8 projection")
 
@@ -136,7 +149,7 @@ def test_non_utf8_bytes_yield_a_verdict_not_an_exception(tmp_path: Path) -> None
 
 def test_a_repository_with_no_commits_yields_a_verdict(tmp_path: Path) -> None:
     """A commit-less checkout is a legitimate cold start, not an error."""
-    repo = checkout(tmp_path / "repo", gitignore="")
+    repo = _repo(tmp_path)
     git(repo, "update-ref", "-d", "refs/heads/main")
 
     assert not _verdict(repo).met
@@ -147,7 +160,7 @@ def test_from_cannot_pass_a_directory_outside_the_worktree(tmp_path: Path) -> No
 
     RED: a canonical projection written OUTSIDE the repository earns a met verdict.
     """
-    repo = checkout(tmp_path / "repo", gitignore="")
+    repo = _repo(tmp_path)
     elsewhere = tmp_path / "outside-the-repo"
     _write(repo, _CANONICAL, into=elsewhere)
 
@@ -164,7 +177,7 @@ def test_from_cannot_pass_an_uncommitted_directory_inside_the_worktree(tmp_path:
     satisfy the outside-the-worktree case above while still reading an uncommitted in-repo
     directory. That is the same bypass wearing a different hat, so it gets its own acceptance.
     """
-    repo = checkout(tmp_path / "repo", gitignore="")
+    repo = _repo(tmp_path)
     inside = repo / "scratch-projection"
     _write(repo, _CANONICAL, into=inside)  # inside the worktree, never committed
 

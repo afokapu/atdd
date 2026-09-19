@@ -33,9 +33,9 @@ import tempfile
 import yaml
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
-from atdd.state import gitstore, hot_path, manifest_fallback
+from atdd.state import gitstore, hot_path, manifest_fallback, projection
 from atdd.state.projection import (
     PROJECTION_RELATIVE,
     ProjectionError,
@@ -216,7 +216,66 @@ def _projection_criterion(root: Path, projection_dir: Optional[Path]) -> Criteri
             [f"no committed projection at {prefix} in HEAD — the shared state does not exist "
              "yet (files in the working tree do not count; they are not what anyone else gets)"],
         )
-    return _canonicality_over(committed, root, prefix)
+    identity = _canonicality_over(committed, root, prefix)
+    coverage = _coverage_blockers(root, committed)
+    if coverage:
+        return Criterion(
+            CRITERION_PROJECTION, False, CLAIMS[CRITERION_PROJECTION],
+            list(identity.blockers) + coverage,
+        )
+    return identity
+
+
+def _coverage_blockers(root: Path, committed: Dict[str, bytes]) -> List[str]:
+    """Why the committed projection does not cover the store — ``[]`` when it does (#2042).
+
+    The other half of this criterion's claim, and the half nothing checked. Byte-identity
+    compares HEAD against a projection of the same snapshot, so both sides descend from one
+    ``build_document`` call; self-canonicality compares the projection to itself. Neither can
+    see what is ABSENT. Measured before this existed: a projection with a third of its
+    documents deleted passed both and the cutover reported MET.
+
+    The store is the other population, and it is read here rather than re-projected — a check
+    that rebuilt the projection from the store would compare the store to itself, which is the
+    same defect one layer out.
+
+    **An absent store is a blocker, not a pass.** The claim being stamped is that the committed
+    projection is the shared source of truth *for this control root*; with no store, that claim
+    is unproven rather than true, and a check that called it proven would be the vacuous pass
+    this whole criterion exists to remove. It is the distinction ``MissingProjectionError``
+    draws on the other side: "there is nothing here" and "what is here is empty" are different
+    facts and must not collapse.
+
+    Note this is operator-side by construction. The store is gitignored under the scoped-truth
+    rule, so CI has no population to compare against and does not run this command.
+    """
+    # Imported here, not at module scope: `cutover` is imported by the CLI on every
+    # invocation and most of them never open a store, so the SQLite work is deferred to the
+    # one path that needs it — the deferred-import shape this layer already keeps.
+    from atdd.state.db import STATE_STORE_RELATIVE, connect
+    from atdd.state.store import StateStore
+
+    store_path = Path(root) / STATE_STORE_RELATIVE
+    if not store_path.is_file():
+        return [
+            f"there is no store at {store_path} to compare the committed projection against, "
+            "so its coverage of this control root is unproven — not proven empty"
+        ]
+
+    uids = [name[: -len(projection.PROJECTION_SUFFIX)] for name in committed]
+    try:
+        conn = connect(store_path)
+        try:
+            report = projection.check_coverage(uids, StateStore(conn))
+        finally:
+            conn.close()
+    except Exception as exc:  # a verdict, never a traceback at the gate
+        _log.warning(
+            "projection coverage could not be established",
+            extra={"root": str(root), "error": str(exc)},
+        )
+        return [f"the store could not be read to check coverage: {exc}"]
+    return report.blockers()
 
 
 def _hot_path_criterion(package: Optional[Path]) -> Criterion:
