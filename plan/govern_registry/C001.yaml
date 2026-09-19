@@ -1,0 +1,117 @@
+urn: wmbt:govern-registry:C001
+step: confirm
+direction: minimize
+dimension: likelihood
+object_of_control: mirror-double-declaration
+context_clarifier: 'source.legacy_rule_id partitions the 67 extension nodes exactly:
+  32 name a live core rule, 35 name none; admitting by file rather than provenance
+  makes each of those 32 a second declaration of its twin once the extension tree
+  enters the roots'
+lens: functional.effectiveness
+statement: minimize likelihood of mirror-double-declaration by admitting an extension
+  convention node into the rule registry only when its source.legacy_rule_id names
+  no live core rule, so a node that mirrors a live core rule never becomes a second
+  declaration of its twin
+acceptances:
+- identity:
+    urn: acc:govern-registry:C001-UNIT-001-mirror-node-is-not-admitted-as-a-second-declaration
+    id: AC-UNIT-001
+    purpose: an extension node whose source.legacy_rule_id names a live core rule
+      contributes no declaration of that rule_id, so the id resolves to its core declaration
+      and the collision never arises
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a core convention tree declaring one rule_id, and an extension node declaring
+      that same rule_id with a source.legacy_rule_id naming it
+  when:
+    abstract: the registry is loaded over search roots spanning both the core tree
+      and the extension tree
+  then:
+    abstract:
+    - the rule_id resolves to the declaration in the core tree, naming the core file
+      as its source path
+    - no ambiguity is signalled for that rule_id, though it is declared in two files
+    - the extension node contributes no second declaration of it
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-13'
+- identity:
+    urn: acc:govern-registry:C001-UNIT-002-non-mirror-node-is-admitted
+    id: AC-UNIT-002
+    purpose: an extension node whose source.legacy_rule_id names no live core rule
+      is a genuinely new obligation and IS admitted, so provenance-aware admission
+      narrows nothing it should not
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a core convention tree, and an extension node declaring a rule_id the core tree
+      does not declare, whose source.legacy_rule_id names no rule in the core tree
+  when:
+    abstract: the registry is loaded over search roots spanning both the core tree
+      and the extension tree
+  then:
+    abstract:
+    - the rule_id resolves, naming the extension node as its source path
+    - an extension-declared obligation is therefore bindable when it mirrors nothing
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-13'
+- identity:
+    urn: acc:govern-registry:C001-UNIT-003-core-metadata-survives-the-collision
+    id: AC-UNIT-003
+    purpose: for a doubly-declared rule_id the resolved severity, disposition and
+      validator ref are the CORE values, so admission never silently adopts a mirror's
+      weaker metadata
+    phase: GREEN
+  harness:
+    type: unit
+    category: backend
+  given:
+    abstract:
+    - a core declaration of a rule_id carrying a severity and an executable validator
+      ref of the form module::function, and an extension node mirroring that rule_id
+      with a lower severity and a validator ref that names no test function
+  when:
+    abstract: the rule_id is resolved over roots spanning both trees
+  then:
+    abstract:
+    - the resolved severity is the core value, not the mirror's lower one
+    - the resolved validator ref is the core executable ref, not the mirror's
+    - the resolved disposition is the core value
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-13'
+- identity:
+    urn: acc:govern-registry:C001-SMOKE-001-real-substrate-admits-every-id-exactly-once
+    id: AC-SMOKE-001
+    purpose: over the toolkit's real substrate no rule_id is admitted from two convention
+      files, and every one of the real duplicated ids resolves to its core declaration
+      with core's severity and validator ref intact
+    phase: SMOKE
+  harness:
+    type: integration
+    category: backend
+  given:
+    abstract:
+    - the toolkit's real src/atdd core convention tree and its vendored .atdd/extensions
+      convention nodes
+  when:
+    abstract: the registry is loaded over search roots spanning both the real core
+      tree and the real extension tree, and every rule_id declared in both is resolved
+  then:
+    abstract:
+    - "no rule_id is admitted from two convention files \u2014 the load raises no\
+      \ ambiguity"
+    - every rule_id declared in both resolves to a source path under the core tree
+    - for each such rule_id the resolved severity equals the core declaration's severity,
+      so no mirror downgrades a rule
+  metadata:
+    author: atdd:self-compliance
+    created: '2026-09-13'
