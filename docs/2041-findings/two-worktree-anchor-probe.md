@@ -79,3 +79,74 @@ It names the foreign base as its own and reports success.
 backup, writer quiescence. None mentions cross-worktree anchoring. All four can pass
 while the store's anchor is meaningless to 113 of 114 worktrees. Recommended as a
 fifth clause — see #2041 Decision 4.
+
+---
+
+# Part 2 — the reproduction, through the real CLI
+
+Part 1 called `reconcile(root, head=head_wt)` from Python, passing the invoking
+worktree's HEAD explicitly. **The CLI never does that.** `_cmd_reconcile` passes
+`head=args.head`, which is `None` unless the operator types `--head`, so
+`reconcile` falls back to `gitstore.head(control_root)` — the **control root's**
+HEAD, not the invoking worktree's. Part 1 therefore demonstrated the guard's
+blindness under a call that does not occur in practice. This part uses the
+shipped commands only.
+
+## Setup
+
+```
+root/            control root, git checkout + .atdd, HEAD = C2 (7fb8b9e5)
+root/worktrees/B a worktree of it,                  HEAD = C1 (b0e2a653)
+```
+One store, one committed projection at C2.
+
+## Transcript
+
+```
+$ atdd state hydrate --root root                    # run from the control root
+hydrated 1 object(s) from …/.atdd/state/projection
+store_base_commit -> 7fb8b9e5e08b                   # the control root's HEAD (C2)
+
+$ cd root/worktrees/B                               # B is at C1
+$ atdd state freshness
+store is fresh at 7fb8b9e5e08b                      # <- C2. B is at C1.
+
+$ atdd state reconcile
+reconciled 7fb8b9e5e08b → 7fb8b9e5e08b (hydrate)    # <- both sides are C2
+  hydrated 1 object(s) from the incoming projection
+```
+
+## What this proves, and what it refutes
+
+**Refuted, as stated.** "A reconcile in another worktree replays onto a base it
+never hydrated from" does not happen in the CLI path — because there is no
+per-worktree base to be foreign to. Reconcile never consults the invoking
+worktree's HEAD at all.
+
+**Proven, and sharper.** The invoking worktree's HEAD is structurally irrelevant
+to every store command it runs. Both operands of the staleness comparison come
+from the control root, so `freshness` reports **"fresh"** to a worktree that is a
+commit behind — and would report "fresh" to all 114 distinct HEADs. The check
+that exists to detect divergence cannot observe the only divergence that matters
+here.
+
+**No data loss observed on this path.** B's local overlay object survived the
+reconcile (`hydrate` mode, no deletions). The defect is a silent wrong answer,
+not destruction — do not overstate it.
+
+**And the guard behind it is still blind.** Part 1 stands as the second finding:
+*if* a fix starts passing the invoking worktree's HEAD, `commit_exists` cannot
+then reject a foreign base, because worktrees share one object database
+(`commit_exists(foreign base) -> True`). A repair that only routes the right HEAD
+in would land straight on an unusable guard.
+
+## Consequence for the design
+
+Two defects, in order:
+
+1. Store commands resolve HEAD from the control root, so a worktree's own HEAD
+   never reaches the comparison. Fixing only this exposes (2).
+2. `commit_exists` cannot express "did *this* checkout hydrate from it", so it
+   cannot reject a foreign base once per-worktree HEADs start arriving.
+
+A fix for (1) without (2) converts a silent "fresh" into a silent wrong replay.
