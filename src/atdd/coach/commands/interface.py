@@ -23,6 +23,9 @@ from dataclasses import dataclass, field
 import logging
 
 from atdd.coach.utils.repo import find_repo_root
+from atdd.coach.utils.contract_identity import (
+    contract_producer, contract_producers,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -224,7 +227,7 @@ class ProducerValidator:
 
                 domain = metadata.get("domain", "")
                 resource = metadata.get("resource", "")
-                producer = metadata.get("producer")
+                producer = contract_producer(metadata)
                 consumers = metadata.get("consumers", [])
 
                 # Validate against meta-schema

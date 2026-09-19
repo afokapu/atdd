@@ -1032,6 +1032,12 @@ def _contract_producers(spec: dict) -> list:
     singular ``producer``, else empty. Lets a spec carry either spelling."""
     if spec.get("producers"):
         return list(spec["producers"])
+    # `produced_by` is the spelling the contract spec's own schema and the
+    # package's test fixtures use; dropping it silently authored an empty
+    # `producers` list over a spec that named one.
+    if spec.get("produced_by"):
+        produced_by = spec["produced_by"]
+        return [produced_by] if isinstance(produced_by, str) else list(produced_by)
     if spec.get("producer"):
         return [spec["producer"]]
     return []

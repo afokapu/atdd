@@ -29,6 +29,9 @@ import logging
 
 from atdd.coach.utils.repo import find_repo_root
 from atdd.coach.utils.config import resolve_code_root
+from atdd.coach.utils.contract_identity import (
+    contract_producer, contract_producers,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -761,7 +764,7 @@ class ContractFinder:
                 domain=metadata.get('domain', ''),
                 resource=metadata.get('resource', ''),
                 version=metadata.get('version'),
-                producer=metadata.get('producer'),
+                producer=contract_producer(metadata),
                 consumers=metadata.get('consumers', []),
                 traceability=metadata.get('traceability', {})
             )

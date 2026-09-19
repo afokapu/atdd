@@ -114,6 +114,9 @@ from atdd.coach.utils.theme_map import get_theme_map
 # grammar, so this writer consumes its derivation rather than keeping a second one
 # that drifts. author.py reaches back into coach only via function-local imports,
 # so this module-level direction introduces no cycle.
+from atdd.coach.utils.contract_identity import (
+    contract_producer, contract_producers,
+)
 from atdd.planner.commands.author import (
     is_typed_train_id,
     train_bucket,
@@ -985,7 +988,8 @@ class RegistryBuilder:
             "title": schema.get("title", ""),
             "description": schema.get("description", ""),
             "path": str(schema_path.relative_to(self.repo_root)),
-            "producer": metadata.get("producer", ""),
+            "producer": contract_producer(metadata),
+            "producers": contract_producers(metadata),
             "consumers": metadata.get("consumers", []),
         }
 
@@ -1460,16 +1464,41 @@ class RegistryBuilder:
         id_key: str = "id",
         path_key: str = "path",
     ) -> None:
-        """Carry over registry entries that are drafts or whose source file is gone."""
+        """Carry over the DRAFT entries; prune the ones whose source is gone.
+
+        These were one condition — `draft or source missing` — and the two
+        intents are opposites. A draft is a row authored AHEAD of its file and
+        must survive. A row whose file has VANISHED is a rename or a deletion
+        and must not: preserving it leaves the registry pointing at a path that
+        no longer exists, and because `home_violations` only checks
+        document-to-registry, never registry-to-document, nothing downstream
+        ever contradicts it. A rename stayed half-applied indefinitely.
+
+        The prune is skipped entirely when the scan found no source files at
+        all, so a partial or failed scan empties nothing: a generator with an
+        empty denominator must not be able to delete the registry it mirrors.
+        """
         already_built = {e.get(id_key) for e in entries}
+        scan_found_sources = bool(entries)
         for entity_id, entity in existing.items():
             if entity_id in already_built:
                 continue
             source = entity.get(path_key)
-            source_exists = source and (self.repo_root / source).exists()
-            if entity.get("draft", False) or not source_exists:
+            source_exists = bool(source) and (self.repo_root / source).exists()
+            if entity.get("draft", False) or source_exists:
                 entries.append(entity)
                 stats["preserved_drafts"] += 1
+                continue
+            if not scan_found_sources:
+                entries.append(entity)      # empty scan: prune nothing
+                stats["preserved_drafts"] += 1
+                continue
+            stats.setdefault("pruned", 0)
+            stats["pruned"] += 1
+            stats["changes"].append({
+                "type": "pruned", "id": entity_id,
+                "detail": f"source {source!r} no longer exists — row removed",
+            })
 
     def _detect_train_changes(self, old: Dict, entry: Dict) -> List[str]:
         """Fields that differ between the stored train entry and the rebuilt one."""
