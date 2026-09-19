@@ -788,26 +788,30 @@ class CoverageReport:
         "Missing" means re-project; "unexpected" means find out who wrote that file.
         Flattening them into "coverage failed" sends the operator to the wrong place.
         """
-        out: List[str] = []
-        if self.missing:
-            out.append(
-                f"{len(self.missing)} object(s) the store holds are absent from the committed "
-                f"projection: {', '.join(self.missing[:_MAX_NAMED])}"
-                + (f" … and {len(self.missing) - _MAX_NAMED} more"
-                   if len(self.missing) > _MAX_NAMED else "")
-            )
-        if self.unexpected:
-            out.append(
-                f"{len(self.unexpected)} committed document(s) name a uid the store does not "
-                f"hold: {', '.join(self.unexpected[:_MAX_NAMED])}"
-                + (f" … and {len(self.unexpected) - _MAX_NAMED} more"
-                   if len(self.unexpected) > _MAX_NAMED else "")
-            )
-        return out
+        return [
+            _named(uids, description) for uids, description in (
+                (self.missing,
+                 "object(s) the store holds are absent from the committed projection"),
+                (self.unexpected,
+                 "committed document(s) name a uid the store does not hold"),
+            ) if uids
+        ]
 
 
 #: How many uids a blocker names before it summarises. Never silently truncated.
 _MAX_NAMED = 10
+
+
+def _named(uids: Sequence[str], description: str) -> str:
+    """``<count> <description>: <uids…>``, capped but never silently.
+
+    A refusal that dumps 300 uids is a refusal nobody reads; one that shows ten and says
+    nothing about the rest is a refusal that lies by omission. So the overflow is counted
+    out loud — the same contract ``cutover``'s ``_MAX_BLOCKERS`` keeps one level up.
+    """
+    shown = ", ".join(uids[:_MAX_NAMED])
+    overflow = f" … and {len(uids) - _MAX_NAMED} more" if len(uids) > _MAX_NAMED else ""
+    return f"{len(uids)} {description}: {shown}{overflow}"
 
 
 def check_coverage(committed_uids: Iterable[str], store: StateStore) -> CoverageReport:

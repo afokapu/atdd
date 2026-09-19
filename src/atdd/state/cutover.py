@@ -249,7 +249,11 @@ def _coverage_blockers(root: Path, committed: Dict[str, bytes]) -> List[str]:
     Note this is operator-side by construction. The store is gitignored under the scoped-truth
     rule, so CI has no population to compare against and does not run this command.
     """
-    from atdd.state.db import STATE_STORE_RELATIVE
+    # Imported here, not at module scope: `cutover` is imported by the CLI on every
+    # invocation and most of them never open a store, so the SQLite work is deferred to the
+    # one path that needs it — the deferred-import shape this layer already keeps.
+    from atdd.state.db import STATE_STORE_RELATIVE, connect
+    from atdd.state.store import StateStore
 
     store_path = Path(root) / STATE_STORE_RELATIVE
     if not store_path.is_file():
@@ -257,16 +261,12 @@ def _coverage_blockers(root: Path, committed: Dict[str, bytes]) -> List[str]:
             f"there is no store at {store_path} to compare the committed projection against, "
             "so its coverage of this control root is unproven — not proven empty"
         ]
-    try:
-        from atdd.state.db import connect
-        from atdd.state.store import StateStore
 
+    uids = [name[: -len(projection.PROJECTION_SUFFIX)] for name in committed]
+    try:
         conn = connect(store_path)
         try:
-            report = projection.check_coverage(
-                (name[: -len(projection.PROJECTION_SUFFIX)] for name in committed),
-                StateStore(conn),
-            )
+            report = projection.check_coverage(uids, StateStore(conn))
         finally:
             conn.close()
     except Exception as exc:  # a verdict, never a traceback at the gate
