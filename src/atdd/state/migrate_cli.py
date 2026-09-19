@@ -162,6 +162,7 @@ def _store_refusal(exc: Exception) -> tuple[str, dict]:
     Every refusal here leaves the store unchanged and the backup standing; that is the
     feature, not a fallback.
     """
+    from atdd.state.store_checksum import BackupVerificationError
     from atdd.state.store_contents import (
         StoreChangedDuringMigrationError,
         UnknownStoreTableError,
@@ -170,6 +171,10 @@ def _store_refusal(exc: Exception) -> tuple[str, dict]:
     unchanged = f"{exc}\n\nThe store is unchanged."
     if isinstance(exc, StoreChangedDuringMigrationError):
         return f"refusing to migrate: {exc}", {"observed": exc.observed}
+    if isinstance(exc, BackupVerificationError):
+        # The undo could not be proven good. Proceeding would migrate the store while
+        # holding a backup nobody can restore from — the one case a backup exists for.
+        return unchanged, {"backup": str(exc.backup), "tables": ",".join(exc.tables)}
     if isinstance(exc, UnknownStoreTableError):
         # A schema migration added a table and nobody taught the replacement to move it.
         # Refusing is the point: applying anyway would drop that table's rows.
@@ -195,6 +200,7 @@ def _cmd_migrate_store(args) -> int:
     truth.
     """
     from atdd.state.db import connect, init_state_store
+    from atdd.state.store_checksum import BackupVerificationError
     from atdd.state.store_contents import UnknownStoreTableError
     from atdd.state.store_migration import (
         MigrationNotCleanError, StoreChangedDuringMigrationError, migrate_store_durably,
@@ -213,6 +219,7 @@ def _cmd_migrate_store(args) -> int:
     try:
         result = migrate_store_durably(db_path, owner_actor=args.owner_actor)
     except (
+        BackupVerificationError,
         MigrationNotCleanError,
         StoreChangedDuringMigrationError,
         UnknownStoreTableError,

@@ -3,12 +3,14 @@ step: confirm
 direction: maximize
 dimension: likelihood
 object_of_control: first-committed-projection
-context_clarifier: 'when the store-native migration has run and the projection tree is committed for the
-  first time: the projection must round-trip byte for byte and satisfy the M8 exit criterion that currently
-  fails, because a projection that cannot reproduce itself is not a source of truth'
+context_clarifier: 'when the store-native migration has run and the projection tree
+  is committed for the first time: the projection must round-trip byte for byte and
+  satisfy the M8 exit criterion that currently fails, because a projection that cannot
+  reproduce itself is not a source of truth'
 lens: functional.effectiveness
-statement: maximize likelihood of a first-committed-projection that reproduces itself byte for byte through
-  hydrate and re-projection, and that flips the projection-is-shared-state cutover criterion to met
+statement: maximize likelihood of a first-committed-projection that reproduces itself
+  byte for byte through hydrate and re-projection, and that flips the projection-is-shared-state
+  cutover criterion to met
 acceptances:
 - given:
     abstract:
@@ -19,8 +21,8 @@ acceptances:
   identity:
     id: AC-UNIT-001
     phase: RED
-    purpose: the committed projection round-trips — project(hydrate(p)) equals p byte for byte — which
-      is what makes it shared state rather than a snapshot
+    purpose: "the committed projection round-trips \u2014 project(hydrate(p)) equals\
+      \ p byte for byte \u2014 which is what makes it shared state rather than a snapshot"
     urn: acc:migrate-projection-authority:C002-UNIT-001-projection-round-trips
   metadata:
     author: atdd:state-projection-plan
@@ -29,7 +31,8 @@ acceptances:
     abstract:
     - Hydrating the committed projection and re-projecting yields byte-identical files
     - The projection digest is unchanged across the round trip
-    - 'RED: no committed projection exists today, so the round trip has never been exercised'
+    - 'RED: no committed projection exists today, so the round trip has never been
+      exercised'
   when:
     abstract: the committed projection is hydrated and re-projected
 - given:
@@ -41,8 +44,8 @@ acceptances:
   identity:
     id: AC-UNIT-002
     phase: RED
-    purpose: the cutover criterion that fails today reports met, so the migration's own exit test is the
-      thing that proves it finished
+    purpose: the cutover criterion that fails today reports met, so the migration's
+      own exit test is the thing that proves it finished
     urn: acc:migrate-projection-authority:C002-UNIT-002-cutover-criterion-is-met
   metadata:
     author: atdd:state-projection-plan
@@ -58,11 +61,11 @@ acceptances:
     urn: acc:migrate-projection-authority:C002-SMOKE-002-this-repo-carries-its-projection
     id: AC-SMOKE-002
     phase: SMOKE
-    purpose: 'The cutover has actually been performed on THIS repository: HEAD carries a committed
-      projection, and it is byte-identical to a projection built from the live store. Every other
-      C002 acceptance proves the mechanism on a fixture; this one is the only thing that can tell
-      a working mechanism apart from a performed migration, which is the distinction #1622 closed
-      COMPLETE without making.'
+    purpose: 'The cutover has actually been performed on THIS repository: HEAD carries
+      a committed projection, and it is byte-identical to a projection built from
+      the live store. Every other C002 acceptance proves the mechanism on a fixture;
+      this one is the only thing that can tell a working mechanism apart from a performed
+      migration, which is the distinction #1622 closed COMPLETE without making.'
   harness:
     type: integration
     category: backend
@@ -70,7 +73,8 @@ acceptances:
     abstract:
     - This repository at HEAD, and the live Control Root State Store it resolves to
   when:
-    abstract: the committed projection at HEAD is compared against a projection built from that store
+    abstract: the committed projection at HEAD is compared against a projection built
+      from that store
   then:
     abstract:
     - HEAD carries a projection directory that is not empty
@@ -83,80 +87,127 @@ acceptances:
     urn: acc:migrate-projection-authority:C002-SMOKE-001-first-committed-projection
     id: AC-SMOKE-001
     phase: SMOKE
-    purpose: 'End-to-end: first-committed-projection holds against a real repo checkout, the installed
-      atdd CLI, and a real .atdd/state/state.sqlite — no manual patching.'
+    purpose: "End-to-end: first-committed-projection holds against a real repo checkout,\
+      \ the installed atdd CLI, and a real .atdd/state/state.sqlite \u2014 no manual\
+      \ patching."
   harness:
     type: integration
     category: backend
   given:
     abstract:
-    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising first-committed-projection
+    - A real repo checkout, the installed atdd CLI, and a real local State Store exercising
+      first-committed-projection
   when:
     abstract: the C002 behavior is driven end-to-end through the real CLI
   then:
     abstract:
-    - first-committed-projection is observed to hold end-to-end against real infrastructure, with no mocks
-      or manual patching
+    - first-committed-projection is observed to hold end-to-end against real infrastructure,
+      with no mocks or manual patching
   metadata:
     author: atdd:self-compliance
     created: '2026-07-26'
 - identity:
     id: AC-UNIT-003
     phase: RED
-    purpose: the WRITER's default projection directory is inside the git worktree in both layouts, so
-      a projection can be committed and the git readers can see it
+    purpose: the WRITER's default projection directory is inside the git worktree
+      in both layouts, so a projection can be committed and the git readers can see
+      it
     urn: acc:migrate-projection-authority:C002-UNIT-003-the-projection-path-is-inside-the-worktree
   harness:
     category: backend
     type: unit
   given:
     abstract:
-    - A sibling-worktree layout whose Control Root is a parent directory and is not a git repository
+    - A sibling-worktree layout whose Control Root is a parent directory and is not
+      a git repository
   when:
     abstract: each default projection path is resolved
   then:
     abstract:
-    - The writer's default output directory resolves inside the git worktree root, never the Control Root,
-      and equals the directory every git reader looks in
-    - In single-repo layout every default resolver already names that one directory, and the fix does
-      not move it
-    - 'reconcile''s projection_path is NOT changed: assert_reconcilable (#1580) gates both of its call
-      sites, so in sibling layout reconciliation refuses outright rather than reading the Control-Root
-      path, and in single-repo layout the Control Root IS the worktree — the anchoring is already correct
-      in every reachable state'
-    - 'RED: the writer anchors at the Control Root, which in sibling-worktree layout is not a git repository,
-      so the projection is written where no commit can contain it'
+    - The writer's default output directory resolves inside the git worktree root,
+      never the Control Root, and equals the directory every git reader looks in
+    - In single-repo layout every default resolver already names that one directory,
+      and the fix does not move it
+    - "reconcile's projection_path is NOT changed: assert_reconcilable (#1580) gates\
+      \ both of its call sites, so in sibling layout reconciliation refuses outright\
+      \ rather than reading the Control-Root path, and in single-repo layout the Control\
+      \ Root IS the worktree \u2014 the anchoring is already correct in every reachable\
+      \ state"
+    - 'RED: the writer anchors at the Control Root, which in sibling-worktree layout
+      is not a git repository, so the projection is written where no commit can contain
+      it'
   metadata:
     author: atdd:issue-2024
     created: '2026-09-14'
 - identity:
     id: AC-UNIT-004
     phase: RED
-    purpose: the projection-is-shared-state criterion resolves the projection AT HEAD, byte for byte;
-      containment inside the worktree is not sufficient, because an uncommitted directory inside the repo
-      must fail too
+    purpose: the projection-is-shared-state criterion resolves the projection AT HEAD,
+      byte for byte; containment inside the worktree is not sufficient, because an
+      uncommitted directory inside the repo must fail too
     urn: acc:migrate-projection-authority:C002-UNIT-004-the-criterion-reads-head
   harness:
     category: backend
     type: unit
   given:
     abstract:
-    - A repository whose working tree holds a canonical projection that has never been committed
+    - A repository whose working tree holds a canonical projection that has never
+      been committed
   when:
     abstract: the M8 cutover evaluation is run
   then:
     abstract:
-    - The criterion reports unmet while the projection exists only in the working tree, and met once the
-      same bytes are committed
-    - An uncommitted directory INSIDE the worktree, passed through --from, reports unmet — constraining
-      --from to the worktree does not close the bypass, only HEAD resolution does
-    - An uncommitted directory outside the worktree, passed through --from, reports unmet
-    - A projection committed with CRLF line endings reports unmet, because it is not what the projector
-      emits
+    - The criterion reports unmet while the projection exists only in the working
+      tree, and met once the same bytes are committed
+    - "An uncommitted directory INSIDE the worktree, passed through --from, reports\
+      \ unmet \u2014 constraining --from to the worktree does not close the bypass,\
+      \ only HEAD resolution does"
+    - An uncommitted directory outside the worktree, passed through --from, reports
+      unmet
+    - A projection committed with CRLF line endings reports unmet, because it is not
+      what the projector emits
     - A projection file carrying non-UTF-8 bytes reports unmet rather than raising
     - A repository with no commits at all yields a verdict rather than an exception
-    - 'RED: the criterion globs whatever directory it is handed, --from forwards any directory unchecked,
-      and the only git reader available decodes blobs in text mode'
+    - 'RED: the criterion globs whatever directory it is handed, --from forwards any
+      directory unchecked, and the only git reader available decodes blobs in text
+      mode'
   metadata:
     author: atdd:issue-2024
     created: '2026-09-14'
+- identity:
+    id: AC-UNIT-005
+    phase: RED
+    purpose: "the retained pre-migration backup is proven to hold the same rows as\
+      \ the store it was taken from, by table-level checksum rather than byte equality,\
+      \ and the check is non-vacuous \u2014 a backup with one row altered is refused"
+    urn: acc:migrate-projection-authority:C002-UNIT-005-the-backup-is-verified-by-logical-snapshot
+  harness:
+    category: backend
+    type: unit
+  given:
+    abstract:
+    - A file-backed State Store with work items committed and a non-empty WAL, and
+      the pre-migration backup that backup_store takes from it
+  when:
+    abstract: the backup is verified against the store by logical snapshot comparison
+  then:
+    abstract:
+    - "A faithful backup verifies, and every content table is covered \u2014 the table\
+      \ list is read from the store, so a table the checker has no statement for refuses\
+      \ rather than being silently omitted from the comparison"
+    - 'Non-vacuous: a backup with a single row altered is REFUSED, and the refusal
+      names the table that differs. The same holds for a deleted row, an added row,
+      and a single changed byte inside one column'
+    - 'The comparison is logical, not byte-wise, and that is load-bearing: backup_store
+      checkpoints the WAL before copying, so the pre-run file and a CORRECT backup
+      differ in bytes. A byte-identity check would refuse a good backup'
+    - "Verification writes to neither file \u2014 the store and the backup are opened\
+      \ read-only, so the check cannot alter what it reports on"
+    - migrate_store_durably verifies the backup before anything else reads or writes,
+      and an unverifiable backup refuses the whole run with the store unchanged
+    - "RED: nothing in src/atdd/state computes a checksum \u2014 the cutover takes\
+      \ a backup nobody can prove is good, in precisely the one situation it would\
+      \ ever be needed"
+  metadata:
+    author: atdd:issue-2029
+    created: '2026-09-19'

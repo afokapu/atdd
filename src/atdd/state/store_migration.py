@@ -376,7 +376,11 @@ def migrate_store_durably(
     1. :func:`~atdd.state.reconcile.backup_store` — the **immutable** undo, never written to.
        Migrating *it* is the tempting shortcut and it destroys the undo: ``backup_store``
        returns the sole copy, so the "backup" ends up migrated and nothing holds the
-       pre-migration store even on success.
+       pre-migration store even on success. It is then **verified** by
+       :func:`~atdd.state.store_checksum.verify_backup` — a table-level checksum against the
+       pre-run store, not byte equality, because ``backup_store`` checkpoints the WAL before
+       copying and the file legitimately differs. An unverifiable backup is not an undo, so
+       the migration refuses rather than proceeding on the strength of one (#2029).
     2. :func:`~atdd.state.reconcile._scratch_copy` — the working copy, which is what gets
        migrated. A crash leaves it half-done and it is simply discarded.
     3. the result is re-inspected, then applied to the live store by
@@ -402,15 +406,18 @@ def migrate_store_durably(
     an untouched row is never rewritten at all.
 
     Raises :class:`LossyMigrationError` if an object cannot be migrated,
-    :class:`MigrationNotCleanError` if the migrated copy does not inspect clean, and
-    :class:`StoreChangedDuringMigrationError` if the store moved under us. In every case the
-    live store is unchanged and the backup stands.
+    :class:`MigrationNotCleanError` if the migrated copy does not inspect clean,
+    :class:`~atdd.state.store_checksum.BackupVerificationError` if the backup cannot be
+    proven faithful, and :class:`StoreChangedDuringMigrationError` if the store moved under
+    us. In every case the live store is unchanged and the backup stands.
     """
     from atdd.state.db import connect
     from atdd.state.reconcile import _scratch_copy, backup_store
+    from atdd.state.store_checksum import verify_backup
 
     db_path = Path(db_path)
     backup = backup_store(db_path)  # immutable undo, before anything is written
+    verify_backup(db_path, backup)  # ...and proven to be one, before anything relies on it
     with tempfile.TemporaryDirectory() as tmp:
         # Open the live connection BEFORE the copy so that only a single pragma read sits
         # between the snapshot and the baseline. The baseline cannot be taken any earlier:
