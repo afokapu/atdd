@@ -23,7 +23,7 @@ produce:
   to: internal
 consume: []
 wmbt:
-  total: 4
+  total: 5
   C001: "minimize likelihood of mirror-double-declaration by admitting an extension convention node into the rule registry only when its source.legacy_rule_id names no live core rule, so a node that mirrors a live core rule never becomes a second declaration of its twin"
   D001: "minimize likelihood of registry-scope-ambiguity by keeping the atdd validate rule registry rooted at the core src/atdd tree alone, recording the core-only decision with its evidence, and proving that admitting the extension mirror nodes would add no new rule and only duplicate ids"
   E001: "minimize likelihood of convention-mirror-drift by resolving every extension node's source.legacy_rule_id against the live core rule registry and failing loudly on any node whose named core rule no longer exists, so a renamed or deleted core rule cannot leave an extension mirror pointing at nothing"

@@ -37,8 +37,8 @@ def _substrate(root: Path) -> Path:
 def test_mirror_coherence_is_invariant_under_widening(monkeypatch, tmp_path: Path) -> None:
     ext_root = _substrate(tmp_path)
 
-    before = find_mirror_incoherences(tmp_path)
-    assert len(before) == 1, (
+    before = {m.extension_rule_id for m in find_mirror_incoherences(tmp_path)}
+    assert before == {"ext.only.rule"}, (
         "a node whose legacy_rule_id names no live core rule must be reported"
     )
 
@@ -47,8 +47,10 @@ def test_mirror_coherence_is_invariant_under_widening(monkeypatch, tmp_path: Pat
         rule_binding, "_default_roots", lambda: [Path(atdd.__file__).resolve().parent, ext_root]
     )
 
-    after = find_mirror_incoherences(tmp_path)
-    assert len(after) == len(before), (
-        f"mirror-coherence count moved {len(before)} -> {len(after)} because the roots "
+    after = {m.extension_rule_id for m in find_mirror_incoherences(tmp_path)}
+    # Compare the SET, not the count: a regression that exchanged one incoherent node
+    # for another would preserve the count and slip through a count-only assertion.
+    assert after == before, (
+        f"mirror-coherence set moved {sorted(before)} -> {sorted(after)} because the roots "
         "widened, not because a mirror was repaired -- the guard self-neutralized"
     )
