@@ -79,35 +79,56 @@ class Retirement:
     reason: str | None = None
 
 
-def _entry(rule_id: str, body: Any) -> Retirement:
-    if not isinstance(body, Mapping):
-        raise RetirementError(
-            f"retirement entry for {rule_id!r} must be a mapping, got {type(body).__name__}"
-        )
-    retired_in = body.get("retired_in")
-    if not retired_in or not str(retired_in).strip():
+def _optional(body: Mapping, field: str) -> str | None:
+    """A present, non-empty optional field as a string; None otherwise."""
+    value = body.get(field)
+    return str(value) if value else None
+
+
+def _retired_in(rule_id: str, body: Mapping) -> str:
+    """The issue that sanctioned this retirement. Required: a retirement asserted
+    without evidence it was sanctioned cannot be told from one invented to silence
+    a red gate."""
+    value = body.get("retired_in")
+    if not value or not str(value).strip():
         raise RetirementError(
             f"retirement entry for {rule_id!r} names no 'retired_in' — a retirement "
             "must carry the issue that sanctioned it, or it cannot be told from one "
             "invented to silence a red gate"
         )
-    superseded = body.get("superseded_by")
-    if superseded is None:
+    return str(value)
+
+
+def _superseded_by(rule_id: str, body: Mapping) -> tuple[str, ...]:
+    """What now carries the obligation. Required, but may be EMPTY: a rule withdrawn
+    outright is a real outcome, and saying so must not look like forgetting to."""
+    value = body.get("superseded_by")
+    if value is None:
         raise RetirementError(
             f"retirement entry for {rule_id!r} omits 'superseded_by' — declare the "
             "rule(s) that now carry the obligation, or an empty list to say the rule "
             "was withdrawn outright; omitting it cannot be told from forgetting it"
         )
-    if isinstance(superseded, str) or not isinstance(superseded, (list, tuple)):
+    if isinstance(value, str) or not isinstance(value, (list, tuple)):
         raise RetirementError(
             f"retirement entry for {rule_id!r} has a non-list 'superseded_by'"
         )
+    return tuple(str(s) for s in value)
+
+
+def _entry(rule_id: str, body: Any) -> Retirement:
+    """One validated ledger entry. Each field's rule lives in its own guard above,
+    so the reason a value is refused is stated where the value is read."""
+    if not isinstance(body, Mapping):
+        raise RetirementError(
+            f"retirement entry for {rule_id!r} must be a mapping, got {type(body).__name__}"
+        )
     return Retirement(
         rule_id=rule_id,
-        retired_in=str(retired_in),
-        superseded_by=tuple(str(s) for s in superseded),
-        commit=(str(body["commit"]) if body.get("commit") else None),
-        reason=(str(body["reason"]) if body.get("reason") else None),
+        retired_in=_retired_in(rule_id, body),
+        superseded_by=_superseded_by(rule_id, body),
+        commit=_optional(body, "commit"),
+        reason=_optional(body, "reason"),
     )
 
 

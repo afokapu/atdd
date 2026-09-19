@@ -151,31 +151,39 @@ class TwinCoverage:
         return not self.uncovered
 
 
-def core_coder_tester_surface(repo_root: str | Path) -> dict[str, CoreRule]:
-    """Every coder/tester rule declared under ``src/atdd/{coder,tester}/conventions``.
+def _convention_files(conventions: Path) -> list[Path]:
+    """Every convention file under *conventions*, caches excluded."""
+    if not conventions.is_dir():
+        return []
+    return [p for p in sorted(conventions.rglob("*.convention.yaml")) if "__pycache__" not in p.parts]
 
-    Walked by :func:`extract_rules`, so a rule nested inside a monolith counts.
+
+def _declared_rules(path: Path, root: Path, conventions: Path):
+    """Yield ``(rule_id, CoreRule)`` for every rule *path* declares.
+
+    Walked by :func:`extract_rules`, so a rule nested inside a monolith is yielded
+    like any other — a depth-1 read would silently shrink the surface.
     """
+    kind = "node" if "nodes" in path.relative_to(conventions).parts else "monolith"
+    for file_path, _yaml_path, rule in extract_rules(path):
+        rule_id = rule.get("id")
+        if isinstance(rule_id, str):
+            yield rule_id, CoreRule(
+                rule_id=rule_id,
+                kind=kind,
+                disposition=str(rule.get("disposition") or "unset"),
+                source_path=str(file_path.relative_to(root)),
+            )
+
+
+def core_coder_tester_surface(repo_root: str | Path) -> dict[str, CoreRule]:
+    """Every coder/tester rule declared under ``src/atdd/{coder,tester}/conventions``."""
     root = Path(repo_root)
     surface: dict[str, CoreRule] = {}
     for archetype in _ARCHETYPES:
         conventions = root / "src" / "atdd" / archetype / "conventions"
-        if not conventions.is_dir():
-            continue
-        for path in sorted(conventions.rglob("*.convention.yaml")):
-            if "__pycache__" in path.parts:
-                continue
-            kind = "node" if "nodes" in path.relative_to(conventions).parts else "monolith"
-            for file_path, _yaml_path, rule in extract_rules(path):
-                rule_id = rule.get("id")
-                if not isinstance(rule_id, str):
-                    continue
-                surface[rule_id] = CoreRule(
-                    rule_id=rule_id,
-                    kind=kind,
-                    disposition=str(rule.get("disposition") or "unset"),
-                    source_path=str(file_path.relative_to(root)),
-                )
+        for path in _convention_files(conventions):
+            surface.update(_declared_rules(path, root, conventions))
     return surface
 
 
