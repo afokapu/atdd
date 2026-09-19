@@ -150,3 +150,31 @@ Two defects, in order:
    cannot reject a foreign base once per-worktree HEADs start arriving.
 
 A fix for (1) without (2) converts a silent "fresh" into a silent wrong replay.
+
+---
+
+# Relayed to #2029 — `assert_reconcilable` blocks the cutover's hydrate
+
+**A #2029 problem, not a #2041 one. Recorded here so it is not lost.**
+
+`assert_reconcilable` (`reconcile.py:189`) refuses any Control Root without its own
+`.git`; both `hydrate_store` and `reconcile` call it.
+
+```
+assert_reconcilable(/Users/alecfokapu/Github/atdd)       -> REFUSED (SharedStoreReconcileRefused)
+assert_reconcilable(/Users/alecfokapu/Github/atdd/main)  -> ALLOWED
+```
+
+Every worktree resolves to `/Users/alecfokapu/Github/atdd`, which has no `.git` of
+its own. So **`atdd state hydrate` refuses on this repo's real layout**, and the
+cutover's first hydrate — the step that would stamp `store_base_commit` — cannot
+run here as things stand.
+
+The guard is correct and load-bearing; #2041 must not weaken it. But it means the
+cutover either runs from a Control Root that is itself a checkout, or it does not
+run. That is a cutover design question.
+
+**Candidate fifth Done-when for #2029:** the cutover's hydrate completes on the
+layout the repo actually has, and the resulting anchor is meaningful to the
+worktrees sharing the store. The four existing clauses (fenced store, `cutover`
+3/3, verified backup, writer quiescence) can all pass without either being true.
