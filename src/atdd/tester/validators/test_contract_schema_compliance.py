@@ -362,6 +362,24 @@ def test_no_duplicate_contract_ids():
         )
 
 
+#: `$id` = ``{theme}(:{path})*:{resource}[.{category}]...`` — colons descend the
+#: hierarchy, dots mark variant facets.
+#:
+#: The leading alternatives are EXCLUDED, not merely undescribed. Until #2043 this
+#: pattern was written without the lookahead, and `contract:match:result` — the
+#: exact string this test's own docstring marks as wrong — matched it, because
+#: `contract` simply satisfied the first segment. The rule was documented and
+#: unenforceable, so `create_contract` shipped emitting it and nothing objected.
+#: `planner.artifact-naming.schema-identifier` forbids both spellings by name:
+#: "the clean artifact name ... with NO 'urn:contract:' prefix".
+#:
+#: Detection is proven by the synthetic tests at the end of this module — they
+#: carry no `platform` mark, so they run wherever this file does.
+CONTRACT_ID_PATTERN = re.compile(
+    r"^(?!contract:)(?!urn:)[a-z][a-z0-9\-]+(:[a-z][a-z0-9\-]+)+(\.[a-z][a-z0-9\-]+)*$"
+)
+
+
 @pytest.mark.platform
 def test_contract_id_format_follows_convention():
     """
@@ -388,11 +406,7 @@ def test_contract_id_format_follows_convention():
     if not contract_files:
         pytest.skip("No contract schema files found")
 
-    # Pattern: {theme}(:{path})*:{resource}[.{category}][.{subcategory}]...
-    # Allows multiple colons for hierarchical path (theme:domain:subdomain:resource)
-    # Allows dots for category facets
-    # NO "contract:" prefix, NO version in $id
-    id_pattern = re.compile(r"^[a-z][a-z0-9\-]+(:[a-z][a-z0-9\-]+)+(\.[a-z][a-z0-9\-]+)*$")
+    id_pattern = CONTRACT_ID_PATTERN
 
     invalid_ids = []
     missing_version_field = []
@@ -724,3 +738,38 @@ def test_contract_traceability_richness():
             f"Traceability score {overall_score}% is below 80% threshold. "
             "Consider enriching contract metadata for better governance."
         )
+
+
+# ---------------------------------------------------------------------------
+# Detection proofs for CONTRACT_ID_PATTERN (#2043)
+#
+# Deliberately NOT marked `platform`. The scan above is, which means it is
+# deselected in every consumer repo (`consumer_mode` adds `-m 'not platform'`),
+# i.e. in exactly the repos that can author a violating contract. These run
+# wherever this module runs, so the rule's *detection* is guarded even where its
+# *corpus scan* is not. Whether the scan itself should reach consumer repos is a
+# disposition decision, recorded as D1b in
+# docs/spikes/2043-contract-id-spelling.plan.md.
+# ---------------------------------------------------------------------------
+def test_pattern_rejects_the_family_prefix():
+    """The spelling `create_contract` emitted, and the docstring's own `✗` case."""
+    assert not CONTRACT_ID_PATTERN.match("contract:match:result")
+    assert not CONTRACT_ID_PATTERN.match("contract:commons:compliance:probe")
+
+
+def test_pattern_rejects_the_urn_contract_prefix():
+    """The third spelling, from `planner.artifact-naming.validation-rules`."""
+    assert not CONTRACT_ID_PATTERN.match("urn:contract:match:result")
+
+
+def test_pattern_accepts_the_conventional_shapes():
+    """Every shape this repo's own committed contracts actually use."""
+    for identity in (
+        "match:result",
+        "commons:binding-lock",
+        "commons:compliance:gate",
+        "frontend:train:render-metadata",
+        "mechanic:timebank.exhausted",
+        "commons:ux:foundations:color.primary",
+    ):
+        assert CONTRACT_ID_PATTERN.match(identity), identity
