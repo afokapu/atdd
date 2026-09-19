@@ -11,6 +11,12 @@ thinks — reading out of git, exactly as the blocking gate does.
 The bar #2042 sets is one line: a projection with an object deliberately removed
 must fail. Any check that still reports MET here is not a coverage check.
 
+**VERDICT FLIPPED (coverage has landed).** This ran first as a demonstration that
+the truncation survived every check; it now runs as the REGRESSION CHECK that it
+does not. It exits zero when the truncation is REFUSED and non-zero if the old
+behaviour ever comes back — so the file that proved the defect is the file that
+keeps it dead, and the sign of its verdict is the whole record of what changed.
+
 Usage:  python truncation.py
 """
 from __future__ import annotations
@@ -102,14 +108,20 @@ def main() -> int:
         print(f"non-empty                                      : {len(after) > 0}")
 
         print("\n" + "=" * 62)
-        if criterion.met and report.ok:
-            print("HYPOTHESIS HELD — every check passes on a projection that is")
-            print("provably missing an object the store holds. Byte-identity proves the")
-            print("writer is deterministic; self-canonicality proves the serializer is")
-            print("stable; neither has any opinion about what is ABSENT, because nothing")
-            print("in the chain ever consults the store.")
+        if not criterion.met:
+            print("REGRESSION CHECK PASSES — the truncation is REFUSED.")
+            print("The criterion names what is gone:")
+            for blocker in criterion.blockers:
+                print(f"    {blocker}")
+            print()
+            print("Note what did NOT change: byte-identity and self-canonicality still")
+            print(f"report the tree canonical ({'canonical' if report.ok else 'NOT canonical'}),")
+            print("and non-empty is still True. They were never wrong — they answer a")
+            print("different question. Coverage is the one that consults the store.")
             return 0
-        print("REFUTED — something already catches the truncation. Re-read the chain.")
+        print("REGRESSION — the cutover certified a projection missing an object the")
+        print("store holds. This is the #2042 defect returning: every check in the")
+        print("chain is comparing the projection to itself again.")
         return 1
 
 

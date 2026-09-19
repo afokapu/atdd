@@ -5,7 +5,7 @@ Two hypotheses, each stated so it could be false.
 | probe | hypothesis | verdict |
 |---|---|---|
 | `residual.py` | the store→projection gap is a silent truncation, not a declared filter | **REFUTED** — residual is **zero**; every object carries a reason |
-| `truncation.py` | a projection missing objects the store holds passes every check | **HELD** — cutover reports MET, canonicality reports canonical |
+| `truncation.py` | a projection missing objects the store holds passes every check | **HELD** — cutover reported MET. **Verdict now flipped:** it is the regression check that the truncation is REFUSED |
 
 Together they relocate the defect. The gap is *legitimate*; what is missing is any
 **executable** statement of that fact. So this issue is not "find the lost objects" —
@@ -71,6 +71,31 @@ screen: byte-identity proves the writer is deterministic, self-canonicality prov
 serializer is stable, and neither has any opinion about what is **absent**, because
 nothing in the chain ever consults the store.
 
-This probe is also the acceptance bar the brief set — *a projection with an object
-deliberately removed must fail the check* — so it stays as a regression check with the
-sign of its verdict flipped once coverage lands.
+## Verdict flipped — coverage has landed
+
+`truncation.py` now exits zero when the truncation is **refused** and non-zero if the old
+behaviour returns. The file that proved the defect is the file that keeps it dead, and the
+sign of its verdict is the whole record of what changed:
+
+    cutover projection criterion, TRUNCATED        : UNMET
+    check_canonicality over the truncated tree     : canonical
+    non-empty                                      : True
+
+    REGRESSION CHECK PASSES — the truncation is REFUSED.
+    The criterion names what is gone:
+        1 object(s) the store holds are absent from the committed projection: wi_01M2WSDQ…
+
+Read the middle two lines carefully, because they are the part that is easy to get wrong:
+**byte-identity and self-canonicality still pass, and they were never wrong.** They answer
+"did the write land intact?" and it did. Coverage is a different question — "is what we
+wrote complete?" — and it is the only one that consults the store.
+
+## A note on the integers
+
+Every count here moves. The corpus was 1,053 work items when this issue was filed, 1,064
+two days later when it was worked, and the census read 1,283 total objects by the time the
+check shipped. **Nothing in the implementation or the acceptances carries a population
+constant**: the obligation is derived from the store, and the census asserts its sum against
+the store it is measuring rather than against a literal. A gate pinned to a number starts
+failing on the next `atdd author issue`, and a gate that fails for no reason is a gate
+someone switches off.

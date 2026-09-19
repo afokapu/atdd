@@ -41,14 +41,17 @@ from atdd.state.projection import PROJECTION_RELATIVE, project
 from atdd.state.work_item_writer import create_work_item
 
 from atdd.state.tests._fixtures import checkout, commit_all
-from ._helpers import memory_store
+from ._helpers import disk_store
 
 
 def test_projection_is_shared_state_reports_met(tmp_path) -> None:
     """A repo whose store has been migrated reports all three M8 criteria met."""
     repo = checkout(tmp_path / "repo")
     projection_dir = repo / PROJECTION_RELATIVE
-    with memory_store() as (conn, store):
+    # ON DISK, at the repo's own Control Root: since #2042 the criterion compares the
+    # committed projection against that store, and the acceptance's given — "a repo whose
+    # store has been migrated" — is only true of a store the repo actually has.
+    with disk_store(repo) as (conn, store):
         for slug in ("alpha-work-item", "beta-work-item"):
             create_work_item(conn, slug, state="PLANNED", data={"title": slug})
         # A no-op over a store the live writer already minted identity into — which is

@@ -29,7 +29,7 @@ from atdd.state.manifest_import import WORK_ITEM_KIND
 from atdd.state.projection import project
 
 from atdd.state.tests._fixtures import checkout, commit_all
-from ._helpers import UID_A, control_root, memory_store
+from ._helpers import UID_A, control_root, disk_store
 
 _BASE = {"slug": "alpha", "owner_actor": "dev-a", "state": "ACTIVE", "wmbts": []}
 
@@ -64,7 +64,7 @@ def _repo_with_projection(root: Path) -> Path:
     The criterion reads HEAD now, so the fixture has to do what its own name always claimed.
     """
     checkout(root)
-    with memory_store() as (_conn, store):
+    with disk_store(root) as (_conn, store):
         store.objects.upsert(UID_A, WORK_ITEM_KIND, state="PLANNED", data=dict(_BASE))
         project(store, root / ".atdd" / "state" / "projection")
     commit_all(root, "the first committed projection")

@@ -44,7 +44,7 @@ import sqlite3
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import FrozenSet, Any, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import FrozenSet, Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 import yaml
 
@@ -675,6 +675,155 @@ class ProjectionResult:
     digest: str = ""
 
 
+# --------------------------------------------------------------------------- #
+# Coverage (#2042) — does the committed projection cover the store?
+#
+# Every other check in the chain compares the projection to itself, or to a projection
+# of the same snapshot it came from: byte-identity proves the WRITER is deterministic,
+# self-canonicality proves the SERIALIZER is stable. A comparison whose two sides share
+# a parent cannot detect a defect in that parent, and neither side has any opinion about
+# what is ABSENT. Measured: a projection with a third of its documents deleted passes
+# byte-identity, passes canonicality, is non-empty, and the cutover reports MET.
+#
+# So coverage compares two INDEPENDENT populations — the uids committed at HEAD against
+# the uids the store obliges — in both directions, because equal counts with different
+# members is exactly the corruption a count cannot see.
+# --------------------------------------------------------------------------- #
+def projectable_objects(store: StateStore) -> List[Object]:
+    """Every stored object the projector is obliged to emit a document for.
+
+    THE single definition of "projectable", and the reason it is a function rather than a
+    comment: :func:`build_documents` iterates it and :func:`projectable_uids` derives from
+    it, so the obligation cannot drift from the behaviour. A separately-written obligation
+    is a second implementation of the same rule, and the two diverge the first time someone
+    changes a filter — which would leave the coverage check confidently wrong.
+
+    Two rules, both already load-bearing elsewhere: the store holds kinds the projection has
+    no document shape for, and ``ARCHIVED_PHASES`` holds back COMPLETE work items because
+    completion is derived from merge-to-main (spec §18 decision 1).
+    """
+    return [
+        obj for obj in store.objects.list(kind=WORK_ITEM_KIND)
+        if obj.state not in ARCHIVED_PHASES
+    ]
+
+
+def projectable_uids(store: StateStore) -> FrozenSet[str]:
+    """The uids :func:`projectable_objects` names — the coverage obligation."""
+    return frozenset(obj.uid for obj in projectable_objects(store))
+
+
+@dataclass(frozen=True)
+class CoverageCensus:
+    """Every stored object assigned to exactly one bucket, with the residual named.
+
+    The census is what makes the residual *provable* rather than merely explained. A gap
+    between the store's population and the projection's is legitimate or it is loss, and
+    prose cannot tell them apart — so every object is bucketed by the rule that put it
+    there, and anything no rule claims lands in :attr:`residual`.
+    """
+
+    #: bucket label → how many objects it holds. Labels name the RULE, not the outcome.
+    buckets: Dict[str, int] = field(default_factory=dict)
+    #: uids the projector neither emits nor declines by a named rule. Empty is the invariant.
+    residual: List[str] = field(default_factory=list)
+
+    @property
+    def total(self) -> int:
+        return sum(self.buckets.values())
+
+    def render(self) -> str:
+        lines = [f"  {name:<32}{count:>6}" for name, count in sorted(self.buckets.items())]
+        lines.append(f"  {'TOTAL':<32}{self.total:>6}")
+        if self.residual:
+            lines.append(f"  unexplained: {', '.join(self.residual[:_MAX_NAMED])}")
+        return "\n".join(lines)
+
+
+def coverage_census(store: StateStore) -> CoverageCensus:
+    """Bucket every stored object by the rule that decides whether it projects."""
+    projectable = projectable_uids(store)
+    buckets: Dict[str, int] = {}
+    residual: List[str] = []
+    for obj in store.objects.list():
+        if obj.uid in projectable:
+            label = "projected"
+        elif obj.kind != WORK_ITEM_KIND:
+            label = f"excluded: kind={obj.kind}"
+        elif obj.state in ARCHIVED_PHASES:
+            label = f"excluded: phase={obj.state}"
+        else:  # pragma: no cover — the invariant is that this is unreachable
+            label = "unexplained"
+            residual.append(obj.uid)
+        buckets[label] = buckets.get(label, 0) + 1
+    return CoverageCensus(buckets=buckets, residual=sorted(residual))
+
+
+@dataclass(frozen=True)
+class CoverageReport:
+    """Whether the committed projection covers the store, and how it does not."""
+
+    #: What the store obliges the projection to carry.
+    obliged: FrozenSet[str] = frozenset()
+    #: What the projection actually carries, read from the committed tree.
+    committed: FrozenSet[str] = frozenset()
+
+    @property
+    def missing(self) -> List[str]:
+        """Obliged and absent — the store holds it, the shared truth has lost it."""
+        return sorted(self.obliged - self.committed)
+
+    @property
+    def unexpected(self) -> List[str]:
+        """Present and unobliged — the shared truth describes an object the store does not hold."""
+        return sorted(self.committed - self.obliged)
+
+    @property
+    def ok(self) -> bool:
+        return not self.missing and not self.unexpected
+
+    def blockers(self) -> List[str]:
+        """Operator-facing refusals, kept distinct because the remedies differ.
+
+        "Missing" means re-project; "unexpected" means find out who wrote that file.
+        Flattening them into "coverage failed" sends the operator to the wrong place.
+        """
+        out: List[str] = []
+        if self.missing:
+            out.append(
+                f"{len(self.missing)} object(s) the store holds are absent from the committed "
+                f"projection: {', '.join(self.missing[:_MAX_NAMED])}"
+                + (f" … and {len(self.missing) - _MAX_NAMED} more"
+                   if len(self.missing) > _MAX_NAMED else "")
+            )
+        if self.unexpected:
+            out.append(
+                f"{len(self.unexpected)} committed document(s) name a uid the store does not "
+                f"hold: {', '.join(self.unexpected[:_MAX_NAMED])}"
+                + (f" … and {len(self.unexpected) - _MAX_NAMED} more"
+                   if len(self.unexpected) > _MAX_NAMED else "")
+            )
+        return out
+
+
+#: How many uids a blocker names before it summarises. Never silently truncated.
+_MAX_NAMED = 10
+
+
+def check_coverage(committed_uids: Iterable[str], store: StateStore) -> CoverageReport:
+    """Compare the committed uid set against the store's obligation, both directions.
+
+    ``committed_uids`` comes from the committed tree — read out of git by the caller, not
+    re-derived here. That independence is the whole point: a coverage check that rebuilt the
+    projection from the store would be comparing the store to itself, which is the defect
+    #2042 exists to remove, one layer further out.
+    """
+    return CoverageReport(
+        obliged=projectable_uids(store),
+        committed=frozenset(str(uid) for uid in committed_uids),
+    )
+
+
 def build_documents(store: StateStore) -> Dict[str, Dict[str, Any]]:
     """Every **projectable** object as a validated document, keyed by uid.
 
@@ -693,9 +842,7 @@ def build_documents(store: StateStore) -> Dict[str, Dict[str, Any]]:
     """
     documents: Dict[str, Dict[str, Any]] = {}
     sourced = source_external_refs(store)
-    for obj in store.objects.list(kind=WORK_ITEM_KIND):
-        if obj.state in ARCHIVED_PHASES:
-            continue
+    for obj in projectable_objects(store):
         document = build_document(obj, external_refs=sourced.get(obj.uid))
         assert_deterministic(document, uid=obj.uid)
         validate_document(document)
