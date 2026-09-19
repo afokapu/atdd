@@ -293,6 +293,30 @@ class EdgeValidator:
                     )
                 )
 
+        # #1753: edge endpoints the graph REFUSED to invent a node for. These
+        # never appeared here before — a fabricated node carries no
+        # ``is_broken`` metadata, so the loop above could not see it and the
+        # dangling reference read as resolved. Surfacing them is the point of
+        # the fix: the count goes UP because real unresolved references stop
+        # being suppressed by fabrication.
+        for ref in sorted(
+            self.graph.unresolved_references.values(), key=lambda r: r.urn
+        ):
+            if target_families and ref.family not in target_families:
+                continue
+
+            issues.append(
+                ValidationIssue(
+                    issue_type=IssueType.BROKEN,
+                    severity=IssueSeverity.ERROR,
+                    urn=ref.urn,
+                    message=f"Unresolved reference: {ref.reason}",
+                    location=None,
+                    context=f"Family: {ref.family} (referenced by an edge; no node created)",
+                    suggestion="Create the missing artifact or fix the referencing URN",
+                )
+            )
+
         return issues
 
     def validate_determinism(
