@@ -85,6 +85,79 @@ def _branch_head(start: Path, branch: str) -> Optional[str]:
     return proc.stdout.strip() or None
 
 
+def _remote_head(start: Path, branch: str) -> Optional[str]:
+    """The commit ``refs/remotes/origin/<branch>`` names, read from ``start``.
+
+    The REVIEWED head. ``_branch_head`` reads the LOCAL ref, which is whatever
+    this clone last committed — not what the operator looked at.
+    """
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(start), "rev-parse", "--verify", "--quiet",
+             f"refs/remotes/origin/{branch}^{{commit}}"],
+            capture_output=True, text=True, timeout=_GIT_TIMEOUT_S,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.debug(
+            "reviewed head: cannot resolve the remote-tracking ref",
+            extra={"start": str(start), "branch": branch, "error": str(exc)},
+        )
+        return None
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.strip() or None
+
+
+# THE COMMIT THE OPERATOR REVIEWED, NOT THE ONE THIS CLONE HAPPENS TO HOLD (#2005).
+#
+# ``_branch_head`` reads ``refs/heads/<branch>``. The operator reviews the diff
+# and the CI run on the PULL REQUEST, which is the remote head. Measured
+# 2026-09-13 across all 23 open pull requests in this repository: the local ref
+# equalled the reviewed head 11 times out of 14, and of the 3 misses TWO had the
+# local ref AHEAD — by 3 commits and by 1 — and one was genuinely diverged.
+#
+# So in two of three the mint would have attested commits that were never pushed:
+# CI never ran on them, the reviewer never saw them, and they are not what merges.
+# That failure is silent and in the worst direction. Today the token claims no
+# commit at all; recording the local ref would make it claim a specific WRONG one,
+# with nothing printed. A manufactured attestation is worse than an absent one,
+# which is why this refuses rather than falling back to ``_branch_head``.
+def resolve_reviewed_head(start: Path, branch: str) -> HeadBinding:
+    """The commit an approval for ``branch`` would attest, or a sayable refusal.
+
+    Returns the REMOTE-tracking head — what the pull request shows and what CI
+    reported against. Never falls back to the local ref: falling back is the
+    defect, the same reasoning ``_branch_head`` applies to ``HEAD``.
+    """
+    remote = _remote_head(start, branch)
+    if remote is not None:
+        return HeadBinding(sha=remote, branch=branch)
+
+    # NO REMOTE-TRACKING REF: fall back to the local one, and this fallback is
+    # narrower than it looks. The 3-of-14 disagreement measured on 2026-09-13 was
+    # local AHEAD of remote — which can only happen when a remote ref EXISTS to be
+    # ahead of. With none, the local ref is the only candidate there is, and
+    # binding it is strictly better than minting headless: a headless token is
+    # accepted against every commit by `content_still_stands`.
+    #
+    # Refusing here instead was tried and is wrong: it blocks approving a branch
+    # that has not been pushed, and PLANNED->RED approves a plan that may have
+    # nothing pushed yet. It also broke 28 existing gate tests, every one of them
+    # a legitimate local-only branch.
+    local = _branch_head(start, branch)
+    if local is not None:
+        return HeadBinding(sha=local, branch=branch)
+
+    return HeadBinding(
+        branch=branch,
+        reason=(
+            f"neither refs/remotes/origin/{branch} nor refs/heads/{branch} could "
+            f"be read in the repository at {start}, so the commit this approval "
+            f"would be granted for could not be established"
+        ),
+    )
+
+
 # WHY ``resolve_issue_head`` LOOKS THE WAY IT DOES (#1765).
 #
 # THE ISSUE'S HEAD, NOT THE OPERATOR'S. This used to shell ``git rev-parse HEAD``

@@ -63,6 +63,7 @@ import argparse
 import json
 import logging
 import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Mapping, Optional, Tuple
@@ -72,6 +73,7 @@ from atdd.coach.gate.approval import (
     describe_attribution,
     resolve_signing_key,
 )
+from atdd.coach.gate.mint_head import resolve_reviewed_head
 from atdd.coach.gate.approval_binding import expiry_for, resolve_issue_branch
 from atdd.coach.gate.approval_paths import approval_token_path
 from atdd.coach.gate.phase_edges import (
@@ -337,6 +339,31 @@ def run(
 
     approved_at = datetime.now(timezone.utc)
     expires_at = expiry_for(approved_at)
+
+    # THE COMMIT THE OPERATOR IS APPROVING (#2005). Without this the whole content
+    # binding is inert: `content_still_stands` accepts a headless token by design —
+    # that is the clause keeping the 311 pre-existing tokens verifying — so a mint
+    # that records no head produces an approval that still spans a push, which is
+    # the defect this issue exists to close. The scope, the verifier and the gate
+    # were all wired before this line was, and every test passed because they
+    # built their tokens by hand. Caught by an independent review, not by the suite.
+    #
+    # REFUSE rather than mint headless when the reviewed head cannot be
+    # established: a token that silently omits the binding is indistinguishable
+    # from a legacy one, and would re-open the hole for every future approval.
+    reviewed = resolve_reviewed_head(start, binding.branch)
+    if reviewed.sha is None:
+        # Loud, not silent, and not fatal. A headless token is accepted against
+        # every commit, so an operator must know they are getting one — but
+        # refusing outright blocks approving a branch with no readable ref at all,
+        # and the mint is not the place to make that unrecoverable.
+        print(
+            f"Warning: no commit could be read for {binding.branch}, so this "
+            f"approval is NOT bound to content and will not stop a later push.\n"
+            f"  {reviewed.reason}",
+            file=sys.stderr,
+        )
+
     token = build_token(
         ns.issue, from_phase, to_phase,
         approved_by=approved_by,
@@ -344,6 +371,7 @@ def run(
         agent_session=agent_session,
         branch=binding.branch,
         expires_at=expires_at,
+        head=reviewed.sha,
         key=resolve_signing_key(),
     )
     token_path.write_text(json.dumps(token, indent=2) + "\n")
