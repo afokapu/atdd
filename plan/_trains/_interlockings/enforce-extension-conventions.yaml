@@ -85,7 +85,7 @@ fragments:
 - id: frag:clean-gate-passes
   kind: alt
   acceptance_refs:
-  - acceptance:clean-gate-passes
+  - acc:enforce-conventions-ci:E001-SMOKE-001-real-workflow-enforces-blockingly
   wmbt_refs:
   - wmbt:enforce-conventions-ci:E001
   guards:
@@ -96,7 +96,7 @@ fragments:
 - id: frag:strict-violation-fails
   kind: alt
   acceptance_refs:
-  - acceptance:strict-violation-fails
+  - acc:enforce-conventions-ci:E002-SMOKE-001-real-strict-violation-exits-non-zero
   wmbt_refs:
   - wmbt:enforce-conventions-ci:E002
   guards:
@@ -107,7 +107,7 @@ fragments:
 - id: frag:advisory-violation-reports
   kind: alt
   acceptance_refs:
-  - acceptance:advisory-violation-reports
+  - acc:reconcile-dispositions:E001-UNIT-002-advisory-and-documentation-only-never-fail
   wmbt_refs:
   - wmbt:reconcile-dispositions:E001
   guards:
@@ -118,7 +118,7 @@ fragments:
 - id: frag:unbound-declaration-detected
   kind: alt
   acceptance_refs:
-  - acceptance:unbound-declaration-detected
+  - acc:bind-extension-conventions:E002-UNIT-001-unbound-gating-node-is-flagged-doc-only-exempt
   wmbt_refs:
   - wmbt:bind-extension-conventions:E002
   guards:
@@ -130,7 +130,7 @@ fragments:
 - id: frag:succession-loss-blocked
   kind: alt
   acceptance_refs:
-  - acceptance:succession-loss-blocked
+  - acc:guard-succession:E003-UNIT-001-advisory-twin-blocks-core-node-deletion
   wmbt_refs:
   - wmbt:guard-succession:E003
   guards:
@@ -142,7 +142,7 @@ fragments:
 - id: frag:unrealized-obligation-detected
   kind: alt
   acceptance_refs:
-  - acceptance:unrealized-obligation-detected
+  - acc:bind-extension-conventions:L001-UNIT-002-inventory-names-every-gating-unbound-and-phantom
   wmbt_refs:
   - wmbt:bind-extension-conventions:L001
   guards:
@@ -153,7 +153,7 @@ fragments:
 - id: frag:orphan-detector-decommissioned
   kind: alt
   acceptance_refs:
-  - acceptance:orphan-detector-decommissioned
+  - acc:govern-providers:E002-UNIT-002-orphan-detection-reports-loudly
   wmbt_refs:
   - wmbt:govern-providers:E002
   guards:

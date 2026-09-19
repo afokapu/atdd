@@ -1,5 +1,5 @@
 # URN: test:author-atdd-substrate:definition-anchor:D001-GREEN-001-core-artifacts-anchored
-# Acceptance: acc:author-atdd-substrate:D001-GREEN-001-core-artifacts-anchored
+# Acceptance: acc:author-atdd-substrate:D001-UNIT-004-core-artifacts-anchored
 # WMBT: wmbt:author-atdd-substrate:D001
 # Phase: GREEN
 # Layer: integration

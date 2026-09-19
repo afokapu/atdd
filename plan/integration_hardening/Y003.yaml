@@ -9,7 +9,7 @@ statement: "minimize quantity of test-sessions-that-leave-core-bare-mutated-in-t
 acceptances:
   - identity:
       urn: "acc:integration-hardening:Y003-UNIT-001-repo-root-guard-is-function-scoped-autouse"
-      id: "GT-Y003-001"
+      id: "AC-UNIT-001"
       purpose: "src/atdd/conftest.py has a function-scoped autouse guard fixture that snapshots core.bare and HEAD, covers ALL test dirs under src/atdd"
       phase: "GREEN"
     harness:
@@ -31,7 +31,7 @@ acceptances:
 
   - identity:
       urn: "acc:integration-hardening:Y003-UNIT-002-guard-names-offending-test-in-failure"
-      id: "GT-Y003-002"
+      id: "AC-UNIT-002"
       purpose: "When a test mutates core.bare, the guard's failure message includes the test's full nodeid so the developer knows exactly which test caused the contamination"
       phase: "GREEN"
     harness:
@@ -53,7 +53,7 @@ acceptances:
 
   - identity:
       urn: "acc:integration-hardening:Y003-UNIT-003-guard-restores-core-bare-before-asserting"
-      id: "GT-Y003-003"
+      id: "AC-UNIT-003"
       purpose: "The guard restores core.bare to its snapshot value BEFORE asserting, so a polluting test failure does not contaminate the rest of the test session or the developer's real repo"
       phase: "GREEN"
     harness:
@@ -76,7 +76,7 @@ acceptances:
 
   - identity:
       urn: "acc:integration-hardening:Y003-UNIT-004-meta-test-run-leaves-core-bare-unchanged"
-      id: "GT-Y003-004"
+      id: "AC-UNIT-004"
       purpose: "A meta-test verifies that running the coach test suite (or any src/atdd subset) leaves core.bare identical to its value before the run"
       phase: "GREEN"
     harness:
@@ -98,7 +98,7 @@ acceptances:
 
   - identity:
       urn: "acc:integration-hardening:Y003-UNIT-005-session-scoped-workspace-leak-guard"
-      id: "GT-Y003-005"
+      id: "AC-UNIT-005"
       purpose: "src/atdd/conftest.py has a session-scoped autouse guard that snapshots ATDD<N> cmux workspaces before the session and fails+closes any that remain after the session"
       phase: "GREEN"
     harness:
@@ -120,7 +120,7 @@ acceptances:
 
   - identity:
       urn: "acc:integration-hardening:Y003-SMOKE-001-guard-catches-real-live-repo-contamination"
-      id: "GT-Y003-S01"
+      id: "AC-SMOKE-001"
       purpose: "SMOKE: running the guard against real infrastructure leaves core.bare unchanged; an inner pytester session with a deliberate polluter is caught, named, and restored"
       phase: "SMOKE"
     harness:
@@ -143,7 +143,7 @@ acceptances:
 
   - identity:
       urn: "acc:integration-hardening:Y003-UNIT-006-known-polluter-uses-dry-run"
-      id: "GT-Y003-006"
+      id: "AC-UNIT-006"
       purpose: "The test_l001 integration test that calls 'atdd coach 358' must pass --dry-run so it does not spawn real ATDD358 cmux workspaces during CI"
       phase: "GREEN"
     harness:

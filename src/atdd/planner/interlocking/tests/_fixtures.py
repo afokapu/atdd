@@ -89,7 +89,7 @@ def interlocking_doc() -> Dict[str, Any]:
             {
                 "id": "frag:quorum-or-timeout",
                 "kind": "alt",
-                "acceptance_refs": ["acceptance:closes-on-quorum-or-timeout"],
+                "acceptance_refs": ["acc:blitz:closes-on-quorum-or-timeout"],
                 "wmbt_refs": ["wmbt:pressure-collapse:E001", "wmbt:pressure-collapse:E002"],
                 "guards": [
                     {"id": "guard:all-voted", "expression": "all_players_voted == true",

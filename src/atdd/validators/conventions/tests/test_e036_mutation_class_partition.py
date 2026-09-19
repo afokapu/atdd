@@ -1,6 +1,6 @@
 # URN: test:validate-conventions:tune-convention-suite:E036-mutation-class-partition
-# Acceptance: acc:validate-conventions:E036-RED-001-unmarked-writer-runs-in-the-parallel-subset
-# Acceptance: acc:validate-conventions:E036-GREEN-001-guard-fails-the-unmarked-writer
+# Acceptance: acc:validate-conventions:E036-INTEGRATION-001-unmarked-writer-runs-in-the-parallel-subset
+# Acceptance: acc:validate-conventions:E036-INTEGRATION-002-guard-fails-the-unmarked-writer
 # WMBT: wmbt:validate-conventions:E036
 # Phase: GREEN
 # Layer: integration

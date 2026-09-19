@@ -10,8 +10,8 @@ statement: minimize time of clean-convention-graph-construction by ensuring the 
   is built once per pytest session and reused by every read-only baseline and contract test
 acceptances:
 - identity:
-    urn: acc:validate-conventions:E032-RED-001-graph-rebuilt-per-evaluate
-    id: AC-RED-001
+    urn: acc:validate-conventions:E032-UNIT-001-graph-rebuilt-per-evaluate
+    id: AC-UNIT-001
     purpose: Before the session fixture exists, the read-only convention suite rebuilds the composed convention
       graph once per evaluate() call rather than once per session — measured, not assumed.
     phase: RED
@@ -32,8 +32,8 @@ acceptances:
     author: atdd:planner
     created: '2026-07-10'
 - identity:
-    urn: acc:validate-conventions:E032-GREEN-001-graph-composed-once-per-session
-    id: AC-GREEN-001
+    urn: acc:validate-conventions:E032-UNIT-002-graph-composed-once-per-session
+    id: AC-UNIT-002
     purpose: A session-scoped clean_convention_graph fixture composes the graph exactly once; every read-only
       baseline and contract test reuses it rather than rebuilding.
     phase: GREEN

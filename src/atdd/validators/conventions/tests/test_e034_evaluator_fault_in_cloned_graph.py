@@ -1,6 +1,6 @@
 # URN: test:validate-conventions:tune-convention-suite:E034-GREEN-001-evaluator-fault-in-cloned-graph
-# Acceptance: acc:validate-conventions:E034-RED-001-evaluator-fault-rewrites-plan-yaml
-# Acceptance: acc:validate-conventions:E034-GREEN-001-evaluator-fault-injected-into-cloned-graph
+# Acceptance: acc:validate-conventions:E034-UNIT-001-evaluator-fault-rewrites-plan-yaml
+# Acceptance: acc:validate-conventions:E034-UNIT-002-evaluator-fault-injected-into-cloned-graph
 # WMBT: wmbt:validate-conventions:E034
 # Phase: GREEN
 # Layer: integration

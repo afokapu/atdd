@@ -1,6 +1,6 @@
 # URN: test:validate-conventions:tune-convention-suite:E032-GREEN-001-single-graph-build
-# Acceptance: acc:validate-conventions:E032-RED-001-graph-rebuilt-per-evaluate
-# Acceptance: acc:validate-conventions:E032-GREEN-001-graph-composed-once-per-session
+# Acceptance: acc:validate-conventions:E032-UNIT-001-graph-rebuilt-per-evaluate
+# Acceptance: acc:validate-conventions:E032-UNIT-002-graph-composed-once-per-session
 # WMBT: wmbt:validate-conventions:E032
 # Phase: GREEN
 # Layer: integration

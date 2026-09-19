@@ -153,8 +153,8 @@ messages:
   to: system:git
 fragments:
 - acceptance_refs:
-  - acceptance:reconcile-replays-overlay
-  - acceptance:reconcile-hydrates-clean-store
+  - acc:reconcile-local-store:R001-UNIT-001-reconcile-replays-overlay-onto-incoming
+  - acc:reconcile-local-store:P002-SMOKE-001-cold-start-hydrate
   guards:
   - expression: exists(overlay_events)
     id: guard:overlay-present
@@ -170,7 +170,7 @@ fragments:
   - wmbt:reconcile-local-store:P002
   - wmbt:reconcile-local-store:R001
 - acceptance_refs:
-  - acceptance:merge-driver-conflicts-by-design
+  - acc:govern-projection-fields:R001-UNIT-002-green-actionable-conflict-report
   guards:
   - expression: same_object_divergence == true
     id: guard:same-object-conflict

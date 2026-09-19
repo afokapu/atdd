@@ -32,13 +32,13 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-09"
   - identity:
-      urn: "acc:dispatch-validators:E001-CONTRACT-001-violations-jsonl-schema-conformant"
-      id: "AC-CONTRACT-001"
+      urn: "acc:dispatch-validators:E001-UNIT-002-violations-jsonl-schema-conformant"
+      id: "AC-UNIT-002"
       purpose: "violations.jsonl content matches the schema at validator-result.schema.json"
       phase: "GREEN"
     harness:
-      type: "contract"
-      category: "contract"
+      type: "unit"
+      category: "backend"
     given:
       abstract:
         - "validator-result.schema.json is the C0-frozen schema at src/atdd/coach/schemas/"

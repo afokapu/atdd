@@ -106,8 +106,8 @@ fragments:
   - wmbt:govern-documentation-obligation:C002
   - wmbt:enforce-merge-authority:C005
   acceptance_refs:
-  - acceptance:could-not-check-blocks
-  - acceptance:absent-capability-is-not-applicable
+  - acc:govern-documentation-obligation:C001-UNIT-001-red-could-not-check-blocks
+  - acc:govern-documentation-obligation:C001-UNIT-002-absent-capability-is-not-applicable
   guards:
   - id: guard:documentation-obligation-discharged
     expression: documentation_verdict == "PASS"

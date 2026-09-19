@@ -14,8 +14,8 @@ statement: minimize likelihood of parallel-checkout-corruption by ensuring every
   and the two subsets together collect exactly the un-split suite
 acceptances:
 - identity:
-    urn: acc:validate-conventions:E036-RED-001-unmarked-writer-runs-in-the-parallel-subset
-    id: AC-RED-001
+    urn: acc:validate-conventions:E036-INTEGRATION-001-unmarked-writer-runs-in-the-parallel-subset
+    id: AC-INTEGRATION-001
     purpose: Before the guard, a convention test that mutates the checkout but carries
       no mutation-class marker is selected into the xdist subset and passes green while
       writing the tree its sibling workers are reading.
@@ -39,8 +39,8 @@ acceptances:
     author: atdd:planner
     created: '2026-07-13'
 - identity:
-    urn: acc:validate-conventions:E036-GREEN-001-guard-fails-the-unmarked-writer
-    id: AC-GREEN-001
+    urn: acc:validate-conventions:E036-INTEGRATION-002-guard-fails-the-unmarked-writer
+    id: AC-INTEGRATION-002
     purpose: The runtime guard fails any test that touches the checkout without the serial
       marker, and any serial test handed the session graph, while leaving the non-hazards
       green.

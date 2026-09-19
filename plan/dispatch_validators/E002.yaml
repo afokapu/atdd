@@ -31,13 +31,13 @@ acceptances:
       author: "atdd:self-compliance"
       created: "2026-05-09"
   - identity:
-      urn: "acc:dispatch-validators:E002-CONTRACT-001-risk-score-schema-validated-at-write"
-      id: "AC-CONTRACT-001"
+      urn: "acc:dispatch-validators:E002-UNIT-002-risk-score-schema-validated-at-write"
+      id: "AC-UNIT-002"
       purpose: "Schema validation runs at write time"
       phase: "GREEN"
     harness:
-      type: "contract"
-      category: "contract"
+      type: "unit"
+      category: "backend"
     given:
       abstract:
         - "risk-score.schema.json is the C0-frozen schema at src/atdd/coach/schemas/"

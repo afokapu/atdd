@@ -32,7 +32,7 @@ def anchor_spec() -> dict:
         "messages": [],
         "fragments": [
             {"id": "frag:go", "kind": "opt",
-             "acceptance_refs": ["acceptance:anchor-go"],
+             "acceptance_refs": ["acc:alpha:anchor-go"],
              "guards": [{"id": "guard:go", "expression": "ready == true"}]},
         ],
         "routes": [

@@ -1,10 +1,10 @@
-# URN: test:dispatch-validators:dispatch-tier-one-validators:E001-CONTRACT-001-violations-jsonl-schema-conformant
-# Acceptance: acc:dispatch-validators:E001-CONTRACT-001-violations-jsonl-schema-conformant
+# URN: test:dispatch-validators:dispatch-tier-one-validators:E001-UNIT-002-violations-jsonl-schema-conformant
+# Acceptance: acc:dispatch-validators:E001-UNIT-002-violations-jsonl-schema-conformant
 # WMBT: wmbt:dispatch-validators:E001
 # Phase: RED
 # Layer: integration
 # Assertion: behavioral
-"""E001-CONTRACT-001 — every line in violations.jsonl is valid JSON and
+"""E001-UNIT-002 — every line in violations.jsonl is valid JSON and
 validates against ``validator-result.schema.json`` (frozen at C0 by #483).
 
 Required fields per the schema: ``validator_id, rule_id, severity,

@@ -1,6 +1,6 @@
 # URN: test:validate-conventions:tune-convention-suite:E033-GREEN-001-binding-fault-in-cloned-graph
-# Acceptance: acc:validate-conventions:E033-RED-001-binding-fault-rewrites-convention-yaml
-# Acceptance: acc:validate-conventions:E033-GREEN-001-binding-fault-injected-into-cloned-graph
+# Acceptance: acc:validate-conventions:E033-UNIT-001-binding-fault-rewrites-convention-yaml
+# Acceptance: acc:validate-conventions:E033-UNIT-002-binding-fault-injected-into-cloned-graph
 # WMBT: wmbt:validate-conventions:E033
 # Phase: GREEN
 # Layer: integration

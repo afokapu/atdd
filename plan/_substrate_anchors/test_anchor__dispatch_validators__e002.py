@@ -1,6 +1,6 @@
 # URN: test:dispatch-validators:e002-anchor
 # Acceptance: acc:dispatch-validators:E002-UNIT-001-mixed-toolkit-and-repo-breakdown
-# Acceptance: acc:dispatch-validators:E002-CONTRACT-001-risk-score-schema-validated-at-write
+# Acceptance: acc:dispatch-validators:E002-UNIT-002-risk-score-schema-validated-at-write
 # Acceptance: acc:dispatch-validators:E002-INTEGRATION-001-pr-description-includes-score-on-complete
 # WMBT: wmbt:dispatch-validators:E002
 # Phase: GREEN
@@ -31,7 +31,7 @@ def test_e002_unit_001_mixed_toolkit_and_repo_breakdown() -> None:
 
 
 def test_e002_contract_001_risk_score_schema_validated_at_write() -> None:
-    """Anchor stub for acc:dispatch-validators:E002-CONTRACT-001-risk-score-schema-validated-at-write (real test pending implementation).""" 
+    """Anchor stub for acc:dispatch-validators:E002-UNIT-002-risk-score-schema-validated-at-write (real test pending implementation).""" 
     pytest.skip("coach v9 anchor stub — real wired test pending implementation")
 
 

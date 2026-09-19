@@ -31,7 +31,7 @@ def _spec():
         "messages": [],
         "fragments": [
             {"id": "frag:go", "kind": "opt",
-             "acceptance_refs": ["acceptance:go"],
+             "acceptance_refs": ["acc:alpha:go"],
              "guards": [{"id": "guard:go", "expression": "ready == true"}]},
         ],
         "routes": [

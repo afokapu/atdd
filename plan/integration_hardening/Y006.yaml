@@ -9,7 +9,7 @@ statement: "minimize likelihood of atdd-init-force-writing-core-hookspath-to-sha
 acceptances:
   - identity:
       urn: "acc:integration-hardening:Y006-UNIT-001-install-hooks-uses-worktree-scope-in-linked-worktree"
-      id: "GT-Y006-001"
+      id: "AC-UNIT-001"
       purpose: "When _install_hooks runs inside a linked (non-main) worktree the git config call uses '--worktree' so core.hooksPath lands in config.worktree, not in the shared .git/config"
       phase: "GREEN"
     harness:
@@ -33,7 +33,7 @@ acceptances:
 
   - identity:
       urn: "acc:integration-hardening:Y006-UNIT-002-install-hooks-uses-shared-scope-in-main-worktree"
-      id: "GT-Y006-002"
+      id: "AC-UNIT-002"
       purpose: "When _install_hooks runs in the main worktree (not a linked worktree) it continues to use the unscoped 'git config core.hooksPath' so all linked worktrees inherit hooks from main"
       phase: "GREEN"
     harness:
@@ -56,7 +56,7 @@ acceptances:
 
   - identity:
       urn: "acc:integration-hardening:Y006-UNIT-003-worktree-config-extension-enabled-before-worktree-write"
-      id: "GT-Y006-003"
+      id: "AC-UNIT-003"
       purpose: "If 'extensions.worktreeConfig' is not already true when _install_hooks detects a linked worktree, it enables it idempotently before writing 'git config --worktree core.hooksPath'"
       phase: "GREEN"
     harness:
@@ -80,7 +80,7 @@ acceptances:
 
   - identity:
       urn: "acc:integration-hardening:Y006-SMOKE-001-init-force-in-linked-worktree-writes-config-worktree-file"
-      id: "GT-Y006-S01"
+      id: "AC-SMOKE-001"
       purpose: "SMOKE: running ProjectInitializer._install_hooks against a real tmp_path repo with a real linked worktree results in core.hooksPath appearing in the worktree-local config.worktree file, NOT in the shared .git/config"
       phase: "SMOKE"
     harness:

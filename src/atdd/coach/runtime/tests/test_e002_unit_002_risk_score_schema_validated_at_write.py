@@ -1,11 +1,11 @@
 # URN: component:govern-lifecycle:enforcement-substrate:risk_score_contract:backend:tests
 # Runtime: python
-# Purpose: AC E002-CONTRACT-001 — schema validation at write time.
+# Purpose: AC E002-UNIT-002 — schema validation at write time.
 
 """
 Contract tests for ``atdd.coach.runtime.risk_score.write_risk_score``.
 
-Covers acceptance acc:dispatch-validators:E002-CONTRACT-001-risk-score-schema-validated-at-write:
+Covers acceptance acc:dispatch-validators:E002-UNIT-002-risk-score-schema-validated-at-write:
   - Schema validation against risk-score.schema.json runs synchronously at write time
   - On schema violation: write aborted, coach-internal error emitted
   - On success: atomic write to .atdd/runtime/validations/<sha>/risk-score.json
@@ -77,7 +77,7 @@ def _make_score(monkeypatch, **kwargs):
 
 
 class TestSchemaValidatedWrite:
-    """E002-CONTRACT-001: schema validation runs at write time."""
+    """E002-UNIT-002: schema validation runs at write time."""
 
     def test_valid_score_writes_to_disk(self, monkeypatch, tmp_path):
         from atdd.coach.runtime.risk_score import write_risk_score

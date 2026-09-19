@@ -1,5 +1,5 @@
 # URN: test:validate-conventions:tune-convention-suite:E035-SMOKE-001-no-file-written-in-real-checkout
-# Acceptance: acc:validate-conventions:E035-GREEN-002-migrated-families-compose-the-graph-once
+# Acceptance: acc:validate-conventions:E035-UNIT-003-migrated-families-compose-the-graph-once
 # Acceptance: acc:validate-conventions:E035-SMOKE-001-no-file-written-in-real-checkout
 # WMBT: wmbt:validate-conventions:E035
 # Phase: SMOKE

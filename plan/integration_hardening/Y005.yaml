@@ -9,7 +9,7 @@ statement: "minimize quantity of upgrade-messages-that-hardcode-pip-install-for-
 acceptances:
   - identity:
       urn: "acc:integration-hardening:Y005-UNIT-001-detect-install-method-pipx"
-      id: "GT-Y005-001"
+      id: "AC-UNIT-001"
       purpose: "detect_install_method() returns 'pipx' when the atdd executable path is under a pipx venv"
       phase: "GREEN"
     harness:
@@ -29,7 +29,7 @@ acceptances:
 
   - identity:
       urn: "acc:integration-hardening:Y005-UNIT-002-detect-install-method-editable"
-      id: "GT-Y005-002"
+      id: "AC-UNIT-002"
       purpose: "detect_install_method() returns 'editable' when the atdd package is installed in editable mode (direct_url.json exists with 'editable: true')"
       phase: "GREEN"
     harness:
@@ -49,7 +49,7 @@ acceptances:
 
   - identity:
       urn: "acc:integration-hardening:Y005-UNIT-003-detect-install-method-pip"
-      id: "GT-Y005-003"
+      id: "AC-UNIT-003"
       purpose: "detect_install_method() returns 'pip' when the executable path does not match pipx or editable patterns"
       phase: "GREEN"
     harness:
@@ -69,7 +69,7 @@ acceptances:
 
   - identity:
       urn: "acc:integration-hardening:Y005-UNIT-004-upgrade-command-pipx"
-      id: "GT-Y005-004"
+      id: "AC-UNIT-004"
       purpose: "upgrade_command() returns 'pipx upgrade atdd' when detect_install_method() returns 'pipx'"
       phase: "GREEN"
     harness:
@@ -89,7 +89,7 @@ acceptances:
 
   - identity:
       urn: "acc:integration-hardening:Y005-UNIT-005-upgrade-command-pip"
-      id: "GT-Y005-005"
+      id: "AC-UNIT-005"
       purpose: "upgrade_command() returns 'pip install --upgrade atdd' when detect_install_method() returns 'pip'"
       phase: "GREEN"
     harness:
@@ -109,7 +109,7 @@ acceptances:
 
   - identity:
       urn: "acc:integration-hardening:Y005-UNIT-006-upgrade-command-editable"
-      id: "GT-Y005-006"
+      id: "AC-UNIT-006"
       purpose: "upgrade_command() returns a git pull command when detect_install_method() returns 'editable'"
       phase: "GREEN"
     harness:
@@ -129,7 +129,7 @@ acceptances:
 
   - identity:
       urn: "acc:integration-hardening:Y005-UNIT-007-no-hardcoded-pip-in-user-messages"
-      id: "GT-Y005-007"
+      id: "AC-UNIT-007"
       purpose: "No user/agent-facing message in version_check.py, upgrader.py, pre-push, pre-merge-commit, or issue-body.convention.yaml hardcodes 'pip install --upgrade atdd' except in auto_upgrade()'s pip branch"
       phase: "GREEN"
     harness:
@@ -153,7 +153,7 @@ acceptances:
 
   - identity:
       urn: "acc:integration-hardening:Y005-UNIT-008-check-for-updates-uses-upgrade-command"
-      id: "GT-Y005-008"
+      id: "AC-UNIT-008"
       purpose: "check_for_updates() emits upgrade_command() output in its update notice, not a hardcoded 'pip install' string"
       phase: "GREEN"
     harness:
@@ -175,7 +175,7 @@ acceptances:
 
   - identity:
       urn: "acc:integration-hardening:Y005-UNIT-009-upgrader-uses-upgrade-command"
-      id: "GT-Y005-009"
+      id: "AC-UNIT-009"
       purpose: "Upgrader.run() prompts with and runs upgrade_command() output, not a hardcoded pip string"
       phase: "GREEN"
     harness:
@@ -199,7 +199,7 @@ acceptances:
 
   - identity:
       urn: "acc:integration-hardening:Y005-SMOKE-001-pipx-install-detection-end-to-end"
-      id: "GT-Y005-S01"
+      id: "AC-SMOKE-001"
       purpose: "SMOKE: when atdd is run from a simulated pipx path, detect_install_method() returns 'pipx' and upgrade_command() returns 'pipx upgrade atdd' without any mocking"
       phase: "SMOKE"
     harness:

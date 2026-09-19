@@ -12,8 +12,8 @@ statement: minimize likelihood of binding-fault-filesystem-mutation by ensuring 
   index is left unchanged, so no convention YAML is ever rewritten
 acceptances:
 - identity:
-    urn: acc:validate-conventions:E033-RED-001-binding-fault-rewrites-convention-yaml
-    id: AC-RED-001
+    urn: acc:validate-conventions:E033-UNIT-001-binding-fault-rewrites-convention-yaml
+    id: AC-UNIT-001
     purpose: Before the in-memory mutation helper exists, binding-family fault injection
       rewrites a real convention YAML on disk and reverts it in a finally block.
     phase: RED
@@ -35,8 +35,8 @@ acceptances:
     author: atdd:planner
     created: '2026-07-10'
 - identity:
-    urn: acc:validate-conventions:E033-GREEN-001-binding-fault-injected-into-cloned-graph
-    id: AC-GREEN-001
+    urn: acc:validate-conventions:E033-UNIT-002-binding-fault-injected-into-cloned-graph
+    id: AC-UNIT-002
     purpose: Binding faults are injected by renaming a rule id in a deep-copied graph
       while the emitted bind_rule index is left untouched, producing the same declaration/implementation
       roundtrip break with no filesystem write.

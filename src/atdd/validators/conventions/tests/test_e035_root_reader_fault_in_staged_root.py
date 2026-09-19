@@ -1,6 +1,6 @@
 # URN: test:validate-conventions:tune-convention-suite:E035-GREEN-001-root-reader-fault-in-staged-root
-# Acceptance: acc:validate-conventions:E035-RED-001-root-reader-fault-rewrites-the-checkout
-# Acceptance: acc:validate-conventions:E035-GREEN-001-root-reader-fault-injected-into-staged-root
+# Acceptance: acc:validate-conventions:E035-UNIT-001-root-reader-fault-rewrites-the-checkout
+# Acceptance: acc:validate-conventions:E035-UNIT-002-root-reader-fault-injected-into-staged-root
 # WMBT: wmbt:validate-conventions:E035
 # Phase: GREEN
 # Layer: integration

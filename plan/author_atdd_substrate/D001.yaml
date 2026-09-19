@@ -113,7 +113,7 @@ acceptances:
     author: atdd:self-compliance
     created: '2026-06-14'
 - identity:
-    urn: acc:author-atdd-substrate:D001-GREEN-001-core-artifacts-anchored
+    urn: acc:author-atdd-substrate:D001-UNIT-004-core-artifacts-anchored
     id: AC-UNIT-004
     purpose: every core planner domain artifact (theme, train, interlocking, wagon,
       feature, wmbt, artifact) carries a planner.<artifact>.definition advisory semantic

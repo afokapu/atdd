@@ -78,8 +78,8 @@ acceptances:
     author: atdd:self-compliance
     created: '2026-09-13'
 - identity:
-    urn: acc:author-atdd-substrate:E012-REFACTOR-001-guard-name-matches-what-it-compares
-    id: AC-REFACTOR-001
+    urn: acc:author-atdd-substrate:E012-UNIT-003-guard-name-matches-what-it-compares
+    id: AC-UNIT-003
     purpose: the guard's name and docstring enumerate only the comparisons it performs,
       so the name stops asserting a check that is not made
     phase: REFACTOR

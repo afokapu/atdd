@@ -1,6 +1,6 @@
 # URN: test:dispatch-validators:e001-anchor
 # Acceptance: acc:dispatch-validators:E001-UNIT-001-pytest-plugin-captures-all-violations
-# Acceptance: acc:dispatch-validators:E001-CONTRACT-001-violations-jsonl-schema-conformant
+# Acceptance: acc:dispatch-validators:E001-UNIT-002-violations-jsonl-schema-conformant
 # WMBT: wmbt:dispatch-validators:E001
 # Phase: GREEN
 # Layer: assembly
@@ -30,7 +30,7 @@ def test_e001_unit_001_pytest_plugin_captures_all_violations() -> None:
 
 
 def test_e001_contract_001_violations_jsonl_schema_conformant() -> None:
-    """Anchor stub for acc:dispatch-validators:E001-CONTRACT-001-violations-jsonl-schema-conformant (real test pending implementation).""" 
+    """Anchor stub for acc:dispatch-validators:E001-UNIT-002-violations-jsonl-schema-conformant (real test pending implementation).""" 
     pytest.skip("coach v9 anchor stub — real wired test pending implementation")
 
 

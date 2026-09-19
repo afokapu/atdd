@@ -14,8 +14,8 @@ statement: minimize likelihood of evaluator-fault-filesystem-mutation by ensurin
   on disk, so no working-tree file is ever mutated
 acceptances:
 - identity:
-    urn: acc:validate-conventions:E034-RED-001-evaluator-fault-rewrites-plan-yaml
-    id: AC-RED-001
+    urn: acc:validate-conventions:E034-UNIT-001-evaluator-fault-rewrites-plan-yaml
+    id: AC-UNIT-001
     purpose: Before the migrated families inject into cloned graphs, an evaluator
       fault family injects its fault by rewriting a real plan or convention YAML on
       disk and reverting it in a finally block.
@@ -37,8 +37,8 @@ acceptances:
     author: atdd:planner
     created: '2026-07-10'
 - identity:
-    urn: acc:validate-conventions:E034-GREEN-001-evaluator-fault-injected-into-cloned-graph
-    id: AC-GREEN-001
+    urn: acc:validate-conventions:E034-UNIT-002-evaluator-fault-injected-into-cloned-graph
+    id: AC-UNIT-002
     purpose: The remaining template-evaluator fault families inject their faults into
       a deep clone of the session graph via graph_mutations, producing the same violation
       with no plan or convention YAML written.

@@ -14,8 +14,8 @@ statement: minimize likelihood of root-reader-fault-filesystem-mutation by ensur
   and none re-composes the clean graph
 acceptances:
 - identity:
-    urn: acc:validate-conventions:E035-RED-001-root-reader-fault-rewrites-the-checkout
-    id: AC-RED-001
+    urn: acc:validate-conventions:E035-UNIT-001-root-reader-fault-rewrites-the-checkout
+    id: AC-UNIT-001
     purpose: Before the last families are migrated, a root-reading fault family injects
       its fault by rewriting a real tracked file in the checkout and reverting it
       in a finally block.
@@ -38,8 +38,8 @@ acceptances:
     author: atdd:planner
     created: '2026-07-13'
 - identity:
-    urn: acc:validate-conventions:E035-GREEN-001-root-reader-fault-injected-into-staged-root
-    id: AC-GREEN-001
+    urn: acc:validate-conventions:E035-UNIT-002-root-reader-fault-injected-into-staged-root
+    id: AC-UNIT-002
     purpose: A root-reading evaluator's fault is staged in a temp tree the graph is
       re-pointed at, producing the same violation with nothing written to the checkout
       and no graph rebuilt.
@@ -67,8 +67,8 @@ acceptances:
     author: atdd:planner
     created: '2026-07-13'
 - identity:
-    urn: acc:validate-conventions:E035-GREEN-002-migrated-families-compose-the-graph-once
-    id: AC-GREEN-002
+    urn: acc:validate-conventions:E035-UNIT-003-migrated-families-compose-the-graph-once
+    id: AC-UNIT-003
     purpose: "Across the seven migrated families the clean convention graph is composed\
       \ exactly once \u2014 the session fixture \u2014 because no fault test rebuilds\
       \ it any more."

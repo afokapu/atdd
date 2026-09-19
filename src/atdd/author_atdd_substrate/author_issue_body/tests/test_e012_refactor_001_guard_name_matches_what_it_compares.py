@@ -1,5 +1,5 @@
 # URN: test:author-atdd-substrate:author-issue-body:E012-REFACTOR-001-guard-name-matches-what-it-compares
-# Acceptance: acc:author-atdd-substrate:E012-REFACTOR-001-guard-name-matches-what-it-compares
+# Acceptance: acc:author-atdd-substrate:E012-UNIT-003-guard-name-matches-what-it-compares
 # WMBT: wmbt:author-atdd-substrate:E012
 # Phase: REFACTOR
 # Layer: application

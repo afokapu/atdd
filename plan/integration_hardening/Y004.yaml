@@ -9,7 +9,7 @@ statement: "minimize quantity of git-hooks-that-run-pip-install-during-push by s
 acceptances:
   - identity:
       urn: "acc:integration-hardening:Y004-UNIT-001-gate-never-calls-auto-upgrade"
-      id: "GT-Y004-001"
+      id: "AC-UNIT-001"
       purpose: "_gate_main must not call auto_upgrade() when atdd is outdated — it must exit 1 immediately"
       phase: "GREEN"
     harness:
@@ -31,7 +31,7 @@ acceptances:
 
   - identity:
       urn: "acc:integration-hardening:Y004-UNIT-002-gate-prints-upgrade-instruction"
-      id: "GT-Y004-002"
+      id: "AC-UNIT-002"
       purpose: "When outdated, _gate_main prints a message telling the user to run 'atdd upgrade' then retry"
       phase: "GREEN"
     harness:
@@ -53,7 +53,7 @@ acceptances:
 
   - identity:
       urn: "acc:integration-hardening:Y004-UNIT-003-gate-allows-when-up-to-date"
-      id: "GT-Y004-003"
+      id: "AC-UNIT-003"
       purpose: "When atdd is up to date, _gate_main exits 0 and prints an up-to-date confirmation"
       phase: "GREEN"
     harness:
@@ -74,7 +74,7 @@ acceptances:
 
   - identity:
       urn: "acc:integration-hardening:Y004-UNIT-004-gate-skips-when-pypi-unreachable"
-      id: "GT-Y004-004"
+      id: "AC-UNIT-004"
       purpose: "When PyPI is unreachable (latest=''), _gate_main exits 0 with a warning — it must not block the push"
       phase: "GREEN"
     harness:
@@ -96,7 +96,7 @@ acceptances:
 
   - identity:
       urn: "acc:integration-hardening:Y004-UNIT-005-no-pip-subprocess-in-gate-path"
-      id: "GT-Y004-005"
+      id: "AC-UNIT-005"
       purpose: "_gate_main must not spawn any subprocess that contains 'pip' or 'install'"
       phase: "GREEN"
     harness:
@@ -117,7 +117,7 @@ acceptances:
 
   - identity:
       urn: "acc:integration-hardening:Y004-SMOKE-001-pre-push-hook-with-outdated-version-exits-1-cleanly"
-      id: "GT-Y004-S01"
+      id: "AC-SMOKE-001"
       purpose: "SMOKE: when the pre-push hook is run in a tmp repo with a mocked _gate_main that simulates outdated version, the hook exits 1 and no pip command is found in the hook output"
       phase: "SMOKE"
     harness:

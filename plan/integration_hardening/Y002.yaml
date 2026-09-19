@@ -9,7 +9,7 @@ statement: "minimize quantity of validator-tests-that-mutate-the-active-worktree
 acceptances:
   - identity:
       urn: "acc:integration-hardening:Y002-UNIT-001-no-phantom-commits"
-      id: "GT-001"
+      id: "AC-UNIT-001"
       purpose: "Running atdd validate coach --local --skip-api must leave git log -1 unchanged"
       phase: "GREEN"
     harness:
@@ -30,7 +30,7 @@ acceptances:
       created: "2026-05-12"
   - identity:
       urn: "acc:integration-hardening:Y002-UNIT-002-core-bare-unchanged"
-      id: "GT-002"
+      id: "AC-UNIT-002"
       purpose: "Running atdd validate coach --local --skip-api must leave git config core.bare unchanged"
       phase: "GREEN"
     harness:
@@ -49,7 +49,7 @@ acceptances:
       created: "2026-05-12"
   - identity:
       urn: "acc:integration-hardening:Y002-UNIT-003-guard-fixture-registered"
-      id: "GT-003"
+      id: "AC-UNIT-003"
       purpose: "The session-scoped autouse guard fixture is declared in the coach validators conftest.py"
       phase: "GREEN"
     harness:
@@ -69,7 +69,7 @@ acceptances:
       created: "2026-05-12"
   - identity:
       urn: "acc:integration-hardening:Y002-UNIT-004-post-commit-hook-enabled"
-      id: "GT-004"
+      id: "AC-UNIT-004"
       purpose: ".atdd/hooks/post-commit is present and matches the template"
       phase: "GREEN"
     harness:

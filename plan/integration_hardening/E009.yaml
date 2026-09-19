@@ -30,7 +30,7 @@ statement: "minimize quantity of git-operations-refused-solely-to-tell-a-human-t
 acceptances:
 - identity:
     urn: acc:integration-hardening:E009-UNIT-001-a-failed-self-upgrade-never-affects-the-git-operation
-    id: AC-EXEC-001
+    id: AC-UNIT-001
     purpose: "The load-bearing safety property, and the one a mock-and-assert-called\
       \ test proves nothing about: the mechanism must be shown FAILING. A pull that\
       \ triggers a self-upgrade which raises, returns False, or finds no upgrade command\
@@ -64,7 +64,7 @@ acceptances:
     created: '2026-08-08'
 - identity:
     urn: acc:integration-hardening:E009-UNIT-002-concurrent-post-hooks-serialise-and-neither-sees-a-partial-install
-    id: AC-EXEC-002
+    id: AC-UNIT-002
     purpose: "Sixty worktrees pull all day. Two that pull at the same instant must\
       \ not both rewrite the shared install — and the one that loses must decline\
       \ immediately rather than stalling a human's terminal behind E008's five-minute\
@@ -95,7 +95,7 @@ acceptances:
     created: '2026-08-08'
 - identity:
     urn: acc:integration-hardening:E009-UNIT-003-the-push-gate-makes-no-uncached-pypi-call-and-still-fails-closed
-    id: AC-CONF-003
+    id: AC-UNIT-003
     purpose: "The push path stops paying for the network on every push without becoming\
       \ permissive: the gate reads the 24 h cache the repo already writes, and a genuinely\
       \ outdated install is still refused with no bypass"
@@ -127,7 +127,7 @@ acceptances:
     created: '2026-08-08'
 - identity:
     urn: acc:integration-hardening:E009-UNIT-004-the-gate-keeps-its-y004-posture-and-never-self-upgrades
-    id: AC-CONF-004
+    id: AC-UNIT-004
     purpose: "Y004 is not being relaxed, it is being made rarely reached. The obvious\
       \ shortcut while implementing this WMBT is to call the new self-upgrade from\
       \ the gate too — which would repeal Y004 silently. Pin it"
@@ -157,7 +157,7 @@ acceptances:
     created: '2026-08-08'
 - identity:
     urn: acc:integration-hardening:E009-SMOKE-001-a-real-post-merge-run-cannot-refuse-the-operation-it-follows
-    id: AC-EXEC-005
+    id: AC-SMOKE-001
     purpose: "SMOKE: the packaged hooks executed by a real git in a real repository,\
       \ with the real CLI — the claim 'git ignores post-* exit codes' verified\
       \ rather than assumed, because the entire safety argument rests on it"

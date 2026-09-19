@@ -323,7 +323,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "pattern": "^acceptance:[a-z][a-z0-9-]*$"
+            "$ref": "#/definitions/acceptance_urn"
           }
         },
         "wmbt_refs": { "$ref": "#/definitions/wmbt_refs" },
