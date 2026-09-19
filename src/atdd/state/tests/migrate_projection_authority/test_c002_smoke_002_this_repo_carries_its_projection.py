@@ -38,11 +38,34 @@ from atdd.state.db import connect
 from atdd.state.paths import resolve_control_root
 from atdd.state.store import StateStore
 
-_REPO = Path(__file__).resolve().parents[4]
+#: This repository's root, asked of git rather than counted off in ``parents[N]``.
+#:
+#: It was ``parents[4]`` and that is ``src/``, not the root — and the consequence was not a
+#: noisy error. ``git ls-tree --name-only HEAD:.atdd/state/projection`` run from ``src/``
+#: exits **0 with empty output**, so :func:`gitstore.projection_bytes_at` returned ``{}`` and
+#: this test failed with "no projection committed at HEAD" whether or not one was committed.
+#: Measured against a repository that really did carry a committed projection: from ``src/``
+#: 0 documents, from the root 1. The acceptance that exists to prove the cutover happened
+#: could not have gone green after a correct cutover. ``toplevel`` has no index to miscount.
+_REPO = gitstore.toplevel(Path(__file__).resolve().parent)
 
 
 def _live_store() -> Path:
     return resolve_control_root(_REPO).control_root / ".atdd" / "state" / "state.sqlite"
+
+
+def test_the_repo_root_this_asserts_against_is_the_repo_root() -> None:
+    """Guard the anchor, because a wrong one fails *quietly* and reads like a real verdict.
+
+    ``git ls-tree HEAD:<dotted-path>`` from a subdirectory exits 0 with no output, so an
+    anchor one level off turns this acceptance into a permanent red that nobody can
+    distinguish from the red it is supposed to be. Assert the anchor separately, so the
+    failure names the cause rather than the symptom.
+    """
+    assert (_REPO / ".git").exists(), f"{_REPO} is not a repository root"
+    assert (_REPO / "src" / "atdd").is_dir(), (
+        f"{_REPO} does not contain src/atdd — the anchor is not this repository's root"
+    )
 
 
 def test_c002_smoke_002_this_repo_carries_its_projection() -> None:
