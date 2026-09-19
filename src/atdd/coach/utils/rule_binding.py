@@ -32,7 +32,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import AbstractSet, Any, Dict, Iterable, List, Optional, Tuple
 
 import yaml
 
@@ -1208,32 +1208,36 @@ def _is_extension_node(file_path: Path) -> bool:
     )
 
 
-def _mirrored_core_rule_id(file_path: Path) -> Optional[str]:
-    """The core rule_id *file_path* declares itself a mirror of, or None.
+def _mirrors_own_live_core_rule(file_path: Path, core_ids: AbstractSet[str]) -> bool:
+    """True when *file_path* mirrors the live core rule it ITSELF declares.
 
-    Reads the single-node ``source.legacy_rule_id`` (the field #1427's mirror-coherence
-    guard already resolves against the live core registry). Only single-node files
-    carry it: a top-level ``source:`` cannot say which of a monolith's ``rules:`` it
-    describes, so a monolith is never treated as a mirror.
+    Both halves matter, and the second is why this is not just a provenance read.
+    A node declaring rule X whose ``source.legacy_rule_id`` names an unrelated core
+    rule Y is not a mirror of X: suppressing it would drop X from the registry
+    silently, where admitting it collides loudly and says so. Tying the suppression
+    to ``legacy_rule_id == rule_id`` keeps it scoped to the declaration it describes.
+
+    Only single-node files qualify: a top-level ``source:`` cannot say which of a
+    monolith's ``rules:`` it describes, so a monolith is never treated as a mirror.
     """
     try:
         with open(file_path) as fh:
             data = yaml.safe_load(fh)
     except (OSError, yaml.YAMLError) as exc:
         # Unreadable / malformed YAML is policed by test_rule_id_uniqueness; treat it
-        # as carrying no provenance so the existing walk decides its fate.
+        # as carrying no provenance so the ordinary walk decides its fate.
         _log.warning(
-            "_mirrored_core_rule_id: (OSError, yaml.YAMLError) handled, returning None",
+            "_mirrors_own_live_core_rule: (OSError, yaml.YAMLError) handled, returning False",
             extra={"error": str(exc)[:200]},
         )
-        return None
-    if not isinstance(data, dict) or not data.get("rule_id") or data.get("rules"):
-        return None
+        return False
+    if not isinstance(data, dict) or data.get("rules"):
+        return False
+    rule_id = data.get("rule_id")
     source = data.get("source")
-    if not isinstance(source, dict):
-        return None
-    legacy = source.get("legacy_rule_id")
-    return legacy if isinstance(legacy, str) and legacy else None
+    if not isinstance(rule_id, str) or not rule_id or not isinstance(source, dict):
+        return False
+    return source.get("legacy_rule_id") == rule_id and rule_id in core_ids
 
 
 def _load_registry() -> Dict[str, List[RuleMetadata]]:
@@ -1277,7 +1281,7 @@ def _load_registry() -> Dict[str, List[RuleMetadata]]:
 
     core_ids = frozenset(canonical_ids)
     for file_path in extension_files:
-        if _mirrored_core_rule_id(file_path) in core_ids:
+        if _mirrors_own_live_core_rule(file_path, core_ids):
             continue  # a mirror of a live core rule; core is the authority
         admit(file_path)
 
