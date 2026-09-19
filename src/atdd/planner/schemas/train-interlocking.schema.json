@@ -432,7 +432,8 @@
         },
         "train_path": {
           "type": "string",
-          "description": "Canonical path to the target train YAML (plan/_trains/<train_id>.yaml)."
+          "description": "Canonical path to the target train YAML, as `train_relpath` writes it: a typed `train:<subject>:<slug>` nests at `plan/_trains/<subject>/<slug>.yaml`, while a legacy `NNNN-slug` stays flat at `plan/_trains/<NNNN-slug>.yaml`. The old text documented the flat form for BOTH, and the field carried no pattern, so nothing caught an author who followed it: `stamp_interlocking_digests` resolved the declared path, failed to find the file, and raised before `create_interlocking` wrote anything. A plan could be fully valid, fully reviewed, and impossible to author.",
+          "pattern": "^plan/_trains/[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)?\\.yaml$"
         },
         "projection": {
           "type": "object",

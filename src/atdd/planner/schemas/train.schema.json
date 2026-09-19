@@ -63,6 +63,31 @@
         "description": "Kebab-case theme name. Built-in defaults (commons, mechanic, scenario, match, sensory, player, league, audience, monetization, partnership) may be overridden via the `themes` block in `.atdd/config.yaml`. Runtime validation resolves the effective map via `get_theme_map(config)` from `atdd.coach.utils.theme_map`."
       }
     },
+    "inputs": {
+      "type": "array",
+      "minItems": 1,
+      "description": "OPTIONAL. The train's declared initial cargo, per planner.train.initial-cargo-inputs-declared. Declared here so a train that follows that convention is not rejected by this schema \u2014 the two contradicted each other, and 0 of 21 trains could declare what five convention nodes describe. It is NOT required and nothing reads it: `origin` has no authoritative source today, so a validator cannot honestly distinguish the two values. See #2049 before promoting this to a requirement.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["artifact"],
+        "properties": {
+          "artifact": {
+            "type": "string",
+            "description": "The contract identity of the seed artifact."
+          },
+          "origin": {
+            "type": "string",
+            "enum": ["caller", "spec_materialized"],
+            "description": "Whether the seed is supplied by a caller or materialized from the spec."
+          }
+        }
+      }
+    },
+    "terminal_contract": {
+      "type": "string",
+      "description": "OPTIONAL and REDUNDANT. The train's terminal contract, per planner.train.terminal-contract. The authoritative terminal is `sequence[-1].artifact`, which is already required and is what the live family validator derives (validators/conventions/coherence/archetype.py). Declaring it here is controlled redundancy at most; it must never become the source of truth, because a second spelling of a derived fact is a thing that drifts. Accepted so the convention and the schema stop contradicting each other."
+    },
     "primary_wagon": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9-]*$",
