@@ -372,8 +372,14 @@
         "when": {
           "type": "object",
           "required": ["abstract"],
+          "$comment": "`given.abstract` and `then.abstract` are both arrays here; `when` was the only one of the three typed as a bare string, so an acceptance whose When is genuinely multi-step had nowhere to put its second step. Six in this repo author a list against a schema that admits only a string. A single-step When stays a plain string, so nothing already authored changes shape.",
           "properties": {
-            "abstract": {"type": "string", "minLength": 5}
+            "abstract": {
+              "oneOf": [
+                {"type": "string", "minLength": 5},
+                {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 5}}
+              ]
+            }
           }
         },
         "then": {

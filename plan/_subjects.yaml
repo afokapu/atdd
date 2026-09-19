@@ -61,3 +61,12 @@ subjects:
     title: "Extension Conventions"
     description: "The convention extensions a repo declares, binds, and enforces as a CI gate."
     status: active
+
+  # #2046: surfaced the moment `_iter_typed_trains` stopped yielding nothing.
+  # Both subjects already had trains typed under them; the registry never said
+  # so, because the validator that enforces registered-before-first-train had
+  # been examining an empty population since typed trains were introduced.
+  - subject: documentation-obligation
+    title: "Documentation Obligation"
+    description: "The obligation to document a declared change — raised, discharged, observed, and remediated."
+    status: active

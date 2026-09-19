@@ -24,6 +24,8 @@ Run:   atdd validate planner
 """
 from __future__ import annotations
 
+import logging
+
 from pathlib import Path
 from typing import List
 
@@ -37,8 +39,12 @@ from atdd.coach.validators._violation import Violation
 from atdd.planner.commands.plan_session import (
     PlanSession, SessionGateError, Step, Unit, Verdict,
 )
-from atdd.planner.commands.plan_unit_schema import check_unit_spec
+from atdd.planner.commands.plan_unit_schema import (
+    SPEC_SCHEMAS, check_unit_spec, tier_for,
+)
 from atdd.planner.validators._plan_session_fixtures import wagon_spec
+
+logger = logging.getLogger(__name__)
 
 pytestmark = [pytest.mark.planner]
 
@@ -168,28 +174,94 @@ def _scan_ladder(root: Path) -> List[Violation]:
     return out
 
 
-def _scan_corpus() -> List[Violation]:
-    """Every ENFORCED kind must accept every artifact this repo ships."""
-    out: List[Violation] = []
-    plan = Path(find_repo_root(Path(__file__))) / "plan"
-    if not plan.is_dir():
-        return out
-    for path in plan.glob("*/_*.yaml"):
+def _corpus_by_kind(plan_root: Path) -> "dict[str, list]":
+    """Every authored artifact, grouped by the kind that governs it.
+
+    The population is built EXPLICITLY and reported, because the first version
+    of this scan globbed `plan/*/_*.yaml` — wagons only — and so asserted that
+    "every enforced kind accepts the corpus" while examining one kind of five.
+    It passed continuously over a population that excluded four kinds.
+    """
+    pop: dict[str, list] = {"wagon": [], "train": [], "interlocking": [],
+                            "feature": [], "wmbt": [], "acceptance": []}
+    for path in plan_root.glob("*/_*.yaml"):
         if path.parent.name.startswith("_"):
             continue
-        try:
-            doc = yaml.safe_load(path.read_text(encoding="utf-8"))
-        except Exception:  # a malformed file is another validator's business
+        doc = _read_doc(path)
+        if isinstance(doc, dict) and "wagon" in doc:
+            pop["wagon"].append((path, doc))
+    for path in plan_root.rglob("*.yaml"):
+        doc = _read_doc(path)
+        if not isinstance(doc, dict):
             continue
-        if not isinstance(doc, dict) or "wagon" not in doc:
+        if "train_id" in doc and not path.name.startswith("_"):
+            pop["train"].append((path, doc))
+        elif "interlocking_id" in doc:
+            pop["interlocking"].append((path, doc))
+    for path in plan_root.glob("*/features/*.yaml"):
+        doc = _read_doc(path)
+        if isinstance(doc, dict) and "urn" in doc:
+            pop["feature"].append((path, doc))
+    for path in plan_root.glob("*/[A-Z][0-9][0-9][0-9].yaml"):
+        doc = _read_doc(path)
+        if isinstance(doc, dict) and "urn" in doc:
+            pop["wmbt"].append((path, doc))
+    # An acceptance is never a file. `atdd author acceptance` APPENDS a block
+    # into an existing WMBT, so the population lives one level down, inside
+    # `acceptances:`. Globbing for acceptance FILES finds zero of them and the
+    # enforced tier then proves nothing — which is what the denominator caught.
+    for path, doc in pop["wmbt"]:
+        blocks = doc.get("acceptances")
+        if not isinstance(blocks, list):
             continue
-        _, findings = check_unit_spec("wagon", doc, stage="ratify")
-        if findings:
+        for block in blocks:
+            if isinstance(block, dict):
+                pop["acceptance"].append(
+                    (path, {"wmbt_urn": doc.get("urn", ""), "block": block}))
+    return pop
+
+
+def _read_doc(path: Path):
+    try:
+        return yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as exc:
+        logger.warning("corpus scan skipped an unreadable plan file",
+                       extra={"path": str(path), "error": str(exc)})
+        return None
+
+
+def _scan_corpus() -> List[Violation]:
+    """Every ENFORCED kind must accept every artifact this repo ships.
+
+    Reports its DENOMINATOR and refuses a zero: a kind that is enforced but has
+    no artifacts to check is a silent pass, and a silent pass is what this whole
+    rule exists to prevent.
+    """
+    out: List[Violation] = []
+    plan_root = Path(find_repo_root(Path(__file__))) / "plan"
+    if not plan_root.is_dir():
+        return out
+    pop = _corpus_by_kind(plan_root)
+
+    for kind in sorted(SPEC_SCHEMAS):
+        if tier_for(kind) != "enforce":
+            continue
+        examined = pop.get(kind, [])
+        if not examined:
             out.append(_violation(
-                _RULE, f"{path}:1",
-                f"an ENFORCED kind rejects an artifact already in plan/: "
-                f"{findings[0]} — the tier is only defensible while it accepts the "
-                f"corpus; demote the kind or repair the schema"))
+                _RULE, f"plan/:{kind}",
+                f"the corpus scan examined ZERO {kind} artifacts while {kind} is "
+                f"enforced — a check with an empty denominator reports success "
+                f"without looking at anything"))
+            continue
+        for path, doc in examined:
+            _, findings = check_unit_spec(kind, doc, stage="ratify")
+            if findings:
+                out.append(_violation(
+                    _RULE, f"{path}:1",
+                    f"an ENFORCED kind rejects an artifact already in plan/: "
+                    f"{findings[0]} — the tier is only defensible while it accepts "
+                    f"the corpus; demote the kind or repair the schema"))
     return out
 
 

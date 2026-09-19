@@ -185,7 +185,15 @@ def _iter_typed_trains(root: Path):
         tid = str(spec.get("train_id", ""))
         if _LEGACY_TRAIN_RE.match(tid):
             continue  # legacy, pre-migration — out of scope
-        if spec.get("subject") or str(spec.get("urn", "")).startswith("train:"):
+        # A train authored by `atdd author train` declares `train_id:` and
+        # neither `subject:` nor `urn:` — `_build_train_doc` writes no such
+        # fields. Keying only on those two made this iterator yield NOTHING for
+        # a corpus of typed trains, so planner.subject.invariants passed at
+        # severity 4 over an empty population. The typed identity itself is the
+        # signal: `train:<subject>:<slug>` carries the subject in the id.
+        if (spec.get("subject")
+                or str(spec.get("urn", "")).startswith("train:")
+                or tid.startswith("train:")):
             yield path, spec
 
 
@@ -194,9 +202,15 @@ def _train_subject_slug(spec: dict) -> Tuple[Optional[str], Optional[str]]:
     else parse the ``train:<subject>:<slug>`` urn)."""
     subject = spec.get("subject")
     slug = spec.get("slug")
-    urn = str(spec.get("urn", ""))
-    if (not subject or not slug) and urn.startswith("train:"):
-        parts = urn.split(":")
+    # `urn:` OR `train_id:` — a train authored by `atdd author train` carries
+    # only the latter, so reading `urn:` alone returned (None, None) for every
+    # real train and the `if subject and ...` guard below skipped them all.
+    # Fixing the iterator alone was not enough: it made the checks LOOK at 21
+    # trains and still detect nothing.
+    typed = next((str(spec.get(k, "")) for k in ("urn", "train_id")
+                  if str(spec.get(k, "")).startswith("train:")), "")
+    if (not subject or not slug) and typed:
+        parts = typed.split(":")
         if len(parts) == 3:
             subject = subject or parts[1]
             slug = slug or parts[2]
